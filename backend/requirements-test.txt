@@ -1,0 +1,25 @@
+# ─── Test requirements — Python 3.14 compatible ────────────────────────────────
+# pydantic-core pre-built wheel IS available for Python 3.14 (cp314-cp314-win_amd64)
+# so pydantic v2 works without any Rust compilation.
+#
+# Usage:
+#   venv\Scripts\pip install -r requirements-test.txt
+#   venv\Scripts\pytest tests/ -v --no-cov
+
+fastapi==0.115.0
+uvicorn
+python-multipart
+pydantic>=2.0
+pydantic-settings
+pydantic-core>=2.46.0    # cp314 pre-built wheel available
+python-dotenv
+sqlalchemy==2.0.36
+aiosqlite==0.20.0
+greenlet
+python-jose[cryptography]
+passlib[bcrypt]
+httpx
+anyio
+pytest==8.3.4
+pytest-asyncio==0.24.0
+pytest-cov
