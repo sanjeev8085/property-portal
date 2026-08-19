@@ -18,9 +18,22 @@ router = APIRouter()
 async def create_property(
     payload: PropertyCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role(UserType.OWNER, UserType.AGENT)),
 ):
-    """Create a new property listing. Requires login."""
+    """Create a new property listing. Requires Owner or Agent role."""
+    # Duplicate detection heuristic
+    dup_query = select(Property).where(
+        Property.title == payload.title,
+        Property.price == payload.price,
+        Property.bhk == payload.bhk
+    )
+    dup_result = await db.execute(dup_query)
+    if dup_result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Duplicate listing detected. A property with the same title, price, and configuration is already listed."
+        )
+
     prop = Property(
         owner_id=current_user.id,
         title=payload.title,
@@ -35,7 +48,7 @@ async def create_property(
         contact_name=payload.contact_name or current_user.name,
         contact_phone=payload.contact_phone or current_user.mobile,
         contact_whatsapp=payload.contact_whatsapp or payload.contact_phone or current_user.mobile,
-        status=PropertyStatus.PUBLISHED,
+        status=PropertyStatus.PENDING_APPROVAL,
     )
     db.add(prop)
     await db.commit()

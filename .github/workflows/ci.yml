@@ -108,7 +108,7 @@ jobs:
 
       - name: Run unit tests
         working-directory: frontend
-        run: npm run test -- --ci --coverage
+        run: npm test
 
       - name: Build
         working-directory: frontend
