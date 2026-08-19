@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { generatePropertySlug } from "@/lib/slug";
 import { useToast } from "@/lib/useToast";
-import { getPublishedProperties } from "@/lib/propertyStore";
+import { getPublishedProperties, getDeactivatedPropertyIds } from "@/lib/propertyStore";
 import { api } from "@/lib/api";
 
 interface Property {
@@ -19,6 +19,7 @@ interface Property {
   purpose: "rent" | "sell";
   bhk: number;
   featured?: boolean;
+  status?: string;
 }
 
 const ALL_PROPERTIES: Property[] = [
@@ -169,6 +170,7 @@ function SearchContent() {
   const [savedIds, setSavedIds] = useState<(number | string)[]>([]);
   const [allProperties, setAllProperties] = useState<Property[]>(ALL_PROPERTIES);
   const [myPublishedIds, setMyPublishedIds] = useState<Set<string | number>>(new Set());
+  const [deactivatedIds, setDeactivatedIds] = useState<Set<string>>(new Set());
   const { success } = useToast();
 
   // Price range settings based on purpose
@@ -186,7 +188,11 @@ function SearchContent() {
     const loadProps = async () => {
       const published = getPublishedProperties();
       const localIds = new Set(published.map(p => p.id));
-      if (isMounted) setMyPublishedIds(localIds);
+      const deactSet = new Set(getDeactivatedPropertyIds());
+      if (isMounted) {
+        setMyPublishedIds(localIds);
+        setDeactivatedIds(deactSet);
+      }
 
       // Fetch properties from cloud API so uploads from mobile are received on laptop
       let backendProps: Property[] = [];
@@ -209,6 +215,7 @@ function SearchContent() {
             purpose: p.purpose === "rent" ? "rent" : "sell",
             bhk: p.bhk || 2,
             featured: true,
+            status: p.status || "published",
           }));
         }
       } catch {
@@ -286,6 +293,16 @@ function SearchContent() {
 
   // Filter properties
   const filtered = allProperties.filter(prop => {
+    // Exclude any deactivated properties immediately
+    if (
+      deactivatedIds.has(prop.id.toString()) || 
+      prop.status === "Deactivated" || 
+      prop.status === "inactive" || 
+      prop.status === "deactivated"
+    ) {
+      return false;
+    }
+
     const propPurpose = (prop.purpose as string) === "buy" ? "sell" : prop.purpose;
     const currentPurpose = purpose === "buy" ? "sell" : purpose;
     if (currentPurpose !== "all" && propPurpose !== currentPurpose) return false;

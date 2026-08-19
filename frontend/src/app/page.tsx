@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { generatePropertySlug } from "@/lib/slug";
-import { getPublishedProperties, StoredProperty } from "@/lib/propertyStore";
+import { getPublishedProperties, getDeactivatedPropertyIds, StoredProperty } from "@/lib/propertyStore";
 
 const DEFAULT_FEATURED = [
   {
@@ -47,8 +47,11 @@ export default function Home() {
   useEffect(() => {
     const loadProps = () => {
       const published = getPublishedProperties();
-      if (published.length > 0) {
-        const formatted = published.map(p => ({
+      const deactSet = new Set(getDeactivatedPropertyIds());
+      const activePublished = published.filter(p => !deactSet.has(p.id.toString()) && p.status !== "Deactivated" && p.status !== "inactive");
+
+      if (activePublished.length > 0) {
+        const formatted = activePublished.map(p => ({
           id: p.id,
           title: p.title,
           price: p.price,
@@ -59,10 +62,10 @@ export default function Home() {
           isFeatured: true,
         }));
         const publishedIds = new Set(formatted.map(p => p.id));
-        const filteredDefaults = DEFAULT_FEATURED.filter(p => !publishedIds.has(p.id));
+        const filteredDefaults = DEFAULT_FEATURED.filter(p => !publishedIds.has(p.id) && !deactSet.has(p.id.toString()));
         setFeaturedProperties([...formatted, ...filteredDefaults]);
       } else {
-        setFeaturedProperties(DEFAULT_FEATURED);
+        setFeaturedProperties(DEFAULT_FEATURED.filter(p => !deactSet.has(p.id.toString())));
       }
     };
 

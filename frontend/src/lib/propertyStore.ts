@@ -24,11 +24,24 @@ export interface StoredProperty {
 }
 
 const STORAGE_KEY = "aurahomes_published_properties";
+const DEACTIVATED_KEY = "aurahomes_deactivated_properties";
 
 export function getPublishedProperties(): StoredProperty[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function getDeactivatedPropertyIds(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(DEACTIVATED_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
@@ -46,10 +59,55 @@ export function savePublishedProperty(prop: StoredProperty): void {
     const updated = [prop, ...filtered];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 
-    // Also dispatch a custom event so open tabs/pages update immediately
+    // Remove from deactivated set if reactivating
+    const deactIds = getDeactivatedPropertyIds().filter(d => d !== prop.id.toString());
+    localStorage.setItem(DEACTIVATED_KEY, JSON.stringify(deactIds));
+
+    // Dispatch custom event so open tabs/pages update immediately
     window.dispatchEvent(new Event("aurahomes_properties_updated"));
   } catch (err) {
     console.error("Failed to save property to localStorage:", err);
+  }
+}
+
+export function deactivatePropertyStore(id: string | number): void {
+  if (typeof window === "undefined") return;
+  try {
+    // 1. Update published properties list status
+    const existing = getPublishedProperties();
+    const updated = existing.map(p => p.id.toString() === id.toString() ? { ...p, status: "Deactivated" } : p);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+    // 2. Add to deactivated IDs set
+    const deactIds = getDeactivatedPropertyIds();
+    const idStr = id.toString();
+    if (!deactIds.includes(idStr)) {
+      localStorage.setItem(DEACTIVATED_KEY, JSON.stringify([...deactIds, idStr]));
+    }
+
+    // 3. Dispatch update event
+    window.dispatchEvent(new Event("aurahomes_properties_updated"));
+  } catch (err) {
+    console.error("Failed to deactivate property:", err);
+  }
+}
+
+export function reactivatePropertyStore(id: string | number): void {
+  if (typeof window === "undefined") return;
+  try {
+    // 1. Update published properties list status
+    const existing = getPublishedProperties();
+    const updated = existing.map(p => p.id.toString() === id.toString() ? { ...p, status: "Published" } : p);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+    // 2. Remove from deactivated IDs set
+    const deactIds = getDeactivatedPropertyIds().filter(d => d !== id.toString());
+    localStorage.setItem(DEACTIVATED_KEY, JSON.stringify(deactIds));
+
+    // 3. Dispatch update event
+    window.dispatchEvent(new Event("aurahomes_properties_updated"));
+  } catch (err) {
+    console.error("Failed to reactivate property:", err);
   }
 }
 
@@ -57,8 +115,12 @@ export function deletePublishedProperty(id: string | number): void {
   if (typeof window === "undefined") return;
   try {
     const existing = getPublishedProperties();
-    const updated = existing.filter(p => p.id !== id);
+    const updated = existing.filter(p => p.id.toString() !== id.toString());
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+    const deactIds = getDeactivatedPropertyIds().filter(d => d !== id.toString());
+    localStorage.setItem(DEACTIVATED_KEY, JSON.stringify(deactIds));
+
     window.dispatchEvent(new Event("aurahomes_properties_updated"));
   } catch (err) {
     console.error("Failed to delete property:", err);

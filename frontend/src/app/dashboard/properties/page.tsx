@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import Button from "@/components/ui/Button";
-import { getPublishedProperties, StoredProperty } from "@/lib/propertyStore";
+import { getPublishedProperties, deactivatePropertyStore, reactivatePropertyStore, getDeactivatedPropertyIds } from "@/lib/propertyStore";
 import { generatePropertySlug } from "@/lib/slug";
+import { useToast } from "@/lib/useToast";
 
 const DEFAULT_PROPERTIES = [
   {
@@ -30,18 +31,40 @@ const DEFAULT_PROPERTIES = [
 
 export default function MyPropertiesPage() {
   const [properties, setProperties] = useState<any[]>(DEFAULT_PROPERTIES);
+  const { success, info } = useToast();
+
+  const loadProperties = () => {
+    const published = getPublishedProperties();
+    const deactIds = new Set(getDeactivatedPropertyIds());
+
+    const baseList = published.length > 0
+      ? [...published, ...DEFAULT_PROPERTIES.filter(p => !published.some(pub => pub.id === p.id))]
+      : DEFAULT_PROPERTIES;
+
+    const mapped = baseList.map(p => ({
+      ...p,
+      status: deactIds.has(p.id.toString()) ? "Deactivated" : (p.status || "Published")
+    }));
+
+    setProperties(mapped);
+  };
 
   useEffect(() => {
-    const published = getPublishedProperties();
-    if (published.length > 0) {
-      const publishedIds = new Set(published.map(p => p.id));
-      const filteredDefaults = DEFAULT_PROPERTIES.filter(p => !publishedIds.has(p.id));
-      setProperties([...published, ...filteredDefaults]);
-    }
+    loadProperties();
+    window.addEventListener("aurahomes_properties_updated", loadProperties);
+    return () => window.removeEventListener("aurahomes_properties_updated", loadProperties);
   }, []);
 
   const handleDeactivate = (id: number | string) => {
-    setProperties(properties.map(p => p.id === id ? { ...p, status: "Deactivated" } : p));
+    deactivatePropertyStore(id);
+    setProperties(properties.map(p => p.id.toString() === id.toString() ? { ...p, status: "Deactivated" } : p));
+    info("Property deactivated. It is now hidden from public search.");
+  };
+
+  const handleReactivate = (id: number | string) => {
+    reactivatePropertyStore(id);
+    setProperties(properties.map(p => p.id.toString() === id.toString() ? { ...p, status: "Published" } : p));
+    success("Property reactivated! It is now live in public search.");
   };
 
   return (
@@ -57,50 +80,62 @@ export default function MyPropertiesPage() {
       </div>
 
       <div className="properties-list-container">
-        {properties.map(prop => (
-          <div key={prop.id} className="premium-card listing-item-card">
-            <div className="listing-details">
-              <span className={`status-badge badge-${(prop.status || "Published").toLowerCase().replace(" ", "-")}`}>
-                {prop.status || "Published"}
-              </span>
-              <h3>{prop.title}</h3>
-              <p className="location">📍 {prop.location}</p>
-              <div className="specs-row">
-                <span>Type: {prop.purpose === "rent" ? "Rent" : "Sale"}</span>
-                <span>Price: {prop.price}</span>
+        {properties.map(prop => {
+          const isDeactivated = prop.status === "Deactivated" || prop.status === "inactive";
+          return (
+            <div key={prop.id} className={`premium-card listing-item-card ${isDeactivated ? "listing-deactivated" : ""}`}>
+              <div className="listing-details">
+                <span className={`status-badge badge-${isDeactivated ? "deactivated" : "published"}`}>
+                  {isDeactivated ? "Deactivated (Hidden)" : "Published (Live)"}
+                </span>
+                <h3>{prop.title}</h3>
+                <p className="location">📍 {prop.location}</p>
+                <div className="specs-row">
+                  <span>Type: {prop.purpose === "rent" ? "Rent" : "Sale"}</span>
+                  <span>Price: {prop.price}</span>
+                </div>
               </div>
-            </div>
 
-            <div className="listing-stats">
-              <div className="stat">
-                <span className="val">👁️ {prop.views || 1}</span>
-                <span className="lbl">Views</span>
+              <div className="listing-stats">
+                <div className="stat">
+                  <span className="val">👁️ {prop.views || 1}</span>
+                  <span className="lbl">Views</span>
+                </div>
+                <div className="stat">
+                  <span className="val">🔑 {prop.leads || 0}</span>
+                  <span className="lbl">Contacts Unlocked</span>
+                </div>
               </div>
-              <div className="stat">
-                <span className="val">🔑 {prop.leads || 0}</span>
-                <span className="lbl">Contacts Unlocked</span>
-              </div>
-            </div>
 
-            <div className="listing-actions">
-              <a href={`/properties/${generatePropertySlug(prop.title, prop.location, prop.id)}`} className="btn-secondary btn-sm">
-                View Listing
-              </a>
-              <a href={`/dashboard/properties/${prop.id}/edit`} className="btn-outline btn-sm">
-                Edit
-              </a>
-              {prop.status !== "Deactivated" && (
-                <button 
-                  type="button" 
-                  className="btn-outline btn-sm deact-btn"
-                  onClick={() => handleDeactivate(prop.id)}
-                >
-                  Deactivate
-                </button>
-              )}
+              <div className="listing-actions">
+                <a href={`/properties/${generatePropertySlug(prop.title, prop.location, prop.id)}`} className="btn-secondary btn-sm">
+                  View Listing
+                </a>
+                <a href={`/dashboard/properties/${prop.id}/edit`} className="btn-outline btn-sm">
+                  Edit
+                </a>
+                {isDeactivated ? (
+                  <button 
+                    type="button" 
+                    className="btn-primary btn-sm"
+                    style={{ background: "var(--success)" }}
+                    onClick={() => handleReactivate(prop.id)}
+                  >
+                    Activate / Relist
+                  </button>
+                ) : (
+                  <button 
+                    type="button" 
+                    className="btn-outline btn-sm deact-btn"
+                    onClick={() => handleDeactivate(prop.id)}
+                  >
+                    Deactivate
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

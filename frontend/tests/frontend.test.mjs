@@ -406,4 +406,23 @@ describe("Frontend 9.2: End-to-End Workflow Tests", () => {
     assert.equal(updated[0].status, "Deactivated");
     assert.equal(updated[1].status, "Published");
   });
+
+  it("E2E Flow 14: Deactivated property is completely hidden from public search stream", () => {
+    const allProps = [
+      { id: "prop_1", title: "Active Home", status: "Published" },
+      { id: "prop_2", title: "Deactivated Home", status: "Deactivated" },
+      { id: "prop_3", title: "Another Active Home", status: "published" },
+    ];
+    const deactivatedIds = new Set(["prop_2"]);
+
+    const searchVisible = allProps.filter(p => {
+      if (deactivatedIds.has(p.id) || p.status === "Deactivated" || p.status === "inactive") {
+        return false;
+      }
+      return true;
+    });
+
+    assert.equal(searchVisible.length, 2);
+    assert.deepEqual(searchVisible.map(p => p.id), ["prop_1", "prop_3"]);
+  });
 });
