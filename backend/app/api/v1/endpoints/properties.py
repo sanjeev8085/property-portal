@@ -84,6 +84,45 @@ async def create_property(
     return {"id": str(prop.id), "title": prop.title, "status": prop.status}
 
 
+@router.get("/me/listings")
+async def get_my_properties(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Get all properties listed by current logged-in user across all devices."""
+    result = await db.execute(
+        select(Property).where(Property.owner_id == current_user.id).order_by(Property.created_at.desc())
+    )
+    properties = result.scalars().all()
+    out = []
+    for prop in properties:
+        img_res = await db.execute(
+            select(PropertyImage.image_url).where(PropertyImage.property_id == prop.id).order_by(PropertyImage.sort_order).limit(1)
+        )
+        img_url = img_res.scalar_one_or_none() or "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80"
+        
+        price_display = f"₹{int(prop.price):,} / Mo" if prop.purpose.value == "rent" or str(prop.purpose) == "rent" else (
+            f"₹{(prop.price / 10000000):.2f} Cr" if prop.price >= 10000000 else f"₹{(prop.price / 100000):.0f} Lakh"
+        )
+        
+        out.append({
+            "id": str(prop.id),
+            "title": prop.title,
+            "purpose": prop.purpose,
+            "property_type": prop.property_type,
+            "price": price_display,
+            "priceNum": prop.price,
+            "bhk": prop.bhk,
+            "area_sqft": prop.area_sqft,
+            "location": prop.locality or prop.city or "Bhopal",
+            "image": img_url,
+            "status": prop.status,
+            "views": prop.views_count or 1,
+            "leads": prop.contacts_count or 0,
+        })
+    return out
+
+
 @router.get("/{property_id}")
 async def get_property(property_id: str, db: AsyncSession = Depends(get_db)):
     """Get property details (public for all users with images)."""

@@ -91,6 +91,14 @@ export const api = {
     return apiFetch(`/properties/${id}`);
   },
 
+  async getMyProperties() {
+    try {
+      return await apiFetch("/properties/me/listings");
+    } catch {
+      return [];
+    }
+  },
+
   async createProperty(payload: any) {
     return apiFetch("/properties/", {
       method: "POST",

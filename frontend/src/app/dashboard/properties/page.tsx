@@ -5,13 +5,14 @@ import Button from "@/components/ui/Button";
 import { getPublishedProperties, deactivatePropertyStore, reactivatePropertyStore, getDeactivatedPropertyIds } from "@/lib/propertyStore";
 import { generatePropertySlug } from "@/lib/slug";
 import { useToast } from "@/lib/useToast";
+import { api } from "@/lib/api";
 
 export default function MyPropertiesPage() {
   const [properties, setProperties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { success, info } = useToast();
 
-  const loadProperties = () => {
+  const loadProperties = async () => {
     setLoading(true);
     const published = getPublishedProperties();
     const deactIds = new Set(getDeactivatedPropertyIds());
@@ -20,13 +21,32 @@ export default function MyPropertiesPage() {
       ? (localStorage.getItem("user_email") || localStorage.getItem("user_mobile") || "")
       : "";
 
+    // Fetch cloud properties posted by this user on any device
+    let cloudProps: any[] = [];
+    try {
+      const remote = await api.getMyProperties();
+      if (Array.isArray(remote)) {
+        cloudProps = remote;
+      }
+    } catch {
+      // Fallback to local
+    }
+
     // Show ONLY properties listed by this specific user
-    const myProps = published.filter(p => {
-      if (!userIdentifier) return true; // If identifier not set, show session listings
+    const myLocalProps = published.filter(p => {
+      if (!userIdentifier) return true;
       return p.ownerId === userIdentifier || p.ownerEmail === userIdentifier || !p.ownerId;
     });
 
-    const mapped = myProps.map(p => ({
+    const merged = [...myLocalProps, ...cloudProps];
+    const seenIds = new Set();
+    const unique = merged.filter(p => {
+      if (seenIds.has(p.id.toString())) return false;
+      seenIds.add(p.id.toString());
+      return true;
+    });
+
+    const mapped = unique.map(p => ({
       ...p,
       status: deactIds.has(p.id.toString()) ? "Deactivated" : (p.status || "Published")
     }));
