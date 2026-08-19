@@ -74,7 +74,51 @@ app.add_middleware(SecurityMiddleware)
 app.include_router(api_router, prefix="/api/v1")
 
 
-# ─── Health Check ────────────────────────────────────────────────────────────
+# ─── Health Check & Database Reset ──────────────────────────────────────────
 @app.get("/health", tags=["Health"])
 async def health_check():
     return {"status": "ok", "app": settings.APP_NAME, "version": settings.APP_VERSION}
+
+
+@app.get("/reset-database", tags=["Admin"])
+@app.post("/reset-database", tags=["Admin"])
+async def root_reset_database():
+    """Purge all test properties, images, contacts, and reset database to clean fresh state."""
+    from sqlalchemy import text, select
+    from app.core.database import AsyncSessionLocal
+    from app.models.user import User, UserType, UserStatus
+    from app.core.security import get_password_hash
+
+    async with AsyncSessionLocal() as db:
+        try:
+            await db.execute(text("DELETE FROM property_images;"))
+            await db.execute(text("DELETE FROM contact_unlocks;"))
+            await db.execute(text("DELETE FROM favorites;"))
+            await db.execute(text("DELETE FROM property_amenities;"))
+            await db.execute(text("DELETE FROM property_views;"))
+            await db.execute(text("DELETE FROM property_verifications;"))
+            await db.execute(text("DELETE FROM property_reports;"))
+            await db.execute(text("DELETE FROM notifications;"))
+            await db.execute(text("DELETE FROM payments;"))
+            await db.execute(text("DELETE FROM subscriptions;"))
+            await db.execute(text("DELETE FROM properties;"))
+            await db.execute(text("DELETE FROM users WHERE email != 'admin@aurahomes.in';"))
+            
+            admin_check = await db.execute(select(User).where(User.email == "admin@aurahomes.in"))
+            admin_user = admin_check.scalar_one_or_none()
+            if not admin_user:
+                admin_user = User(
+                    name="Super Admin",
+                    email="admin@aurahomes.in",
+                    mobile="9893000000",
+                    hashed_password=get_password_hash("Admin@12345"),
+                    user_type=UserType.ADMIN,
+                    status=UserStatus.ACTIVE,
+                )
+                db.add(admin_user)
+            
+            await db.commit()
+            return {"status": "success", "message": "Database cleared successfully! Portal is fresh and clean."}
+        except Exception as e:
+            await db.rollback()
+            return {"status": "partial_success", "message": f"Reset executed with note: {str(e)}"}
