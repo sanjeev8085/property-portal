@@ -320,6 +320,32 @@ export default function PropertyDetailsPage() {
         </aside>
       </div>
 
+      {/* ─── Sticky Mobile Contact Action Bar (Screens <= 768px) ─── */}
+      <div className="mobile-sticky-action-bar">
+        <div className="mobile-action-price">
+          <span className="mobile-price-val">{propertyDetails.price}</span>
+          <span className="mobile-credits-info">{credits} Credits Left</span>
+        </div>
+        {isUnlocked ? (
+          <a 
+            href={`https://wa.me/919893024190?text=Hi%20Rahul,%20I%20am%20interested%20in%20your%202%20BHK%20property%20listed%20on%20AuraHomes.`}
+            target="_blank"
+            rel="noreferrer"
+            className="mobile-btn-wa"
+          >
+            💬 WhatsApp
+          </a>
+        ) : (
+          <button 
+            type="button" 
+            className="mobile-btn-unlock"
+            onClick={handleContactOwner}
+          >
+            🔓 Unlock ({credits > 0 ? "1 Credit" : "Get Credits"})
+          </button>
+        )}
+      </div>
+
       {/* ─── Upgrade Plan Modal ─── */}
       {showPlansModal && (
         <div className="modal-overlay">
@@ -350,6 +376,63 @@ export default function PropertyDetailsPage() {
       )}
 
       <style dangerouslySetInnerHTML={{ __html: `
+        .mobile-sticky-action-bar {
+          display: none;
+        }
+        @media (max-width: 768px) {
+          .mobile-sticky-action-bar {
+            display: flex;
+            position: fixed;
+            bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+            left: 0;
+            right: 0;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            padding: 10px 16px;
+            z-index: 150;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.1);
+          }
+          .mobile-action-price {
+            display: flex;
+            flex-direction: column;
+          }
+          .mobile-price-val {
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--primary);
+            line-height: 1.2;
+          }
+          .mobile-credits-info {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 600;
+          }
+          .mobile-btn-unlock {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+          }
+          .mobile-btn-wa {
+            background: #25d366;
+            color: white !important;
+            padding: 10px 18px;
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            font-weight: 700;
+            text-decoration: none;
+          }
+          .detail-page-container {
+            padding-bottom: 90px;
+          }
+        }
         .detail-page-container {
           max-width: 1200px;
           margin: 0 auto;

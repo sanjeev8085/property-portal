@@ -511,6 +511,53 @@ export default function NewPropertyWizard() {
           border-top: 1px solid var(--border);
           padding-top: 24px;
         }
+
+        @media (max-width: 768px) {
+          .wizard-page-container {
+            padding: 16px 12px;
+          }
+          .wizard-progress-bar {
+            padding: 12px 8px;
+            margin-bottom: 16px;
+          }
+          .progress-steps-row {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            gap: 8px;
+            padding-bottom: 6px;
+            scrollbar-width: none;
+          }
+          .progress-steps-row::-webkit-scrollbar {
+            display: none;
+          }
+          .step-indicator-dot {
+            min-width: 62px;
+            flex: none;
+          }
+          .dot-name {
+            font-size: 9.5px;
+          }
+          .wizard-content-box {
+            padding: 20px 16px;
+          }
+          .photo-upload-zone {
+            padding: 36px 16px;
+          }
+          .purpose-select-grid,
+          .type-select-grid,
+          .furnishing-grid {
+            grid-template-columns: 1fr !important;
+            gap: 10px;
+          }
+          .wizard-controls-row {
+            margin-top: 24px;
+            padding-top: 16px;
+            gap: 12px;
+          }
+          .wizard-controls-row button {
+            flex: 1;
+          }
+        }
       `}} />
     </div>
   );

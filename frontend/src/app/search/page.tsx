@@ -8,6 +8,7 @@ export default function SearchPage() {
   const [purpose, setPurpose] = useState("all");
   const [type, setType] = useState("all");
   const [price, setPrice] = useState(100000);
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   
   const properties = [
     {
@@ -53,6 +54,13 @@ export default function SearchPage() {
     }
   };
 
+  const handleResetFilters = () => {
+    setBhk([]);
+    setPurpose("all");
+    setType("all");
+    setPrice(100000);
+  };
+
   const filteredProperties = properties.filter(prop => {
     if (purpose !== "all" && prop.purpose !== purpose) return false;
     if (type !== "all" && prop.type !== type) return false;
@@ -60,12 +68,34 @@ export default function SearchPage() {
     return true;
   });
 
+  const activeFilterCount = (purpose !== "all" ? 1 : 0) + (type !== "all" ? 1 : 0) + (bhk.length > 0 ? 1 : 0);
+
   return (
     <div className="search-page-container fade-in">
       <div className="search-layout">
+        {/* Mobile Filter Backdrop */}
+        {mobileFilterOpen && (
+          <div className="mobile-filter-backdrop" onClick={() => setMobileFilterOpen(false)} />
+        )}
+
         {/* Filter Sidebar */}
-        <aside className="filter-sidebar premium-card">
-          <h3>Filters</h3>
+        <aside className={`filter-sidebar premium-card ${mobileFilterOpen ? "mobile-filter-drawer-open" : ""}`}>
+          <div className="filter-sidebar-header">
+            <h3>Filters {activeFilterCount > 0 && `(${activeFilterCount})`}</h3>
+            {activeFilterCount > 0 && (
+              <button type="button" className="btn-reset-filters" onClick={handleResetFilters}>
+                Reset
+              </button>
+            )}
+            <button 
+              type="button" 
+              className="btn-close-filter-mobile" 
+              onClick={() => setMobileFilterOpen(false)}
+              aria-label="Close filters"
+            >
+              ✕
+            </button>
+          </div>
           
           <div className="filter-group">
             <label>Purpose</label>
@@ -135,44 +165,79 @@ export default function SearchPage() {
               <span className="price-val" suppressHydrationWarning>₹{price.toLocaleString("en-IN")}</span>
             </div>
           </div>
+
+          <div className="mobile-apply-btn-container">
+            <button 
+              type="button" 
+              className="btn-apply-filters-mobile" 
+              onClick={() => setMobileFilterOpen(false)}
+            >
+              Show {filteredProperties.length} Properties
+            </button>
+          </div>
         </aside>
 
         {/* Results Stream */}
         <section className="search-results-section">
           <div className="results-header">
-            <h2>{filteredProperties.length} Properties Found</h2>
-            <div className="sort-group">
-              <label>Sort By:</label>
-              <select>
-                <option>Newest Listings</option>
-                <option>Price: Low → High</option>
-                <option>Price: High → Low</option>
-              </select>
+            <div className="results-title-group">
+              <h2>{filteredProperties.length} Properties Found</h2>
+            </div>
+
+            <div className="results-controls">
+              {/* Mobile Filter Toggle Button */}
+              <button 
+                type="button" 
+                className="btn-mobile-filter-toggle"
+                onClick={() => setMobileFilterOpen(true)}
+              >
+                ⚡ Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
+              </button>
+
+              <div className="sort-group">
+                <label>Sort By:</label>
+                <select aria-label="Sort properties">
+                  <option>Newest Listings</option>
+                  <option>Price: Low → High</option>
+                  <option>Price: High → Low</option>
+                </select>
+              </div>
             </div>
           </div>
 
           <div className="results-grid">
-            {filteredProperties.map(prop => (
-              <div key={prop.id} className="premium-card search-property-card">
-                <div className="prop-img">
-                  <img src={prop.image} alt={prop.title} />
-                  <span className="badge-tag">Verified</span>
-                </div>
-                <div className="prop-content">
-                  <div className="price-like">
-                    <span className="prop-price">{prop.price}</span>
-                    <button type="button" className="like-btn">❤️</button>
-                  </div>
-                  <h3 className="prop-title">{prop.title}</h3>
-                  <p className="prop-loc">📍 {prop.location}</p>
-                  <p className="prop-specs">{prop.specs}</p>
-                  <div className="prop-card-footer">
-                    <span className="posted-time">Posted 2 hours ago</span>
-                    <a href={`/properties/${generatePropertySlug(prop.title, prop.location, prop.id)}`} className="btn-primary-sm">Details</a>
-                  </div>
-                </div>
+            {filteredProperties.length === 0 ? (
+              <div className="no-results-box premium-card">
+                <span style={{ fontSize: "40px" }}>🔍</span>
+                <h3>No Properties Match Your Filters</h3>
+                <p>Try resetting filters or adjusting your budget and location.</p>
+                <button type="button" className="btn-primary-sm" onClick={handleResetFilters}>
+                  Reset All Filters
+                </button>
               </div>
-            ))}
+            ) : (
+              filteredProperties.map(prop => (
+                <div key={prop.id} className="premium-card search-property-card">
+                  <div className="prop-img">
+                    <img src={prop.image} alt={prop.title} loading="lazy" />
+                    <span className="badge-tag">Verified</span>
+                  </div>
+                  <div className="prop-content">
+                    <div className="price-like">
+                      <span className="prop-price">{prop.price}</span>
+                      <button type="button" className="like-btn" aria-label="Save property">❤️</button>
+                    </div>
+                    <h3 className="prop-title">{prop.title}</h3>
+                    <p className="prop-loc">📍 {prop.location}</p>
+                    <p className="prop-specs">{prop.specs}</p>
+                    <div className="prop-card-footer">
+                      <span className="posted-time">Posted 2 hours ago</span>
+                      <a href={`/properties/${generatePropertySlug(prop.title, prop.location, prop.id)}`} className="btn-primary-sm">Details</a>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </section>
       </div>
@@ -181,12 +246,13 @@ export default function SearchPage() {
         .search-page-container {
           max-width: 1200px;
           margin: 0 auto;
-          padding: 40px 24px;
+          padding: 40px 20px;
         }
         .search-layout {
           display: grid;
           grid-template-columns: 280px 1fr;
           gap: 30px;
+          position: relative;
         }
         
         /* Filter Sidebar — sticky on desktop */
@@ -195,7 +261,7 @@ export default function SearchPage() {
           height: fit-content;
           display: flex;
           flex-direction: column;
-          gap: 24px;
+          gap: 22px;
           position: sticky;
           top: 86px;
           max-height: calc(100vh - 100px);
@@ -203,6 +269,49 @@ export default function SearchPage() {
           scrollbar-width: thin;
           scrollbar-color: var(--border) transparent;
         }
+        .filter-sidebar-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .filter-sidebar-header h3 {
+          font-size: 18px;
+          font-weight: 700;
+        }
+        .btn-reset-filters {
+          background: none;
+          border: none;
+          color: var(--primary);
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+        }
+        .btn-close-filter-mobile {
+          display: none;
+          background: var(--surface-hover);
+          border: 1px solid var(--border);
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          cursor: pointer;
+          font-size: 14px;
+        }
+        .mobile-apply-btn-container {
+          display: none;
+          margin-top: 10px;
+        }
+        .btn-apply-filters-mobile {
+          width: 100%;
+          padding: 12px;
+          background: var(--primary);
+          color: white;
+          border: none;
+          border-radius: var(--radius-md);
+          font-weight: 700;
+          font-size: 14px;
+          cursor: pointer;
+        }
+
         .filter-group {
           display: flex;
           flex-direction: column;
@@ -237,6 +346,10 @@ export default function SearchPage() {
           color: var(--text-secondary);
           background: var(--surface);
           border-right: 1px solid var(--border);
+          border-top: none;
+          border-bottom: none;
+          border-left: none;
+          cursor: pointer;
         }
         .radio-group button:last-child {
           border-right: none;
@@ -257,7 +370,9 @@ export default function SearchPage() {
           font-size: 12px;
           font-weight: 600;
           color: var(--text-secondary);
+          background: var(--surface);
           text-align: center;
+          cursor: pointer;
         }
         .bhk-btn.active {
           background: var(--primary-light);
@@ -274,19 +389,42 @@ export default function SearchPage() {
           color: var(--primary);
           font-weight: 600;
         }
-        
-        /* Results Section */
+
         .results-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
           margin-bottom: 24px;
+          gap: 16px;
+          flex-wrap: wrap;
         }
+        .results-header h2 {
+          font-size: 20px;
+        }
+        .results-controls {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .btn-mobile-filter-toggle {
+          display: none;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 14px;
+          background: var(--primary-light);
+          color: var(--primary);
+          border: 1px solid #bfdbfe;
+          border-radius: var(--radius-md);
+          font-weight: 700;
+          font-size: 13px;
+          cursor: pointer;
+        }
+
         .sort-group {
           display: flex;
           align-items: center;
           gap: 8px;
-          font-size: 14px;
+          font-size: 13px;
           color: var(--text-secondary);
         }
         .sort-group select {
@@ -295,45 +433,31 @@ export default function SearchPage() {
           border: 1px solid var(--border);
           background: var(--surface);
           color: var(--text-primary);
+          font-size: 13px;
         }
         .results-grid {
           display: flex;
           flex-direction: column;
           gap: 20px;
         }
-        
-        /* Search Property Card (Horizontal layout) */
         .search-property-card {
           display: grid;
           grid-template-columns: 240px 1fr;
           overflow: hidden;
+          border-radius: var(--radius-lg);
         }
         .prop-img {
           position: relative;
           height: 100%;
           min-height: 180px;
-          background: #f0f0f0;
-          overflow: hidden;
         }
         .prop-img img {
           width: 100%;
           height: 100%;
           object-fit: cover;
-          transition: opacity 0.3s ease;
-        }
-        .prop-img-shimmer {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 37%, #f0f0f0 63%);
-          background-size: 400% 100%;
-          animation: shimmer 1.4s ease infinite;
-        }
-        @keyframes shimmer {
-          0%   { background-position: 100% 50%; }
-          100% { background-position: 0%   50%; }
         }
         .prop-content {
-          padding: 24px;
+          padding: 20px 24px;
           display: flex;
           flex-direction: column;
         }
@@ -341,60 +465,123 @@ export default function SearchPage() {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 6px;
+          margin-bottom: 8px;
         }
         .prop-price {
-          font-size: 22px;
+          font-size: 20px;
           font-weight: 800;
           color: var(--primary);
         }
         .prop-title {
-          font-size: 18px;
+          font-size: 17px;
           margin-bottom: 6px;
+          font-weight: 700;
         }
         .prop-loc {
           font-size: 13px;
           color: var(--text-secondary);
-          margin-bottom: 12px;
+          margin-bottom: 8px;
         }
         .prop-specs {
           font-size: 13px;
           color: var(--text-muted);
-          margin-bottom: auto;
+          margin-bottom: 16px;
         }
         .prop-card-footer {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          border-top: 1px solid var(--border);
+          margin-top: auto;
           padding-top: 12px;
-          margin-top: 12px;
+          border-top: 1px solid var(--border);
         }
         .posted-time {
           font-size: 12px;
           color: var(--text-muted);
         }
         .btn-primary-sm {
+          padding: 8px 16px;
           background: var(--primary);
-          color: white;
-          padding: 8px 18px;
+          color: white !important;
           font-size: 13px;
           font-weight: 600;
           border-radius: var(--radius-sm);
+          text-decoration: none;
         }
         .btn-primary-sm:hover {
           background: var(--primary-hover);
         }
-        
+        .no-results-box {
+          text-align: center;
+          padding: 48px 24px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
+        }
+
+        /* ─── Responsive Media Queries ─── */
         @media (max-width: 900px) {
           .search-layout {
             grid-template-columns: 1fr;
+          }
+          .btn-mobile-filter-toggle {
+            display: flex;
+          }
+          .btn-close-filter-mobile, .mobile-apply-btn-container {
+            display: block;
+          }
+          .mobile-filter-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 299;
+          }
+          .filter-sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: min(85vw, 360px);
+            z-index: 300;
+            max-height: 100vh;
+            border-radius: 0;
+            box-shadow: 10px 0 30px rgba(0,0,0,0.3);
+            transform: translateX(-100%);
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+          }
+          .mobile-filter-drawer-open {
+            transform: translateX(0);
+          }
+        }
+
+        @media (max-width: 640px) {
+          .search-page-container {
+            padding: 20px 14px;
+          }
+          .results-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+          }
+          .results-controls {
+            width: 100%;
+            justify-content: space-between;
           }
           .search-property-card {
             grid-template-columns: 1fr;
           }
           .prop-img {
-            height: 200px;
+            height: 180px;
+          }
+          .prop-content {
+            padding: 16px;
+          }
+          .prop-title {
+            font-size: 15px;
+          }
+          .prop-price {
+            font-size: 18px;
           }
         }
       `}} />

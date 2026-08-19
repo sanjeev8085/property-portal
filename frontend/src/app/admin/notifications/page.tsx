@@ -79,7 +79,7 @@ export default function AdminNotificationsPage() {
 
   return (
     <AdminLayout title="Notifications" subtitle="Send announcements to users across the platform">
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: "24px" }}>
         {/* Compose */}
         <div style={{ background: "white", borderRadius: "16px", padding: "28px", boxShadow: "var(--shadow-sm)", border: "1px solid var(--border)" }}>
           <h3 style={{ fontSize: "16px", fontWeight: 700, marginBottom: "20px" }}>📣 Compose Announcement</h3>

@@ -44,24 +44,28 @@ export default function AdminAnalyticsPage() {
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "24px" }}>
-        {/* Revenue chart */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: "20px", marginBottom: "24px" }}>
+        {/* Weekly revenue */}
         <div style={{ background: "white", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow-sm)" }}>
-          <h3 style={{ fontSize: "14px", fontWeight: 700, marginBottom: "20px" }}>Daily Revenue (7 days)</h3>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: "8px", height: "120px" }}>
-            {REVENUE_7D.map((v, i) => (
-              <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
-                <div style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: 600 }}>₹{v}</div>
-                <div style={{ width: "100%", height: `${(v / maxRev) * 80}px`, background: "linear-gradient(to top, #3b82f6, #60a5fa)", borderRadius: "4px 4px 0 0", minHeight: "4px", transition: "height 0.3s" }} />
-                <div style={{ fontSize: "10px", color: "var(--text-muted)" }}>{DAYS[i]}</div>
-              </div>
-            ))}
+          <h3 style={{ fontSize: "14px", fontWeight: 700, marginBottom: "20px" }}>Revenue Trend (Last 7 Days)</h3>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: "10px", height: "120px" }}>
+            {REVENUE_7D.map((amt, i) => {
+              const max = Math.max(...REVENUE_7D);
+              const height = (amt / max) * 100;
+              return (
+                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
+                  <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>₹{amt}</span>
+                  <div style={{ width: "100%", height: `${height}%`, background: "linear-gradient(to top, #3b82f6, #60a5fa)", borderRadius: "4px" }} />
+                  <span style={{ fontSize: "10px", color: "var(--text-muted)", fontWeight: 600 }}>{DAYS[i]}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        {/* Conversion funnel */}
+        {/* Funnel */}
         <div style={{ background: "white", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow-sm)" }}>
-          <h3 style={{ fontSize: "14px", fontWeight: 700, marginBottom: "20px" }}>Contact Unlock Funnel</h3>
+          <h3 style={{ fontSize: "14px", fontWeight: 700, marginBottom: "20px" }}>User Conversion Funnel</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
             {FUNNEL.map((f, i) => {
               const pct = Math.round((f.count / FUNNEL[0].count) * 100);
@@ -81,7 +85,7 @@ export default function AdminAnalyticsPage() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: "20px" }}>
         {/* Top cities */}
         <div style={{ background: "white", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow-sm)" }}>
           <h3 style={{ fontSize: "14px", fontWeight: 700, marginBottom: "20px" }}>Top Cities by Listings</h3>

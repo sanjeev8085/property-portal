@@ -222,6 +222,10 @@ export default function AdminDashboardPage() {
           .adm-charts-row { grid-template-columns: 1fr; }
           .adm-quick-grid { grid-template-columns: repeat(2, 1fr); }
         }
+        @media (max-width: 500px) {
+          .adm-stats-grid { grid-template-columns: 1fr; }
+          .adm-quick-grid { grid-template-columns: 1fr; }
+        }
       `}} />
     </AdminLayout>
   );
