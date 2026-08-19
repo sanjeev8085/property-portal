@@ -89,21 +89,35 @@ async def root_reset_database():
     from app.models.user import User, UserType, UserStatus
     from app.core.security import get_password_hash
 
+    tables_to_clear = [
+        "property_images",
+        "contact_unlocks",
+        "favorites",
+        "property_amenities",
+        "property_views",
+        "property_verifications",
+        "property_reports",
+        "notifications",
+        "payments",
+        "subscriptions",
+        "otps",
+        "saved_searches",
+        "properties",
+    ]
+
     async with AsyncSessionLocal() as db:
+        for tbl in tables_to_clear:
+            try:
+                await db.execute(text(f"DELETE FROM {tbl};"))
+            except Exception:
+                await db.rollback()
+
         try:
-            await db.execute(text("DELETE FROM property_images;"))
-            await db.execute(text("DELETE FROM contact_unlocks;"))
-            await db.execute(text("DELETE FROM favorites;"))
-            await db.execute(text("DELETE FROM property_amenities;"))
-            await db.execute(text("DELETE FROM property_views;"))
-            await db.execute(text("DELETE FROM property_verifications;"))
-            await db.execute(text("DELETE FROM property_reports;"))
-            await db.execute(text("DELETE FROM notifications;"))
-            await db.execute(text("DELETE FROM payments;"))
-            await db.execute(text("DELETE FROM subscriptions;"))
-            await db.execute(text("DELETE FROM properties;"))
             await db.execute(text("DELETE FROM users WHERE email != 'admin@aurahomes.in';"))
-            
+        except Exception:
+            await db.rollback()
+
+        try:
             admin_check = await db.execute(select(User).where(User.email == "admin@aurahomes.in"))
             admin_user = admin_check.scalar_one_or_none()
             if not admin_user:
@@ -116,7 +130,6 @@ async def root_reset_database():
                     status=UserStatus.ACTIVE,
                 )
                 db.add(admin_user)
-            
             await db.commit()
             return {"status": "success", "message": "Database cleared successfully! Portal is fresh and clean."}
         except Exception as e:
