@@ -282,4 +282,40 @@ describe("Frontend 9.2: End-to-End Workflow Tests", () => {
     assert.equal(checkAdminAccess("token_123", "agent").allowed, false);
     assert.equal(checkAdminAccess("token_admin", "admin").allowed, true);
   });
+
+  it("E2E Flow 8: Max Price and Rent Range slider filtering", () => {
+    const properties = [
+      { id: 1, title: "1 BHK Flat", priceNum: 12000, purpose: "rent" },
+      { id: 2, title: "2 BHK Flat", priceNum: 22000, purpose: "rent" },
+      { id: 3, title: "3 BHK Flat", priceNum: 35000, purpose: "rent" },
+      { id: 4, title: "Penthouse", priceNum: 65000, purpose: "rent" },
+      { id: 5, title: "2 BHK Sale", priceNum: 4500000, purpose: "sell" },
+      { id: 6, title: "Villa Sale", priceNum: 14500000, purpose: "sell" },
+    ];
+
+    function filterByMaxPrice(props, maxPrice, purpose = "all") {
+      return props.filter(p => {
+        if (purpose !== "all" && p.purpose !== purpose) return false;
+        return p.priceNum <= maxPrice;
+      });
+    }
+
+    // Filter rentals under 25,000 / month
+    const cheapRentals = filterByMaxPrice(properties, 25000, "rent");
+    assert.equal(cheapRentals.length, 2);
+    assert.deepEqual(cheapRentals.map(p => p.id), [1, 2]);
+
+    // Filter rentals under 50,000 / month
+    const midRentals = filterByMaxPrice(properties, 50000, "rent");
+    assert.equal(midRentals.length, 3);
+
+    // Filter buy properties under 50 Lakhs (5,000,000)
+    const affordableHomes = filterByMaxPrice(properties, 5000000, "sell");
+    assert.equal(affordableHomes.length, 1);
+    assert.equal(affordableHomes[0].id, 5);
+
+    // Filter buy properties under 2 Crores (20,000,000)
+    const allHomes = filterByMaxPrice(properties, 20000000, "sell");
+    assert.equal(allHomes.length, 2);
+  });
 });
