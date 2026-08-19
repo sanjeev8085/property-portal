@@ -1,9 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
+import { useToast } from "@/lib/useToast";
 
 export default function NewPropertyWizard() {
   const [step, setStep] = useState(1);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const { success, info } = useToast();
   
   // Step 1 & 2: Purpose & Type
   const [purpose, setPurpose] = useState<"rent" | "sell">("rent");
@@ -57,7 +60,13 @@ export default function NewPropertyWizard() {
   const [deposit, setDeposit] = useState("");
   const [maintenance, setMaintenance] = useState("");
 
-  // Step 6 & 7: Photos & Description
+  // Step 6: Photos
+  const [photos, setPhotos] = useState<string[]>([
+    "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80"
+  ]);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Step 7: Description
   const [description, setDescription] = useState("");
   const [isAiGenerating, setIsAiGenerating] = useState(false);
 
@@ -85,6 +94,90 @@ export default function NewPropertyWizard() {
     if (step > 1) setStep(step - 1);
   };
 
+  // Photo handlers
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files);
+      const newUrls = newFiles.map(file => URL.createObjectURL(file));
+      setPhotos(prev => [...prev, ...newUrls].slice(0, 10));
+      success(`Added ${newFiles.length} photo(s) successfully! 📸`);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const newFiles = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
+      if (newFiles.length > 0) {
+        const newUrls = newFiles.map(file => URL.createObjectURL(file));
+        setPhotos(prev => [...prev, ...newUrls].slice(0, 10));
+        success(`Added ${newFiles.length} photo(s) from drag & drop! 📸`);
+      }
+    }
+  };
+
+  const handleRemovePhoto = (index: number) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
+    info("Photo removed.");
+  };
+
+  const handleSetCover = (index: number) => {
+    if (index === 0) return;
+    setPhotos(prev => {
+      const item = prev[index];
+      const rest = prev.filter((_, i) => i !== index);
+      return [item, ...rest];
+    });
+    success("Set as primary cover photo! ⭐");
+  };
+
+  const handleAddSamplePhotos = () => {
+    let samples: string[] = [];
+    if (propertyType === "Shop") {
+      samples = [
+        "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1528698827591-e19ccd7bc23d?auto=format&fit=crop&w=800&q=80",
+      ];
+    } else if (propertyType === "Office Space") {
+      samples = [
+        "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=800&q=80",
+      ];
+    } else if (propertyType === "Plot / Land") {
+      samples = [
+        "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1524813686514-a57563d77d66?auto=format&fit=crop&w=800&q=80",
+      ];
+    } else if (propertyType === "Warehouse") {
+      samples = [
+        "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1587293852726-70cdb56c2866?auto=format&fit=crop&w=800&q=80",
+      ];
+    } else {
+      samples = [
+        "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1600566753376-12c8ab7fb75b?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80",
+      ];
+    }
+    setPhotos(samples);
+    success(`Loaded ${samples.length} high-resolution ${propertyType} sample photos! 📸`);
+  };
+
   const handleAiGenerate = () => {
     setIsAiGenerating(true);
     setTimeout(() => {
@@ -110,7 +203,10 @@ export default function NewPropertyWizard() {
   };
 
   const handlePublish = () => {
-    window.location.href = "/dashboard/properties";
+    success("Property published successfully! Redirecting to your dashboard...");
+    setTimeout(() => {
+      window.location.href = "/dashboard/properties";
+    }, 1000);
   };
 
   const getPreviewTitle = () => {
@@ -134,6 +230,16 @@ export default function NewPropertyWizard() {
 
   return (
     <div className="wizard-page-container fade-in">
+      {/* Hidden File Picker Input */}
+      <input 
+        ref={fileInputRef} 
+        type="file" 
+        multiple 
+        accept="image/jpeg,image/png,image/webp,image/jpg" 
+        onChange={handleFileSelect} 
+        style={{ display: "none" }} 
+      />
+
       {/* Step Indicator Header */}
       <div className="wizard-progress-bar premium-card">
         <div className="progress-steps-row">
@@ -218,7 +324,7 @@ export default function NewPropertyWizard() {
           </div>
         )}
 
-        {/* Step 4: DYNAMIC SPECIFICATIONS BASED ON PROPERTY TYPE */}
+        {/* Step 4: DYNAMIC SPECIFICATIONS */}
         {step === 4 && (
           <div className="step-content fade-in">
             <h2>Step 4 — {propertyType} Specifications</h2>
@@ -413,7 +519,7 @@ export default function NewPropertyWizard() {
               </div>
             )}
 
-            {/* STANDARD RESIDENTIAL FORM (Apartment, Villa, Independent Floor) */}
+            {/* STANDARD RESIDENTIAL FORM */}
             {["Apartment", "Villa / House", "Independent Floor"].includes(propertyType) && (
               <div className="form-grid">
                 <div className="form-group">
@@ -511,16 +617,83 @@ export default function NewPropertyWizard() {
           </div>
         )}
 
-        {/* Step 6: Photos */}
+        {/* Step 6: Photos Upload with Full Interactive Engine */}
         {step === 6 && (
           <div className="step-content fade-in">
-            <h2>Step 6 — Photos Upload</h2>
-            <p className="step-intro-text">Upload high-quality images of your {propertyType}.</p>
-            <div className="photo-upload-zone">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: "8px" }}>
+              <h2>Step 6 — Photos Upload</h2>
+              <span className="photo-count-badge">
+                📸 {photos.length} / 10 Photos Uploaded
+              </span>
+            </div>
+            <p className="step-intro-text">Upload high-quality images of your {propertyType}. First photo is the main cover image.</p>
+            
+            {/* Drag & Drop Upload Zone */}
+            <div 
+              className={`photo-upload-zone ${isDragging ? "dragging" : ""}`}
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
               <span className="upload-icon">📸</span>
-              <p>Drag and drop property images here, or click to upload</p>
+              <p style={{ fontWeight: 700, fontSize: "16px", color: "var(--text-primary)" }}>
+                Drag & drop photos here, or <span style={{ color: "var(--primary)", textDecoration: "underline" }}>browse files</span>
+              </p>
               <span className="file-hint">Supported formats: JPG, PNG, WebP. High resolution photos receive 3x more contact unlocks.</span>
             </div>
+
+            {/* Quick Demo Action */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "16px", flexWrap: "wrap", gap: "10px" }}>
+              <button 
+                type="button" 
+                className="btn-secondary btn-sm"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                + Choose More Photos from Device
+              </button>
+              <button 
+                type="button" 
+                className="btn-outline-sm"
+                onClick={handleAddSamplePhotos}
+              >
+                ✨ Load {propertyType} Sample Photos (Demo)
+              </button>
+            </div>
+
+            {/* Uploaded Photos Grid */}
+            {photos.length > 0 && (
+              <div className="uploaded-photos-grid">
+                {photos.map((url, idx) => (
+                  <div key={idx} className={`photo-thumb-card ${idx === 0 ? "is-cover" : ""}`}>
+                    <img src={url} alt={`Upload ${idx + 1}`} />
+                    
+                    {idx === 0 ? (
+                      <span className="cover-badge">⭐ Main Cover Photo</span>
+                    ) : (
+                      <button 
+                        type="button" 
+                        className="btn-set-cover"
+                        onClick={(e) => { e.stopPropagation(); handleSetCover(idx); }}
+                        title="Set as cover photo"
+                      >
+                        Set as Cover
+                      </button>
+                    )}
+
+                    <button 
+                      type="button" 
+                      className="btn-delete-photo"
+                      onClick={(e) => { e.stopPropagation(); handleRemovePhoto(idx); }}
+                      title="Remove this photo"
+                      aria-label="Remove photo"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -572,7 +745,19 @@ export default function NewPropertyWizard() {
             <p className="step-intro-text">Your property listing is ready to go live! Review summary below.</p>
             
             <div className="preview-summary-card premium-card">
-              <h3>{getPreviewTitle()}</h3>
+              {/* Preview Photos Carousel / Row */}
+              {photos.length > 0 && (
+                <div className="preview-photos-strip">
+                  {photos.slice(0, 4).map((img, i) => (
+                    <div key={i} className="preview-thumb">
+                      <img src={img} alt="Preview thumbnail" />
+                      {i === 0 && <span className="cover-tag">Cover</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <h3 style={{ marginTop: "16px", fontSize: "18px", fontWeight: 700 }}>{getPreviewTitle()}</h3>
               <p className="preview-price">
                 {purpose === "rent" ? "Expected Rent:" : "Expected Price:"} ₹{price || (purpose === "rent" ? "25,000 / Month" : "85,00,000")}
               </p>
@@ -672,7 +857,7 @@ export default function NewPropertyWizard() {
         }
         .step-intro-text {
           color: var(--text-secondary);
-          margin-bottom: 30px;
+          margin-bottom: 24px;
         }
         
         .purpose-select-grid {
@@ -758,27 +943,159 @@ export default function NewPropertyWizard() {
         .form-group input:focus, .form-group select:focus {
           border-color: var(--primary);
         }
-        
+
+        /* Photo Upload Zone & Grid */
+        .photo-count-badge {
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--primary);
+          background: var(--primary-light);
+          padding: 4px 12px;
+          border-radius: 99px;
+        }
         .photo-upload-zone {
-          padding: 60px 40px;
+          padding: 40px 24px;
           border: 2px dashed var(--border);
           border-radius: var(--radius-lg);
           text-align: center;
           background: var(--surface-hover);
           cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .photo-upload-zone:hover, .photo-upload-zone.dragging {
+          border-color: var(--primary);
+          background: var(--primary-light);
         }
         .upload-icon {
-          font-size: 48px;
-          margin-bottom: 16px;
+          font-size: 44px;
+          margin-bottom: 12px;
           display: block;
         }
         .file-hint {
-          font-size: 11px;
+          font-size: 11.5px;
           color: var(--text-muted);
           display: block;
-          margin-top: 10px;
+          margin-top: 8px;
         }
-        
+
+        .uploaded-photos-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+          gap: 14px;
+          margin-top: 20px;
+        }
+        .photo-thumb-card {
+          position: relative;
+          aspect-ratio: 4/3;
+          border-radius: var(--radius-md);
+          overflow: hidden;
+          border: 2px solid var(--border);
+          background: #000;
+        }
+        .photo-thumb-card.is-cover {
+          border-color: var(--primary);
+          box-shadow: 0 0 0 2px var(--primary);
+        }
+        .photo-thumb-card img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .cover-badge {
+          position: absolute;
+          top: 6px;
+          left: 6px;
+          background: var(--primary);
+          color: white;
+          font-size: 10px;
+          font-weight: 700;
+          padding: 3px 8px;
+          border-radius: 4px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .btn-set-cover {
+          position: absolute;
+          bottom: 6px;
+          left: 6px;
+          background: rgba(0,0,0,0.7);
+          color: white;
+          border: none;
+          font-size: 10px;
+          font-weight: 600;
+          padding: 3px 6px;
+          border-radius: 4px;
+          cursor: pointer;
+        }
+        .btn-set-cover:hover {
+          background: var(--primary);
+        }
+        .btn-delete-photo {
+          position: absolute;
+          top: 6px;
+          right: 6px;
+          background: rgba(239, 68, 68, 0.9);
+          color: white;
+          border: none;
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 11px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: transform 0.15s;
+        }
+        .btn-delete-photo:hover {
+          transform: scale(1.1);
+        }
+
+        .btn-outline-sm {
+          padding: 6px 14px;
+          background: none;
+          border: 1px solid var(--primary);
+          color: var(--primary);
+          border-radius: var(--radius-sm);
+          font-size: 12.5px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+        .btn-outline-sm:hover {
+          background: var(--primary-light);
+        }
+
+        /* Step 9 Preview Photos */
+        .preview-photos-strip {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+          gap: 8px;
+          margin-bottom: 12px;
+        }
+        .preview-thumb {
+          position: relative;
+          height: 80px;
+          border-radius: var(--radius-sm);
+          overflow: hidden;
+        }
+        .preview-thumb img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .cover-tag {
+          position: absolute;
+          bottom: 4px;
+          left: 4px;
+          background: var(--primary);
+          color: white;
+          font-size: 9px;
+          font-weight: 700;
+          padding: 2px 5px;
+          border-radius: 3px;
+        }
+
         .ai-assist-box {
           display: flex;
           align-items: center;
@@ -866,7 +1183,11 @@ export default function NewPropertyWizard() {
             padding: 20px 16px;
           }
           .photo-upload-zone {
-            padding: 36px 16px;
+            padding: 28px 14px;
+          }
+          .uploaded-photos-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
           }
           .purpose-select-grid,
           .type-grid,
