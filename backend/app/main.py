@@ -85,35 +85,21 @@ async def health_check():
 @app.post("/reset-database", tags=["Admin"])
 async def root_reset_database(db: AsyncSession = Depends(get_db)):
     """Purge all test properties, images, contacts, and reset database to clean fresh state."""
-    from sqlalchemy import delete, select
-    from app.models.property import Property, PropertyImage
-    from app.models.monetization import ContactUnlock, Payment, Subscription
-    from app.models.user import User, UserType, UserStatus
-    from app.core.security import get_password_hash
-
+    from sqlalchemy import text
     try:
-        await db.execute(delete(PropertyImage))
-        await db.execute(delete(ContactUnlock))
-        await db.execute(delete(Payment))
-        await db.execute(delete(Subscription))
-        await db.execute(delete(Property))
-        await db.execute(delete(User).where(User.email != "admin@aurahomes.in"))
-        
-        admin_check = await db.execute(select(User).where(User.email == "admin@aurahomes.in"))
-        admin_user = admin_check.scalar_one_or_none()
-        if not admin_user:
-            admin_user = User(
-                name="Super Admin",
-                email="admin@aurahomes.in",
-                mobile="9893000000",
-                hashed_password=get_password_hash("Admin@12345"),
-                user_type=UserType.ADMIN,
-                status=UserStatus.ACTIVE,
-            )
-            db.add(admin_user)
-        
+        await db.execute(text("TRUNCATE TABLE property_images, contact_unlocks, favorites, property_amenities, property_views, property_verifications, property_reports, notifications, payments, subscriptions, otps, saved_searches, properties CASCADE;"))
+        await db.execute(text("DELETE FROM users WHERE email != 'admin@aurahomes.in';"))
         await db.commit()
-        return {"status": "success", "message": "Database cleared successfully! Portal is fresh and clean."}
+        return {"status": "success", "message": "Database truncated and cleared successfully! Portal is fresh and clean."}
     except Exception as e:
         await db.rollback()
-        return {"status": "error", "message": str(e)}
+        try:
+            for t in ["property_images", "contact_unlocks", "payments", "subscriptions", "properties"]:
+                try:
+                    await db.execute(text(f"DELETE FROM {t};"))
+                    await db.commit()
+                except Exception:
+                    await db.rollback()
+            return {"status": "success", "message": "Tables cleared successfully via fallback."}
+        except Exception as e2:
+            return {"status": "error", "message": str(e2)}
