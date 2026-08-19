@@ -131,12 +131,33 @@ const ALL_PROPERTIES: Property[] = [
   }
 ];
 
+function parseBudgetParam(input: string | null): number | null {
+  if (!input) return null;
+  const cleaned = input.toLowerCase().replace(/[₹,\s]/g, "");
+  if (cleaned.includes("cr")) {
+    const num = parseFloat(cleaned.replace("cr", ""));
+    return isNaN(num) ? null : num * 10000000;
+  }
+  if (cleaned.includes("lakh") || cleaned.includes("lac") || cleaned.includes("l")) {
+    const num = parseFloat(cleaned.replace(/(lakh|lac|l)/g, ""));
+    return isNaN(num) ? null : num * 100000;
+  }
+  if (cleaned.includes("k")) {
+    const num = parseFloat(cleaned.replace("k", ""));
+    return isNaN(num) ? null : num * 1000;
+  }
+  const directNum = parseFloat(cleaned);
+  return isNaN(directNum) ? null : directNum;
+}
+
 function SearchContent() {
   const searchParams = useSearchParams();
   const rawPurpose = searchParams?.get("purpose") || "all";
   const initialPurpose = rawPurpose === "buy" ? "sell" : rawPurpose;
   const initialLocation = searchParams?.get("location") || "";
   const initialType = searchParams?.get("type") || searchParams?.get("category") || "all";
+  const initialBudgetRaw = searchParams?.get("budget") || null;
+  const parsedBudget = parseBudgetParam(initialBudgetRaw);
 
   const [purpose, setPurpose] = useState<string>(initialPurpose);
   const [searchLocation, setSearchLocation] = useState<string>(initialLocation);
@@ -146,7 +167,16 @@ function SearchContent() {
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [savedIds, setSavedIds] = useState<(number | string)[]>([]);
   const [allProperties, setAllProperties] = useState<Property[]>(ALL_PROPERTIES);
+  const [myPublishedIds, setMyPublishedIds] = useState<Set<string | number>>(new Set());
   const { success } = useToast();
+
+  // Price range settings based on purpose
+  const isRentMode = purpose === "rent";
+  const minSliderPrice = isRentMode ? 5000 : (purpose === "sell" ? 500000 : 5000);
+  const maxSliderLimit = isRentMode ? 200000 : (purpose === "sell" ? 50000000 : 50000000);
+  const sliderStep = isRentMode ? 2500 : 500000;
+
+  const [maxPrice, setMaxPrice] = useState<number>(parsedBudget || (isRentMode ? 100000 : 50000000));
 
   // Load published properties from persistent store and merge dynamically
   useEffect(() => {
@@ -154,6 +184,7 @@ function SearchContent() {
       const published = getPublishedProperties();
       if (published.length > 0) {
         const publishedIds = new Set(published.map(p => p.id));
+        setMyPublishedIds(publishedIds);
         const filteredDefaults = ALL_PROPERTIES.filter(p => !publishedIds.has(p.id));
         setAllProperties([...(published as Property[]), ...filteredDefaults]);
       } else {
@@ -166,24 +197,18 @@ function SearchContent() {
     return () => window.removeEventListener("aurahomes_properties_updated", loadProps);
   }, []);
 
-  // Price range settings based on purpose
-  const isRentMode = purpose === "rent";
-  const minSliderPrice = isRentMode ? 5000 : (purpose === "sell" ? 1000000 : 5000);
-  const maxSliderLimit = isRentMode ? 100000 : (purpose === "sell" ? 25000000 : 25000000);
-  const sliderStep = isRentMode ? 2500 : 500000;
-
-  const [maxPrice, setMaxPrice] = useState<number>(maxSliderLimit);
-
-  // Sync slider limit when purpose changes
+  // Sync slider limit when purpose changes if user didn't specify custom budget
   useEffect(() => {
-    if (purpose === "rent") {
-      setMaxPrice(100000);
-    } else if (purpose === "sell") {
-      setMaxPrice(25000000);
-    } else {
-      setMaxPrice(25000000);
+    if (!parsedBudget) {
+      if (purpose === "rent") {
+        setMaxPrice(100000);
+      } else if (purpose === "sell") {
+        setMaxPrice(50000000);
+      } else {
+        setMaxPrice(50000000);
+      }
     }
-  }, [purpose]);
+  }, [purpose, parsedBudget]);
 
   const handleBhkToggle = (val: number) => {
     if (bhk.includes(val)) {
@@ -198,7 +223,7 @@ function SearchContent() {
     setPurpose("all");
     setType("all");
     setSearchLocation("");
-    setMaxPrice(25000000);
+    setMaxPrice(50000000);
     setSortBy("newest");
   };
 
@@ -214,6 +239,9 @@ function SearchContent() {
 
   // Format currency display
   const formatPriceDisplay = (amount: number) => {
+    if (amount >= 50000000) {
+      return "No Limit (₹5 Cr+)";
+    }
     if (amount >= 10000000) {
       return `₹${(amount / 10000000).toFixed(2)} Cr`;
     }
@@ -230,7 +258,10 @@ function SearchContent() {
     if (currentPurpose !== "all" && propPurpose !== currentPurpose) return false;
     if (type !== "all" && prop.type.toLowerCase() !== type.toLowerCase()) return false;
     if (bhk.length > 0 && !bhk.includes(prop.bhk)) return false;
-    if (prop.priceNum > maxPrice) return false;
+    
+    // Only apply maxPrice filter if not set to unlimited
+    if (maxPrice < maxSliderLimit && prop.priceNum > maxPrice) return false;
+    
     if (
       searchLocation.trim() &&
       !prop.location.toLowerCase().includes(searchLocation.toLowerCase().trim()) &&
@@ -241,8 +272,13 @@ function SearchContent() {
     return true;
   });
 
-  // Sort properties
+  // Sort properties (putting user's own published properties first for visibility)
   const sortedProperties = [...filtered].sort((a, b) => {
+    const isAMine = myPublishedIds.has(a.id);
+    const isBMine = myPublishedIds.has(b.id);
+    if (isAMine && !isBMine) return -1;
+    if (!isAMine && isBMine) return 1;
+
     if (sortBy === "price_asc") return a.priceNum - b.priceNum;
     if (sortBy === "price_desc") return b.priceNum - a.priceNum;
     return Number(b.id) - Number(a.id);
@@ -254,6 +290,23 @@ function SearchContent() {
     (bhk.length > 0 ? 1 : 0) +
     (searchLocation.trim() ? 1 : 0) +
     (maxPrice < maxSliderLimit ? 1 : 0);
+
+  // Quick budget pills based on purpose
+  const budgetPresets = isRentMode
+    ? [
+        { label: "₹20,000", val: 20000 },
+        { label: "₹35,000", val: 35000 },
+        { label: "₹50,000", val: 50000 },
+        { label: "₹1 Lakh", val: 100000 },
+        { label: "Any Budget", val: maxSliderLimit }
+      ]
+    : [
+        { label: "₹50 Lakh", val: 5000000 },
+        { label: "₹1 Crore", val: 10000000 },
+        { label: "₹2 Crore", val: 20000000 },
+        { label: "₹3.5 Crore", val: 35000000 },
+        { label: "Any Budget", val: maxSliderLimit }
+      ];
 
   return (
     <div className="search-page-container fade-in">
@@ -329,7 +382,13 @@ function SearchContent() {
               <option value="all">All Property Types</option>
               <option value="Apartment">Apartment</option>
               <option value="Villa">Villa / House</option>
+              <option value="Independent Floor">Independent Floor</option>
               <option value="Commercial">Commercial / Office</option>
+              <option value="Shop">Shop / Retail</option>
+              <option value="Office Space">Office Space</option>
+              <option value="Plot / Land">Plot / Land</option>
+              <option value="Warehouse">Warehouse</option>
+              <option value="PG / Hostel">PG / Hostel</option>
             </select>
           </div>
 
@@ -350,7 +409,7 @@ function SearchContent() {
             </div>
           </div>
 
-          {/* Max Price / Rent Range Filter */}
+          {/* Max Price / Rent Range Filter with Quick Presets */}
           <div className="filter-group">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
               <label>
@@ -359,6 +418,29 @@ function SearchContent() {
               <span className="price-val" suppressHydrationWarning>
                 {formatPriceDisplay(maxPrice)}
               </span>
+            </div>
+
+            {/* Quick Budget Presets */}
+            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", margin: "6px 0 10px" }}>
+              {budgetPresets.map(preset => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => setMaxPrice(preset.val)}
+                  style={{
+                    padding: "4px 8px",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    borderRadius: "var(--radius-sm)",
+                    border: maxPrice === preset.val ? "1px solid var(--primary)" : "1px solid var(--border)",
+                    background: maxPrice === preset.val ? "var(--primary-light)" : "var(--surface)",
+                    color: maxPrice === preset.val ? "var(--primary)" : "var(--text-secondary)",
+                    cursor: "pointer"
+                  }}
+                >
+                  {preset.label}
+                </button>
+              ))}
             </div>
 
             <input 
@@ -431,44 +513,49 @@ function SearchContent() {
                 <span style={{ fontSize: "44px" }}>🔍</span>
                 <h3 style={{ fontSize: "18px", fontWeight: 700 }}>No Properties Match Your Filter Criteria</h3>
                 <p style={{ color: "var(--text-secondary)", fontSize: "14px", maxWidth: "400px" }}>
-                  Try increasing your maximum budget range slider or clearing specific BHK and locality filters.
+                  Try clicking <strong>Any Budget</strong> or resetting filters to show all listed properties.
                 </p>
                 <button type="button" className="btn-primary-sm" onClick={handleResetFilters} style={{ marginTop: "10px" }}>
                   Reset All Filters
                 </button>
               </div>
             ) : (
-              sortedProperties.map(prop => (
-                <div key={prop.id} className="premium-card search-property-card">
-                  <div className="prop-img">
-                    <img src={prop.image} alt={prop.title} loading="lazy" />
-                    <span className="badge-tag">{prop.purpose === "rent" ? "For Rent" : "For Sale"}</span>
-                  </div>
-                  <div className="prop-content">
-                    <div className="price-like">
-                      <span className="prop-price">{prop.price}</span>
-                      <button 
-                        type="button" 
-                        className="like-btn" 
-                        onClick={() => handleToggleLike(prop.id)}
-                        aria-label="Save property"
-                        style={{ color: savedIds.includes(prop.id) ? "#ef4444" : "var(--text-muted)" }}
-                      >
-                        {savedIds.includes(prop.id) ? "❤️" : "🤍"}
-                      </button>
+              sortedProperties.map(prop => {
+                const isMine = myPublishedIds.has(prop.id);
+                return (
+                  <div key={prop.id} className={`premium-card search-property-card ${isMine ? "is-user-listing" : ""}`}>
+                    <div className="prop-img">
+                      <img src={prop.image} alt={prop.title} loading="lazy" />
+                      <span className="badge-tag">
+                        {isMine ? "⭐ Your Listed Property" : (prop.purpose === "rent" ? "For Rent" : "For Sale")}
+                      </span>
                     </div>
-                    <h3 className="prop-title">{prop.title}</h3>
-                    <p className="prop-loc">📍 {prop.location}</p>
-                    <p className="prop-specs">{prop.specs}</p>
-                    <div className="prop-card-footer">
-                      <span className="posted-time">Verified Listing</span>
-                      <a href={`/properties/${generatePropertySlug(prop.title, prop.location, prop.id)}`} className="btn-primary-sm">
-                        View Details
-                      </a>
+                    <div className="prop-content">
+                      <div className="price-like">
+                        <span className="prop-price">{prop.price}</span>
+                        <button 
+                          type="button" 
+                          className="like-btn" 
+                          onClick={() => handleToggleLike(prop.id)}
+                          aria-label="Save property"
+                          style={{ color: savedIds.includes(prop.id) ? "#ef4444" : "var(--text-muted)" }}
+                        >
+                          {savedIds.includes(prop.id) ? "❤️" : "🤍"}
+                        </button>
+                      </div>
+                      <h3 className="prop-title">{prop.title}</h3>
+                      <p className="prop-loc">📍 {prop.location}</p>
+                      <p className="prop-specs">{prop.specs}</p>
+                      <div className="prop-card-footer">
+                        <span className="posted-time">{isMine ? "✅ Active on Portal" : "Verified Listing"}</span>
+                        <a href={`/properties/${generatePropertySlug(prop.title, prop.location, prop.id)}`} className="btn-primary-sm">
+                          View Details
+                        </a>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </section>
@@ -492,7 +579,7 @@ function SearchContent() {
           height: fit-content;
           display: flex;
           flex-direction: column;
-          gap: 20px;
+          gap: 18px;
           position: sticky;
           top: 86px;
           max-height: calc(100vh - 100px);
@@ -698,6 +785,11 @@ function SearchContent() {
           grid-template-columns: 240px 1fr;
           overflow: hidden;
           border-radius: var(--radius-lg);
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .search-property-card.is-user-listing {
+          border: 2px solid var(--primary);
+          box-shadow: 0 4px 20px rgba(37, 99, 235, 0.15);
         }
         .prop-img {
           position: relative;
@@ -751,6 +843,7 @@ function SearchContent() {
         .posted-time {
           font-size: 12px;
           color: var(--text-muted);
+          font-weight: 600;
         }
         .btn-primary-sm {
           padding: 8px 16px;

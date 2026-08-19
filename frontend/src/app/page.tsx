@@ -1,51 +1,85 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { generatePropertySlug } from "@/lib/slug";
+import { getPublishedProperties, StoredProperty } from "@/lib/propertyStore";
+
+const DEFAULT_FEATURED = [
+  {
+    id: 1,
+    title: "Sleek 3 BHK Luxury Penthouse",
+    price: "₹45,000 / Mo",
+    location: "Arera Colony, Bhopal",
+    specs: "3 Beds | 3 Baths | 1800 sqft",
+    image: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80",
+    tag: "Verified",
+    isFeatured: true,
+  },
+  {
+    id: 2,
+    title: "Premium Semi-Furnished Villa",
+    price: "₹1.2 Cr",
+    location: "Vijay Nagar, Indore",
+    specs: "4 Beds | 4 Baths | 3200 sqft",
+    image: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=600&q=80",
+    tag: "Verified Owner",
+    isFeatured: true,
+  },
+  {
+    id: 3,
+    title: "Modern Fully Furnished 2 BHK",
+    price: "₹22,000 / Mo",
+    location: "Kolar Road, Bhopal",
+    specs: "2 Beds | 2 Baths | 1200 sqft",
+    image: "https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=600&q=80",
+    tag: "New",
+    isFeatured: false,
+  }
+];
 
 export default function Home() {
   const [purpose, setPurpose] = useState<"buy" | "rent" | "commercial">("buy");
   const [location, setLocation] = useState("");
-  const [propertyType, setPropertyType] = useState("Apartment");
+  const [propertyType, setPropertyType] = useState("all");
   const [budget, setBudget] = useState("");
+  const [featuredProperties, setFeaturedProperties] = useState<any[]>(DEFAULT_FEATURED);
+
+  useEffect(() => {
+    const loadProps = () => {
+      const published = getPublishedProperties();
+      if (published.length > 0) {
+        const formatted = published.map(p => ({
+          id: p.id,
+          title: p.title,
+          price: p.price,
+          location: p.location,
+          specs: p.specs || `${p.bhk || 2} BHK | ${p.size || "1200"} sqft`,
+          image: p.image || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80",
+          tag: "⭐ Just Listed",
+          isFeatured: true,
+        }));
+        const publishedIds = new Set(formatted.map(p => p.id));
+        const filteredDefaults = DEFAULT_FEATURED.filter(p => !publishedIds.has(p.id));
+        setFeaturedProperties([...formatted, ...filteredDefaults]);
+      } else {
+        setFeaturedProperties(DEFAULT_FEATURED);
+      }
+    };
+
+    loadProps();
+    window.addEventListener("aurahomes_properties_updated", loadProps);
+    return () => window.removeEventListener("aurahomes_properties_updated", loadProps);
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    window.location.href = `/search?purpose=${purpose}&location=${encodeURIComponent(location)}&type=${propertyType}&budget=${budget}`;
+    const queryParts = [];
+    if (purpose) queryParts.push(`purpose=${purpose === "buy" ? "sell" : purpose}`);
+    if (location.trim()) queryParts.push(`location=${encodeURIComponent(location.trim())}`);
+    if (propertyType && propertyType !== "all") queryParts.push(`type=${encodeURIComponent(propertyType)}`);
+    if (budget.trim()) queryParts.push(`budget=${encodeURIComponent(budget.trim())}`);
+    window.location.href = `/search${queryParts.length > 0 ? "?" + queryParts.join("&") : ""}`;
   };
-
-  const featuredProperties = [
-    {
-      id: 1,
-      title: "Sleek 3 BHK Luxury Penthouse",
-      price: "₹45,000 / Mo",
-      location: "Arera Colony, Bhopal",
-      specs: "3 Beds | 3 Baths | 1800 sqft",
-      image: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80",
-      tag: "Verified",
-      isFeatured: true,
-    },
-    {
-      id: 2,
-      title: "Premium Semi-Furnished Villa",
-      price: "₹1.2 Cr",
-      location: "Vijay Nagar, Indore",
-      specs: "4 Beds | 4 Baths | 3200 sqft",
-      image: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=600&q=80",
-      tag: "Verified Owner",
-      isFeatured: true,
-    },
-    {
-      id: 3,
-      title: "Modern Fully Furnished 2 BHK",
-      price: "₹22,000 / Mo",
-      location: "Kolar Road, Bhopal",
-      specs: "2 Beds | 2 Baths | 1200 sqft",
-      image: "https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=600&q=80",
-      tag: "New",
-      isFeatured: false,
-    }
-  ];
 
   return (
     <div className="home-container fade-in">
