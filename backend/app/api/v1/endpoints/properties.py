@@ -44,7 +44,7 @@ async def create_property(
         area_sqft=payload.area_sqft,
         bathrooms=payload.bathrooms,
         description=payload.description,
-        status=PropertyStatus.PENDING_APPROVAL,
+        status=PropertyStatus.PUBLISHED,
     )
     db.add(prop)
     await db.commit()

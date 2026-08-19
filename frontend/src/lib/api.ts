@@ -92,7 +92,7 @@ export const api = {
   },
 
   async createProperty(payload: any) {
-    return apiFetch("/properties", {
+    return apiFetch("/properties/", {
       method: "POST",
       body: JSON.stringify(payload),
     });

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { generatePropertySlug } from "@/lib/slug";
 import { useToast } from "@/lib/useToast";
 import { getPublishedProperties } from "@/lib/propertyStore";
+import { api } from "@/lib/api";
 
 interface Property {
   id: number | string;
@@ -178,23 +179,55 @@ function SearchContent() {
 
   const [maxPrice, setMaxPrice] = useState<number>(parsedBudget || (isRentMode ? 100000 : 50000000));
 
-  // Load published properties from persistent store and merge dynamically
+  // Load published properties from local store AND backend cloud database for cross-device sync
   useEffect(() => {
-    const loadProps = () => {
+    let isMounted = true;
+
+    const loadProps = async () => {
       const published = getPublishedProperties();
-      if (published.length > 0) {
-        const publishedIds = new Set(published.map(p => p.id));
-        setMyPublishedIds(publishedIds);
-        const filteredDefaults = ALL_PROPERTIES.filter(p => !publishedIds.has(p.id));
-        setAllProperties([...(published as Property[]), ...filteredDefaults]);
-      } else {
-        setAllProperties(ALL_PROPERTIES);
+      const localIds = new Set(published.map(p => p.id));
+      if (isMounted) setMyPublishedIds(localIds);
+
+      // Fetch properties from cloud API so uploads from mobile are received on laptop
+      let backendProps: Property[] = [];
+      try {
+        const cloudData = await api.getProperties();
+        if (Array.isArray(cloudData) && cloudData.length > 0) {
+          backendProps = cloudData.map((p: any) => ({
+            id: p.id,
+            title: p.title,
+            price: p.purpose === "rent" 
+              ? `₹${Number(p.price).toLocaleString("en-IN")} / Mo` 
+              : (p.price >= 10000000 
+                  ? `₹${(p.price / 10000000).toFixed(2)} Cr` 
+                  : `₹${(p.price / 100000).toFixed(0)} Lakh`),
+            priceNum: Number(p.price) || 0,
+            location: p.locality ? `${p.locality}, ${p.city || "Bhopal"}` : (p.city || "Bhopal"),
+            specs: `${p.bhk || 2} Beds | ${p.bathrooms || 2} Baths | ${p.area_sqft || 1200} sqft`,
+            image: p.images?.[0] || p.image || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80",
+            type: p.property_type || "Apartment",
+            purpose: p.purpose === "rent" ? "rent" : "sell",
+            bhk: p.bhk || 2,
+            featured: true,
+          }));
+        }
+      } catch {
+        // Fallback to local
       }
+
+      if (!isMounted) return;
+      const allMerged = [...published, ...backendProps];
+      const mergedIds = new Set(allMerged.map(p => p.id));
+      const filteredDefaults = ALL_PROPERTIES.filter(p => !mergedIds.has(p.id));
+      setAllProperties([...(allMerged as Property[]), ...filteredDefaults]);
     };
 
     loadProps();
     window.addEventListener("aurahomes_properties_updated", loadProps);
-    return () => window.removeEventListener("aurahomes_properties_updated", loadProps);
+    return () => {
+      isMounted = false;
+      window.removeEventListener("aurahomes_properties_updated", loadProps);
+    };
   }, []);
 
   // Sync slider limit when purpose changes if user didn't specify custom budget

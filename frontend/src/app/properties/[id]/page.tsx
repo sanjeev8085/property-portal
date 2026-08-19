@@ -6,6 +6,7 @@ import Avatar from "@/components/ui/Avatar";
 import { useToast } from "@/lib/useToast";
 import { extractIdFromSlug } from "@/lib/slug";
 import { getPublishedProperties, StoredProperty } from "@/lib/propertyStore";
+import { api } from "@/lib/api";
 
 export default function PropertyDetailsPage() {
   const params = useParams();
@@ -22,11 +23,46 @@ export default function PropertyDetailsPage() {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://aurahomes.in";
 
   useEffect(() => {
-    const published = getPublishedProperties();
-    const found = published.find(p => p.id.toString() === propertyId.toString());
-    if (found) {
-      setCustomProp(found);
-    }
+    const loadDetails = async () => {
+      const published = getPublishedProperties();
+      const found = published.find(p => p.id.toString() === propertyId.toString());
+      if (found) {
+        setCustomProp(found);
+        return;
+      }
+
+      // Try fetching from cloud database for cross-device links (mobile -> laptop)
+      try {
+        const remote = await api.getProperty(propertyId);
+        if (remote && remote.title) {
+          setCustomProp({
+            id: remote.id,
+            title: remote.title,
+            price: remote.purpose === "rent"
+              ? `₹${Number(remote.price).toLocaleString("en-IN")} / Month`
+              : (remote.price >= 10000000 
+                  ? `₹${(remote.price / 10000000).toFixed(2)} Cr` 
+                  : `₹${(remote.price / 100000).toFixed(0)} Lakh`),
+            priceNum: Number(remote.price) || 0,
+            location: remote.locality ? `${remote.locality}, ${remote.city || "Bhopal"}` : (remote.city || "Bhopal"),
+            specs: `${remote.bhk || 2} Beds | ${remote.bathrooms || 2} Baths | ${remote.area_sqft || 1200} sqft`,
+            image: remote.images?.[0] || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1200&h=675&q=80",
+            type: remote.property_type || "Apartment",
+            purpose: remote.purpose === "rent" ? "rent" : "sell",
+            bhk: remote.bhk || 2,
+            bathrooms: remote.bathrooms || 2,
+            size: `${remote.area_sqft || 1200}`,
+            description: remote.description,
+            contactName: remote.owner?.name || "Verified Owner",
+            contactPhone: remote.owner?.mobile || "9893024190"
+          });
+        }
+      } catch {
+        // Fallback to default
+      }
+    };
+
+    loadDetails();
   }, [propertyId]);
 
   const propertyDetails = {
@@ -790,11 +826,72 @@ export default function PropertyDetailsPage() {
         }
         
         @media (max-width: 900px) {
+          .detail-page-container {
+            padding: 20px 16px;
+          }
           .detail-layout {
             grid-template-columns: 1fr;
+            gap: 24px;
           }
           .quick-specs-grid {
             grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+          }
+          .amenities-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .detail-page-container {
+            padding: 16px 12px;
+          }
+          .detail-breadcrumbs {
+            overflow-x: auto;
+            white-space: nowrap;
+            padding-bottom: 6px;
+            font-size: 12px;
+          }
+          .image-gallery-card {
+            aspect-ratio: 16 / 10;
+            border-radius: var(--radius-md);
+            margin-bottom: 20px;
+          }
+          .title-price {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+          }
+          .title-price h1 {
+            font-size: 20px;
+            line-height: 1.35;
+          }
+          .price-tag {
+            font-size: 22px;
+          }
+          .quick-specs-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 24px;
+          }
+          .spec-item {
+            padding: 12px 8px;
+          }
+          .spec-value {
+            font-size: 13.5px;
+          }
+          .owner-widget {
+            padding: 18px 14px;
+          }
+          .modal-content {
+            padding: 20px 16px;
+          }
+          .plan-comparison-card {
+            padding: 16px 12px;
+          }
+          .plan-price {
+            font-size: 26px;
           }
         }
       `}} />
