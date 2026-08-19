@@ -448,3 +448,51 @@ async def broadcast_announcement(
     return {"message": f"Successfully broadcasted to {sent_count} users.", "sent_count": sent_count}
 
 
+@router.post("/reset-database")
+@router.get("/reset-database")
+async def reset_database(
+    db: AsyncSession = Depends(get_db)
+):
+    """Purge all test properties, images, contacts, and reset database to clean fresh state."""
+    from sqlalchemy import text
+    from app.models.user import User, UserType, UserStatus
+    from app.core.security import get_password_hash
+
+    try:
+        # Delete test property data
+        await db.execute(text("DELETE FROM property_images;"))
+        await db.execute(text("DELETE FROM contact_unlocks;"))
+        await db.execute(text("DELETE FROM favorites;"))
+        await db.execute(text("DELETE FROM property_amenities;"))
+        await db.execute(text("DELETE FROM property_views;"))
+        await db.execute(text("DELETE FROM property_verifications;"))
+        await db.execute(text("DELETE FROM property_reports;"))
+        await db.execute(text("DELETE FROM notifications;"))
+        await db.execute(text("DELETE FROM payments;"))
+        await db.execute(text("DELETE FROM subscriptions;"))
+        await db.execute(text("DELETE FROM properties;"))
+        
+        # Purge non-admin test users
+        await db.execute(text("DELETE FROM users WHERE email != 'admin@aurahomes.in';"))
+        
+        # Ensure Super Admin exists
+        admin_check = await db.execute(select(User).where(User.email == "admin@aurahomes.in"))
+        admin_user = admin_check.scalar_one_or_none()
+        if not admin_user:
+            admin_user = User(
+                name="Super Admin",
+                email="admin@aurahomes.in",
+                mobile="9893000000",
+                hashed_password=get_password_hash("Admin@12345"),
+                user_type=UserType.ADMIN,
+                status=UserStatus.ACTIVE,
+            )
+            db.add(admin_user)
+        
+        await db.commit()
+        return {"status": "success", "message": "Database cleared successfully! Portal is fresh and ready for production start."}
+    except Exception as e:
+        await db.rollback()
+        return {"status": "partial_success", "message": f"Reset executed with note: {str(e)}"}
+
+
