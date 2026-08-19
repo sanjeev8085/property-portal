@@ -29,9 +29,13 @@ Welcome to **AuraHomes**, a modern, mobile-first real estate portal designed for
 
 ---
 
-## 2. User Roles & Permissions
+## 2. User Roles & Access Rules
 
-AuraHomes provides distinct role-based permissions:
+- 🌍 **Public Browsing (Anyone without login)**:
+  - Any visitor can browse the homepage, search properties, filter by budget/BHK/city, and view complete property details and high-resolution photo galleries.
+- 🔐 **Posting a Property (Login Required)**:
+  - If an unauthenticated user clicks "+ Post New Property", they are automatically directed to login/register.
+  - Any registered user (Owner, Agent, or Buyer) can create listings with full photos and dynamic specifications.
 
 ```
                   ┌────────────────────────┐
@@ -40,24 +44,23 @@ AuraHomes provides distinct role-based permissions:
          ┌────────────────────┼────────────────────┐
          ▼                    ▼                    ▼
 ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
-│  Buyer / Tenant  │ │  Owner / Agent   │ │   Super Admin    │
-│  - Search & Buy  │ │  - Post Listings │ │  - Full Control  │
-│  - Unlock Phone  │ │  - Manage Specs  │ │  - Moderate Ads  │
-│  - Buy Credits   │ │  - Upload Photos │ │  - User RBAC     │
+│  Public Visitor  │ │ Registered User  │ │   Super Admin    │
+│  - Public View   │ │  - Post Listings │ │  - Full Control  │
+│  - Search & Buy  │ │  - Upload Photos │ │  - Moderate Ads  │
+│  - View Photos   │ │  - Unlock Phone  │ │  - User RBAC     │
 └──────────────────┘ └──────────────────┘ └──────────────────┘
 ```
 
-1. **Buyer / Tenant (`user_type: buyer`)**:
+1. **Public Visitor (No Login Needed)**:
    - Search across Buy, Rent, and Commercial properties.
    - Filter by Max Budget, BHK size, City, Locality, and Furnishing status.
-   - Save properties to favorites wishlist.
-   - Purchase Contact Credits or Subscriptions to reveal owner phone number & WhatsApp chat.
-2. **Property Owner (`user_type: owner`)**:
-   - Post free or premium listings with dynamic specifications.
+   - View property photo galleries and specifications.
+2. **Registered User (`buyer` / `owner` / `agent`)**:
+   - Post free or premium listings with dynamic specifications and photos.
    - Upload high-resolution photos with cover image selection.
    - Generate AI-powered SEO-friendly property descriptions.
-   - Track listing views and interested buyers in the Owner Dashboard.
-3. **Real Estate Agent / Broker (`user_type: agent`)**:
+   - Track listing views and manage listed properties.
+   - Purchase Contact Credits or Subscriptions to reveal owner phone number & WhatsApp chat.
    - Post multiple builder floors, luxury penthouses, plots, shops, and commercial offices.
    - Manage multiple listings with real-time analytics and lead notifications.
 4. **Super Admin (`user_type: admin`)**:

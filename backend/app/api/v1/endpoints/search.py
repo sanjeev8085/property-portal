@@ -92,6 +92,12 @@ async def search_properties(
 
     results_data = []
     for prop in properties:
+        # Load cover photo
+        img_res = await db.execute(select(PropertyImage.image_url).where(PropertyImage.property_id == prop.id).order_by(PropertyImage.sort_order).limit(1))
+        img_url = img_res.scalar_one_or_none() or "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80"
+
+        loc_str = f"{prop.location.locality}, {prop.location.city}" if prop.location else (prop.locality or prop.city or "Bhopal")
+
         results_data.append({
             "id": str(prop.id),
             "title": prop.title,
@@ -100,7 +106,10 @@ async def search_properties(
             "price": prop.price,
             "bhk": prop.bhk,
             "area_sqft": prop.area_sqft,
-            "location": f"{prop.location.locality}, {prop.location.city}" if prop.location else "Unknown Location",
+            "bathrooms": prop.bathrooms,
+            "location": loc_str,
+            "image": img_url,
+            "description": prop.description,
             "is_featured": prop.is_featured,
             "views_count": prop.views_count,
             "created_at": prop.created_at,

@@ -7,7 +7,7 @@ from app.core.database import get_db
 from typing import Optional
 from app.api.deps import get_current_active_user, get_optional_user, require_role
 from app.models.user import User, UserType, UserStatus
-from app.models.property import Property, PropertyStatus
+from app.models.property import Property, PropertyStatus, PropertyImage
 
 from app.schemas.property import PropertyCreate
 
@@ -18,33 +18,11 @@ router = APIRouter()
 async def create_property(
     payload: PropertyCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_user),
+    current_user: User = Depends(get_current_active_user),
 ):
-    """Create a new property listing with cross-device cloud persistence."""
-    owner_id = None
-    if current_user:
-        owner_id = current_user.id
-    else:
-        # Fallback to first available active user in DB
-        res = await db.execute(select(User).where(User.status == UserStatus.ACTIVE).limit(1))
-        any_user = res.scalar_one_or_none()
-        if any_user:
-            owner_id = any_user.id
-        else:
-            default_user = User(
-                name="AuraHomes Verified Owner",
-                email="owner@aurahomes.in",
-                mobile="9893024190",
-                user_type=UserType.OWNER,
-                status=UserStatus.ACTIVE,
-            )
-            db.add(default_user)
-            await db.commit()
-            await db.refresh(default_user)
-            owner_id = default_user.id
-
+    """Create a new property listing. Requires login."""
     prop = Property(
-        owner_id=owner_id,
+        owner_id=current_user.id,
         title=payload.title,
         purpose=payload.purpose,
         category=payload.category,
@@ -54,11 +32,34 @@ async def create_property(
         area_sqft=payload.area_sqft,
         bathrooms=payload.bathrooms,
         description=payload.description,
+        contact_name=payload.contact_name or current_user.name,
+        contact_phone=payload.contact_phone or current_user.mobile,
+        contact_whatsapp=payload.contact_whatsapp or payload.contact_phone or current_user.mobile,
         status=PropertyStatus.PUBLISHED,
     )
     db.add(prop)
     await db.commit()
     await db.refresh(prop)
+
+    # Persist property images in database
+    if payload.images and len(payload.images) > 0:
+        for idx, img_url in enumerate(payload.images):
+            if img_url:
+                db.add(PropertyImage(
+                    property_id=prop.id,
+                    image_url=img_url,
+                    is_cover=(idx == 0),
+                    sort_order=idx
+                ))
+        await db.commit()
+    elif payload.image:
+        db.add(PropertyImage(
+            property_id=prop.id,
+            image_url=payload.image,
+            is_cover=True,
+            sort_order=0
+        ))
+        await db.commit()
 
     # Trigger new property posted (admin alert)
     try:
@@ -72,7 +73,7 @@ async def create_property(
 
 @router.get("/{property_id}")
 async def get_property(property_id: str, db: AsyncSession = Depends(get_db)):
-    """Get property details (contact info masked for public)."""
+    """Get property details (public for all users with images)."""
     try:
         pid = uuid.UUID(property_id)
     except ValueError:
@@ -83,17 +84,29 @@ async def get_property(property_id: str, db: AsyncSession = Depends(get_db)):
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found.")
 
+    # Retrieve images
+    images_res = await db.execute(select(PropertyImage).where(PropertyImage.property_id == pid).order_by(PropertyImage.sort_order))
+    images_list = images_res.scalars().all()
+    image_urls = [img.image_url for img in images_list]
+    cover_image = image_urls[0] if image_urls else "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1200&h=675&q=80"
+
     return {
         "id": str(prop.id),
         "title": prop.title,
         "purpose": prop.purpose,
+        "property_type": prop.property_type,
         "price": prop.price,
         "status": prop.status,
         "bhk": prop.bhk,
         "area_sqft": prop.area_sqft,
-        # Contact info intentionally masked
-        "contact_phone": None,
-        "contact_email": None,
+        "bathrooms": prop.bathrooms,
+        "description": prop.description,
+        "image": cover_image,
+        "images": image_urls,
+        "owner": {
+            "name": prop.contact_name or "Verified Owner",
+            "mobile": prop.contact_phone or "9893024190"
+        }
     }
 
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useToast } from "@/lib/useToast";
 import { savePublishedProperty } from "@/lib/propertyStore";
 import { api } from "@/lib/api";
@@ -9,6 +9,14 @@ export default function NewPropertyWizard() {
   const [step, setStep] = useState(1);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { success, info } = useToast();
+
+  // Authentication Guard — User must be logged in to post a property
+  useEffect(() => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+    if (!token) {
+      window.location.href = `/login?next=/dashboard/properties/new`;
+    }
+  }, []);
   
   // Step 1 & 2: Purpose & Type
   const [purpose, setPurpose] = useState<"rent" | "sell">("rent");
@@ -253,7 +261,7 @@ export default function NewPropertyWizard() {
     // Save to persistent client store so it appears in Search, Buy, Rent, and Dashboard
     savePublishedProperty(newPropertyObj);
 
-    // Try backend API save if connected
+    // Send full payload including images and location to cloud database
     try {
       await api.createProperty({
         title: newPropertyObj.title,
@@ -265,9 +273,15 @@ export default function NewPropertyWizard() {
         area_sqft: parseFloat(size) || 1200,
         bathrooms: bathrooms,
         description: newPropertyObj.description,
+        images: photos,
+        image: photos[0] || newPropertyObj.image,
+        city: city,
+        locality: locality || area,
+        contact_name: contactName || "Property Owner",
+        contact_phone: contactPhone || "9893024190",
       });
-    } catch {
-      // Local fallback handled
+    } catch (err) {
+      console.warn("Cloud database sync note:", err);
     }
 
     success("🎉 Property published successfully! It is now live in the search & buy listings.");

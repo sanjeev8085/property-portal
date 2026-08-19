@@ -1,5 +1,5 @@
 """Property schemas for validation."""
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel
 from app.models.property import PropertyPurpose, PropertyCategory, FurnishedStatus
 
@@ -18,3 +18,11 @@ class PropertyCreate(BaseModel):
     furnished_status: Optional[FurnishedStatus] = None
     parking: Optional[int] = None
     description: Optional[str] = None
+    images: Optional[List[str]] = None
+    image: Optional[str] = None
+    city: Optional[str] = "Bhopal"
+    locality: Optional[str] = None
+    address: Optional[str] = None
+    contact_name: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_whatsapp: Optional[str] = None
