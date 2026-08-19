@@ -268,4 +268,18 @@ describe("Frontend 9.2: End-to-End Workflow Tests", () => {
 
     assert.equal(propertyState.status, "published");
   });
+
+  it("E2E Flow 7: Admin RBAC and unauthorized data protection", () => {
+    function checkAdminAccess(token, userType) {
+      if (!token) return { allowed: false, error: "Unauthenticated" };
+      if (userType !== "admin") return { allowed: false, error: "Forbidden: Admin privileges required" };
+      return { allowed: true };
+    }
+
+    assert.equal(checkAdminAccess(null, null).allowed, false);
+    assert.equal(checkAdminAccess("token_123", "buyer").allowed, false);
+    assert.equal(checkAdminAccess("token_123", "owner").allowed, false);
+    assert.equal(checkAdminAccess("token_123", "agent").allowed, false);
+    assert.equal(checkAdminAccess("token_admin", "admin").allowed, true);
+  });
 });

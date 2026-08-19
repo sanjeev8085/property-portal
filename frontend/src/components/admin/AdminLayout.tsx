@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { api } from "@/lib/api";
 
@@ -34,6 +34,22 @@ interface AdminLayoutProps {
 export default function AdminLayout({ children, title, subtitle }: AdminLayoutProps) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    const userType = localStorage.getItem("user_type");
+
+    if (!token || userType !== "admin") {
+      setIsAuthorized(false);
+      const timer = setTimeout(() => {
+        window.location.href = `/admin/login?next=${encodeURIComponent(window.location.pathname)}`;
+      }, 1500);
+      return () => clearTimeout(timer);
+    } else {
+      setIsAuthorized(true);
+    }
+  }, []);
 
   const handleLogout = () => {
     api.logout();
@@ -42,6 +58,58 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
     document.cookie = "user_type=; max-age=0; path=/";
     window.location.href = "/admin/login";
   };
+
+  if (isAuthorized === false) {
+    return (
+      <div className="al-unauth-container">
+        <div className="al-unauth-card premium-card">
+          <span style={{ fontSize: "52px" }}>🔒</span>
+          <h2>Admin Authorization Required</h2>
+          <p style={{ margin: "12px 0 20px", color: "var(--text-secondary)", fontSize: "14px" }}>
+            This system console contains restricted administrative data. You must sign in with verified administrator credentials to access this area.
+          </p>
+          <p style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "20px" }}>
+            Redirecting to secure login...
+          </p>
+          <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
+            <a href="/admin/login" className="btn-primary btn-sm">Sign In as Admin</a>
+            <a href="/" className="btn-secondary btn-sm">Return to Main Site</a>
+          </div>
+        </div>
+
+        <style dangerouslySetInnerHTML={{ __html: `
+          .al-unauth-container {
+            min-height: 100vh;
+            background: #0f172a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+          }
+          .al-unauth-card {
+            max-width: 440px;
+            width: 100%;
+            padding: 40px 28px;
+            text-align: center;
+            background: white;
+            border-radius: var(--radius-lg);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+          }
+        `}} />
+      </div>
+    );
+  }
+
+  if (isAuthorized === null) {
+    return (
+      <div className="al-unauth-container" style={{ minHeight: "100vh", background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center", color: "white" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "36px", marginBottom: "12px" }}>🛡️</div>
+          <p style={{ fontSize: "15px", fontWeight: 600 }}>Verifying Administrator Credentials…</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="al-root">
@@ -99,21 +167,23 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
           <button
             type="button"
             className="al-hamburger"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Open menu"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            aria-label="Toggle sidebar"
           >
             ☰
           </button>
-          <div className="al-header-title">
-            {title && <h1 className="al-page-title">{title}</h1>}
-            {subtitle && <p className="al-page-subtitle">{subtitle}</p>}
+
+          <div className="al-header-titles">
+            {title && <h1 className="al-title">{title}</h1>}
+            {subtitle && <p className="al-subtitle">{subtitle}</p>}
           </div>
-          <div className="al-header-right">
-            <span className="al-admin-tag">🛡️ Admin</span>
+
+          <div className="al-header-actions">
+            <span className="al-badge-role">Admin Console</span>
           </div>
         </header>
 
-        {/* Page content */}
+        {/* Page body */}
         <main className="al-content">{children}</main>
       </div>
 
@@ -121,48 +191,43 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
         .al-root {
           display: flex;
           min-height: 100vh;
-          background: #f1f5f9;
+          background: #f8fafc;
           font-family: var(--font-body);
         }
 
         /* ── Sidebar ── */
         .al-sidebar {
           width: 240px;
-          flex-shrink: 0;
           background: #0f172a;
+          color: #94a3b8;
           display: flex;
           flex-direction: column;
-          position: sticky;
-          top: 0;
-          height: 100vh;
-          overflow-y: auto;
+          flex-shrink: 0;
           z-index: 50;
-          scrollbar-width: thin;
-          scrollbar-color: rgba(255,255,255,0.1) transparent;
+          transition: transform 0.25s ease;
         }
         .al-logo {
           display: flex;
           align-items: center;
           gap: 10px;
-          padding: 24px 20px;
-          border-bottom: 1px solid rgba(255,255,255,0.06);
-          flex-shrink: 0;
+          padding: 24px 20px 20px;
+          border-bottom: 1px solid #1e293b;
         }
         .al-logo-icon { font-size: 24px; }
         .al-logo-text {
           font-family: var(--font-heading);
-          font-size: 20px;
+          font-size: 18px;
           font-weight: 800;
-          background: linear-gradient(135deg, #60a5fa, #818cf8);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
+          color: #f8fafc;
         }
+
         .al-nav {
           flex: 1;
-          padding: 12px 10px;
+          padding: 16px 12px;
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: 4px;
+          overflow-y: auto;
         }
         .al-nav-item {
           display: flex;
@@ -171,63 +236,63 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
           padding: 10px 12px;
           border-radius: 8px;
           color: #94a3b8;
+          text-decoration: none;
           font-size: 13.5px;
           font-weight: 500;
           transition: background 0.15s, color 0.15s;
-          position: relative;
         }
         .al-nav-item:hover {
-          background: rgba(255,255,255,0.06);
-          color: #e2e8f0;
+          background: #1e293b;
+          color: #f8fafc;
         }
         .al-nav-active {
-          background: rgba(96,165,250,0.12) !important;
-          color: #60a5fa !important;
+          background: #1d4ed8 !important;
+          color: #ffffff !important;
           font-weight: 600;
         }
-        .al-nav-icon { font-size: 16px; flex-shrink: 0; width: 20px; text-align: center; }
+        .al-nav-icon { font-size: 16px; width: 20px; text-align: center; }
         .al-nav-label { flex: 1; }
         .al-nav-badge {
           background: #ef4444;
           color: white;
           font-size: 10px;
           font-weight: 700;
-          padding: 1px 6px;
+          padding: 2px 7px;
           border-radius: 99px;
-          min-width: 18px;
-          text-align: center;
         }
+
         .al-sidebar-footer {
-          padding: 16px 10px;
-          border-top: 1px solid rgba(255,255,255,0.06);
+          padding: 16px 12px;
+          border-top: 1px solid #1e293b;
           display: flex;
-          flex-direction: column;
-          gap: 6px;
-          flex-shrink: 0;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
         }
         .al-back-site {
-          color: #64748b;
           font-size: 12px;
-          padding: 8px 12px;
-          border-radius: 6px;
+          color: #64748b;
+          text-decoration: none;
           transition: color 0.15s;
         }
         .al-back-site:hover { color: #94a3b8; }
         .al-logout-btn {
-          background: rgba(239,68,68,0.1);
+          background: none;
+          border: 1px solid #334155;
           color: #f87171;
-          border: 1px solid rgba(239,68,68,0.2);
-          border-radius: 6px;
-          padding: 8px 12px;
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 600;
+          padding: 4px 10px;
+          border-radius: 6px;
           cursor: pointer;
-          text-align: left;
-          transition: background 0.15s;
+          transition: background 0.15s, border-color 0.15s;
         }
-        .al-logout-btn:hover { background: rgba(239,68,68,0.18); }
+        .al-logout-btn:hover {
+          background: #1e293b;
+          border-color: #ef4444;
+        }
 
-        /* ── Main ── */
+        /* ── Main area ── */
         .al-main {
           flex: 1;
           display: flex;
@@ -235,48 +300,39 @@ export default function AdminLayout({ children, title, subtitle }: AdminLayoutPr
           min-width: 0;
         }
         .al-header {
-          background: white;
+          background: #ffffff;
           border-bottom: 1px solid var(--border);
-          padding: 0 28px;
-          height: 64px;
+          padding: 18px 28px;
           display: flex;
           align-items: center;
+          justify-content: space-between;
           gap: 16px;
           position: sticky;
           top: 0;
           z-index: 40;
-          box-shadow: var(--shadow-sm);
         }
         .al-hamburger {
           display: none;
           background: none;
-          border: none;
-          font-size: 22px;
-          cursor: pointer;
-          color: var(--text-primary);
-          padding: 4px 8px;
+          border: 1px solid var(--border);
           border-radius: 6px;
-        }
-        .al-hamburger:hover { background: var(--surface-hover); }
-        .al-header-title { flex: 1; }
-        .al-page-title {
+          padding: 6px 10px;
           font-size: 18px;
-          font-weight: 700;
+          cursor: pointer;
+        }
+        .al-header-titles {}
+        .al-title {
+          font-size: 20px;
+          font-weight: 800;
           color: var(--text-primary);
-          line-height: 1.2;
+          margin-bottom: 2px;
         }
-        .al-page-subtitle {
-          font-size: 12px;
+        .al-subtitle {
+          font-size: 12.5px;
           color: var(--text-muted);
-          margin-top: 2px;
         }
-        .al-header-right {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-        .al-admin-tag {
-          font-size: 12px;
+        .al-badge-role {
+          font-size: 11px;
           font-weight: 700;
           color: #3b82f6;
           background: #eff6ff;
