@@ -1,6 +1,4 @@
-"""
-FastAPI dependency for extracting the current authenticated user from JWT.
-"""
+from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +9,27 @@ from app.core.database import get_db
 from app.core.security import decode_token
 from app.models.user import User, UserStatus, UserType
 
-bearer_scheme = HTTPBearer()
+bearer_scheme = HTTPBearer(auto_error=False)
+
+
+async def get_optional_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> Optional[User]:
+    """Gracefully extract user if token exists; return None if unauthenticated."""
+    if not credentials:
+        return None
+    try:
+        payload = decode_token(credentials.credentials)
+        user_id = payload.get("sub")
+        if not user_id:
+            return None
+        import uuid
+        user_uuid = uuid.UUID(user_id)
+        result = await db.execute(select(User).where(User.id == user_uuid))
+        return result.scalar_one_or_none()
+    except Exception:
+        return None
 
 
 async def get_current_user(
