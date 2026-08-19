@@ -1,6 +1,50 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
+// Validator implementations tested
+function isValidEmail(email) {
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  return emailRegex.test((email || "").trim());
+}
+
+function isValidIndianMobile(mobile) {
+  const cleaned = (mobile || "").replace(/\D/g, "");
+  if (cleaned.length === 12 && cleaned.startsWith("91")) {
+    return /^[6-9]\d{9}$/.test(cleaned.slice(2));
+  }
+  return cleaned.length === 10 && /^[6-9]\d{9}$/.test(cleaned);
+}
+
+function isValidPincode(pincode) {
+  const cleaned = (pincode || "").replace(/\D/g, "");
+  return cleaned.length === 6 && /^[1-9]\d{5}$/.test(cleaned);
+}
+
+function validatePassword(password) {
+  if (!password || password.length < 8) {
+    return { isValid: false, message: "Password must be at least 8 characters long." };
+  }
+  if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+    return { isValid: false, message: "Password must contain both letters and numbers." };
+  }
+  return { isValid: true };
+}
+
+function isValidPrice(price) {
+  const num = typeof price === "string" ? parseFloat(price) : price;
+  return !isNaN(num) && num > 0 && num <= 1000000000;
+}
+
+function isValidArea(sqft) {
+  const num = typeof sqft === "string" ? parseFloat(sqft) : sqft;
+  return !isNaN(num) && num >= 50 && num <= 500000;
+}
+
+function isValidOTP(otp) {
+  const cleaned = (otp || "").trim();
+  return cleaned.length === 6 && /^\d{6}$/.test(cleaned);
+}
+
 // Utility implementation tested
 function slugify(text) {
   return text
@@ -37,6 +81,56 @@ function extractIdFromSlug(slugOrId) {
   }
   return slugOrId;
 }
+
+describe("Frontend Form & Data Validation Tests", () => {
+  it("validates standard and invalid email addresses", () => {
+    assert.equal(isValidEmail("user@example.com"), true);
+    assert.equal(isValidEmail("sanjeev.tyagi@domain.in"), true);
+    assert.equal(isValidEmail("invalid-email"), false);
+    assert.equal(isValidEmail("user@"), false);
+    assert.equal(isValidEmail("@domain.com"), false);
+  });
+
+  it("validates 10-digit Indian mobile numbers (with and without +91 prefix)", () => {
+    assert.equal(isValidIndianMobile("9876543210"), true);
+    assert.equal(isValidIndianMobile("+91 9876543210"), true);
+    assert.equal(isValidIndianMobile("919876543210"), true);
+    assert.equal(isValidIndianMobile("1234567890"), false); // Invalid starting digit
+    assert.equal(isValidIndianMobile("98765"), false); // Too short
+  });
+
+  it("validates 6-digit Indian postal pincodes", () => {
+    assert.equal(isValidPincode("462016"), true);
+    assert.equal(isValidPincode("110001"), true);
+    assert.equal(isValidPincode("012345"), false); // Cannot start with 0
+    assert.equal(isValidPincode("4620"), false);
+  });
+
+  it("validates strong passwords (min 8 chars, letters and digits)", () => {
+    assert.equal(validatePassword("Secure123").isValid, true);
+    assert.equal(validatePassword("short1").isValid, false);
+    assert.equal(validatePassword("alllettersnocount").isValid, false);
+    assert.equal(validatePassword("12345678").isValid, false);
+  });
+
+  it("validates realistic price and area ranges", () => {
+    assert.equal(isValidPrice(25000), true);
+    assert.equal(isValidPrice("1500000"), true);
+    assert.equal(isValidPrice(-500), false);
+    assert.equal(isValidPrice(0), false);
+
+    assert.equal(isValidArea(1200), true);
+    assert.equal(isValidArea("3500"), true);
+    assert.equal(isValidArea(20), false); // Under 50 sqft
+  });
+
+  it("validates 6-digit numeric OTPs", () => {
+    assert.equal(isValidOTP("482910"), true);
+    assert.equal(isValidOTP("000123"), true);
+    assert.equal(isValidOTP("4829"), false);
+    assert.equal(isValidOTP("48291a"), false);
+  });
+});
 
 describe("Frontend 9.2: Unit Tests for Utility Functions", () => {
   it("slugify creates URL-safe slug strings", () => {

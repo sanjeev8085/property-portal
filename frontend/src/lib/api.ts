@@ -1,6 +1,8 @@
-const API_BASE_URL = "http://127.0.0.1:8000/api/v1";
+const RAW_URL = process.env.NEXT_PUBLIC_API_URL || "https://aurahomes-backend-tz1c.onrender.com";
+const CLEAN_URL = RAW_URL.replace(/\/+$/, "");
+const API_BASE_URL = CLEAN_URL.endsWith("/api/v1") ? CLEAN_URL : `${CLEAN_URL}/api/v1`;
 
-// Helper to fetch wrapper with token injection
+// Helper to fetch wrapper with token injection and graceful error handling
 async function apiFetch(endpoint: string, options: RequestInit = {}) {
   const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
   
@@ -10,17 +12,21 @@ async function apiFetch(endpoint: string, options: RequestInit = {}) {
     ...options.headers,
   };
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || "Something went wrong.");
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `Request failed with status ${response.status}`);
+    }
+
+    return response.json();
+  } catch (err: any) {
+    throw err;
   }
-
-  return response.json();
 }
 
 export const api = {
@@ -73,7 +79,6 @@ export const api = {
 
   // Properties API
   async getProperties(filters: string = "") {
-    // Falls back to generic list if search endpoint stubbed
     try {
       const data = await apiFetch(`/search?${filters}`);
       return data.results || [];
