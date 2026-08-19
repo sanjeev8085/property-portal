@@ -21,6 +21,8 @@ export interface StoredProperty {
   views?: number;
   leads?: number;
   status?: string;
+  ownerId?: string;
+  ownerEmail?: string;
 }
 
 const STORAGE_KEY = "aurahomes_published_properties";

@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import Button from "@/components/ui/Button";
 import { api } from "@/lib/api";
 import { useToast } from "@/lib/useToast";
+import { getPublishedProperties, deletePublishedProperty } from "@/lib/propertyStore";
 
 type PropStatus = "Pending Approval" | "Published" | "Rejected" | "Featured";
 
@@ -45,6 +46,27 @@ export default function AdminPropertiesPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
   const { success, error: showError } = useToast();
+
+  useEffect(() => {
+    const published = getPublishedProperties();
+    if (published.length > 0) {
+      const mappedPublished: AdminProp[] = published.map(p => ({
+        id: p.id.toString(),
+        title: p.title,
+        price: p.price,
+        location: p.location,
+        purpose: p.purpose,
+        status: (p.status === "Deactivated" ? "Rejected" : "Published") as PropStatus,
+        is_verified: true,
+        is_featured: false,
+        owner: p.contactName || p.ownerEmail || "Verified Owner",
+        posted: "Recently Listed"
+      }));
+      const pubIds = new Set(mappedPublished.map(p => p.id));
+      const filteredInit = INITIAL.filter(p => !pubIds.has(p.id));
+      setProps([...mappedPublished, ...filteredInit]);
+    }
+  }, []);
 
   const filtered = useMemo(() => {
     return props.filter((p) => {
@@ -90,8 +112,9 @@ export default function AdminPropertiesPage() {
 
   const deleteProp = (id: string) => {
     if (!confirm("Permanently delete this property? This cannot be undone.")) return;
+    deletePublishedProperty(id);
     setProps((p) => p.filter((x) => x.id !== id));
-    showError("Property deleted");
+    showError("Property deleted by Admin");
   };
 
   return (

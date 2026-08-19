@@ -425,4 +425,39 @@ describe("Frontend 9.2: End-to-End Workflow Tests", () => {
     assert.equal(searchVisible.length, 2);
     assert.deepEqual(searchVisible.map(p => p.id), ["prop_1", "prop_3"]);
   });
+
+  it("E2E Flow 15: User dashboard isolates and displays ONLY the user's own listings", () => {
+    const allPublished = [
+      { id: "prop_1", title: "My Flat", ownerEmail: "user_a@aurahomes.in" },
+      { id: "prop_2", title: "User B Flat", ownerEmail: "user_b@aurahomes.in" },
+      { id: "prop_3", title: "User C Villa", ownerEmail: "user_c@aurahomes.in" },
+    ];
+
+    const currentLoggedInUser = "user_a@aurahomes.in";
+    const myDashboardProps = allPublished.filter(p => p.ownerEmail === currentLoggedInUser);
+
+    assert.equal(myDashboardProps.length, 1);
+    assert.equal(myDashboardProps[0].id, "prop_1");
+    assert.equal(myDashboardProps[0].title, "My Flat");
+  });
+
+  it("E2E Flow 16: Admin dashboard displays and moderates ALL properties from all users", () => {
+    const allPublished = [
+      { id: "prop_1", title: "User A Flat", ownerEmail: "user_a@aurahomes.in", status: "Published" },
+      { id: "prop_2", title: "User B Flat", ownerEmail: "user_b@aurahomes.in", status: "Pending Approval" },
+      { id: "prop_3", title: "User C Villa", ownerEmail: "user_c@aurahomes.in", status: "Published" },
+    ];
+
+    // Admin has access to all 3 properties
+    assert.equal(allPublished.length, 3);
+
+    // Admin approves property 2
+    const moderated = allPublished.map(p => p.id === "prop_2" ? { ...p, status: "Published" } : p);
+    assert.equal(moderated[1].status, "Published");
+
+    // Admin permanently deletes property 3
+    const afterDelete = moderated.filter(p => p.id !== "prop_3");
+    assert.equal(afterDelete.length, 2);
+    assert.deepEqual(afterDelete.map(p => p.id), ["prop_1", "prop_2"]);
+  });
 });

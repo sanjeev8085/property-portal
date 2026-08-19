@@ -233,8 +233,12 @@ export default function NewPropertyWizard() {
       specsSummary = `${bhk} Beds | ${bathrooms} Baths | ${size || "1200"} sqft | ${parking}`;
     }
 
+    const userIdentifier = typeof window !== "undefined" ? localStorage.getItem("user_email") || localStorage.getItem("user_mobile") || "my_account" : "my_account";
+
     const newPropertyObj = {
       id: propertyId,
+      ownerId: userIdentifier,
+      ownerEmail: userIdentifier,
       title: getPreviewTitle(),
       price: finalPriceStr,
       priceNum: finalPriceNum,
