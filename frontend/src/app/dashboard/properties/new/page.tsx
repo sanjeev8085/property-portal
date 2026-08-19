@@ -22,6 +22,7 @@ export default function NewPropertyWizard() {
   const [size, setSize] = useState("");
   const [bathrooms, setBathrooms] = useState(2);
   const [furnished, setFurnished] = useState("Fully Furnished");
+  const [parking, setParking] = useState("1 Covered Car Parking");
   const [floor, setFloor] = useState("1st Floor");
   const [balconies, setBalconies] = useState(1);
 
@@ -572,6 +573,16 @@ export default function NewPropertyWizard() {
                     <option value={3}>3+ Balconies</option>
                   </select>
                 </div>
+                <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                  <label>Parking Facility</label>
+                  <select value={parking} onChange={(e) => setParking(e.target.value)}>
+                    <option value="1 Covered Car Parking">1 Covered Car Parking (Reserved)</option>
+                    <option value="2 Covered Car Parking">2 Covered Car Parking (Reserved)</option>
+                    <option value="Open Car Parking">Open Car Parking</option>
+                    <option value="2-Wheeler Parking Only">2-Wheeler Parking Only</option>
+                    <option value="No Dedicated Parking">No Dedicated Parking / Street</option>
+                  </select>
+                </div>
               </div>
             )}
           </div>
@@ -758,6 +769,22 @@ export default function NewPropertyWizard() {
               )}
 
               <h3 style={{ marginTop: "16px", fontSize: "18px", fontWeight: 700 }}>{getPreviewTitle()}</h3>
+              
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", margin: "12px 0" }}>
+                <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                  📐 {size || "1200"} Sq.Ft
+                </span>
+                <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                  🛋️ {furnished}
+                </span>
+                <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                  🚿 {bathrooms} Baths
+                </span>
+                <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                  🚗 {parking}
+                </span>
+              </div>
+
               <p className="preview-price">
                 {purpose === "rent" ? "Expected Rent:" : "Expected Price:"} ₹{price || (purpose === "rent" ? "25,000 / Month" : "85,00,000")}
               </p>
