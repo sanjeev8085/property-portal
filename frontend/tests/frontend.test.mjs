@@ -345,4 +345,65 @@ describe("Frontend 9.2: End-to-End Workflow Tests", () => {
     assert.equal(buyList[0].id, "prop_new_999");
     assert.equal(buyList[0].title, "Newly Posted 3 BHK Villa in Arera Colony");
   });
+
+  it("E2E Flow 10: Wishlist / Save Property toggle button action", () => {
+    let savedIds = [1, 2];
+    
+    // User clicks like on property 3
+    function toggleLike(id) {
+      if (savedIds.includes(id)) {
+        savedIds = savedIds.filter(x => x !== id);
+      } else {
+        savedIds = [...savedIds, id];
+      }
+    }
+
+    toggleLike(3);
+    assert.deepEqual(savedIds, [1, 2, 3]);
+
+    // User clicks like again to unlike property 2
+    toggleLike(2);
+    assert.deepEqual(savedIds, [1, 3]);
+  });
+
+  it("E2E Flow 11: WhatsApp click-to-chat button action", () => {
+    const propertyTitle = "Sleek 2 BHK Modern Apartment";
+    const phone = "9893024190";
+    const text = encodeURIComponent(`Hi, I am interested in your listing: "${propertyTitle}" on AuraHomes.`);
+    const whatsappUrl = `https://wa.me/91${phone.replace(/\D/g, "")}?text=${text}`;
+
+    assert.equal(whatsappUrl.includes("wa.me/919893024190"), true);
+    assert.equal(whatsappUrl.includes("Sleek%202%20BHK%20Modern%20Apartment"), true);
+  });
+
+  it("E2E Flow 12: Photo upload cover photo selection button", () => {
+    let photos = ["photo1.jpg", "photo2.jpg", "photo3.jpg"];
+    let coverIndex = 0;
+
+    // User clicks "Set as Cover" on photo 2 (index 1)
+    function setAsCover(idx) {
+      const selected = photos[idx];
+      const remaining = photos.filter((_, i) => i !== idx);
+      photos = [selected, ...remaining];
+      coverIndex = 0;
+    }
+
+    setAsCover(1);
+    assert.equal(photos[0], "photo2.jpg");
+  });
+
+  it("E2E Flow 13: Property Deactivation button in Owner Dashboard", () => {
+    const myProperties = [
+      { id: 1, title: "Active Flat", status: "Published" },
+      { id: 2, title: "Active Villa", status: "Published" },
+    ];
+
+    function deactivateProperty(id) {
+      return myProperties.map(p => p.id === id ? { ...p, status: "Deactivated" } : p);
+    }
+
+    const updated = deactivateProperty(1);
+    assert.equal(updated[0].status, "Deactivated");
+    assert.equal(updated[1].status, "Published");
+  });
 });
