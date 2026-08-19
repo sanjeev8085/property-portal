@@ -82,56 +82,37 @@ async def health_check():
 
 @app.get("/reset-database", tags=["Admin"])
 @app.post("/reset-database", tags=["Admin"])
-async def root_reset_database():
+async def root_reset_database(db: AsyncSession = Depends(get_db)):
     """Purge all test properties, images, contacts, and reset database to clean fresh state."""
-    from sqlalchemy import text, select
-    from app.core.database import AsyncSessionLocal
+    from sqlalchemy import delete, select
+    from app.models.property import Property, PropertyImage
+    from app.models.monetization import ContactUnlock, Payment, Subscription
     from app.models.user import User, UserType, UserStatus
     from app.core.security import get_password_hash
 
-    tables_to_clear = [
-        "property_images",
-        "contact_unlocks",
-        "favorites",
-        "property_amenities",
-        "property_views",
-        "property_verifications",
-        "property_reports",
-        "notifications",
-        "payments",
-        "subscriptions",
-        "otps",
-        "saved_searches",
-        "properties",
-    ]
-
-    async with AsyncSessionLocal() as db:
-        for tbl in tables_to_clear:
-            try:
-                await db.execute(text(f"DELETE FROM {tbl};"))
-            except Exception:
-                await db.rollback()
-
-        try:
-            await db.execute(text("DELETE FROM users WHERE email != 'admin@aurahomes.in';"))
-        except Exception:
-            await db.rollback()
-
-        try:
-            admin_check = await db.execute(select(User).where(User.email == "admin@aurahomes.in"))
-            admin_user = admin_check.scalar_one_or_none()
-            if not admin_user:
-                admin_user = User(
-                    name="Super Admin",
-                    email="admin@aurahomes.in",
-                    mobile="9893000000",
-                    hashed_password=get_password_hash("Admin@12345"),
-                    user_type=UserType.ADMIN,
-                    status=UserStatus.ACTIVE,
-                )
-                db.add(admin_user)
-            await db.commit()
-            return {"status": "success", "message": "Database cleared successfully! Portal is fresh and clean."}
-        except Exception as e:
-            await db.rollback()
-            return {"status": "partial_success", "message": f"Reset executed with note: {str(e)}"}
+    try:
+        await db.execute(delete(PropertyImage))
+        await db.execute(delete(ContactUnlock))
+        await db.execute(delete(Payment))
+        await db.execute(delete(Subscription))
+        await db.execute(delete(Property))
+        await db.execute(delete(User).where(User.email != "admin@aurahomes.in"))
+        
+        admin_check = await db.execute(select(User).where(User.email == "admin@aurahomes.in"))
+        admin_user = admin_check.scalar_one_or_none()
+        if not admin_user:
+            admin_user = User(
+                name="Super Admin",
+                email="admin@aurahomes.in",
+                mobile="9893000000",
+                hashed_password=get_password_hash("Admin@12345"),
+                user_type=UserType.ADMIN,
+                status=UserStatus.ACTIVE,
+            )
+            db.add(admin_user)
+        
+        await db.commit()
+        return {"status": "success", "message": "Database cleared successfully! Portal is fresh and clean."}
+    except Exception as e:
+        await db.rollback()
+        return {"status": "error", "message": str(e)}
