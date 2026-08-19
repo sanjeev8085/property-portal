@@ -5,23 +5,65 @@ import React, { useState } from "react";
 export default function NewPropertyWizard() {
   const [step, setStep] = useState(1);
   
-  // Wizard Form States
+  // Step 1 & 2: Purpose & Type
   const [purpose, setPurpose] = useState<"rent" | "sell">("rent");
   const [propertyType, setPropertyType] = useState("Apartment");
+
+  // Step 3: Location
   const [city, setCity] = useState("Bhopal");
   const [area, setArea] = useState("");
   const [locality, setLocality] = useState("");
+
+  // Step 4: Residential Specs
   const [bhk, setBhk] = useState(2);
   const [size, setSize] = useState("");
   const [bathrooms, setBathrooms] = useState(2);
   const [furnished, setFurnished] = useState("Fully Furnished");
+  const [floor, setFloor] = useState("1st Floor");
+  const [balconies, setBalconies] = useState(1);
+
+  // Step 4: Commercial Shop Specs
+  const [frontage, setFrontage] = useState("15 ft");
+  const [shopFloor, setShopFloor] = useState("Ground Floor");
+  const [roadFacing, setRoadFacing] = useState("Main Road Facing (High Visibility)");
+  const [suitableFor, setSuitableFor] = useState("Retail Store / Showroom / Pharmacy");
+  const [shopWashroom, setShopWashroom] = useState("Private Washroom");
+
+  // Step 4: Office Space Specs
+  const [cabins, setCabins] = useState("2 Cabins");
+  const [workstations, setWorkstations] = useState("15-25 Workstations");
+  const [conferenceRoom, setConferenceRoom] = useState("Yes");
+  const [pantry, setPantry] = useState("Dry Pantry");
+  const [powerBackup, setPowerBackup] = useState("100% Full Power Backup");
+
+  // Step 4: Plot / Land Specs
+  const [dimensions, setDimensions] = useState("30 × 50 ft");
+  const [boundaryWall, setBoundaryWall] = useState("Yes (Constructed)");
+  const [cornerPlot, setCornerPlot] = useState("Corner Plot (Dual Road)");
+  const [facing, setFacing] = useState("East Facing");
+
+  // Step 4: Warehouse Specs
+  const [ceilingHeight, setCeilingHeight] = useState("24 ft");
+  const [loadingDocks, setLoadingDocks] = useState("2 Loading Bays");
+  const [truckAccess, setTruckAccess] = useState("Direct 40ft Container Access");
+
+  // Step 4: PG / Hostel Specs
+  const [pgFor, setPgFor] = useState("Any (Boys / Girls / Working)");
+  const [roomType, setRoomType] = useState("Single & Double Sharing");
+  const [foodIncluded, setFoodIncluded] = useState("Breakfast & Dinner Included");
+
+  // Step 5: Pricing
   const [price, setPrice] = useState("");
   const [deposit, setDeposit] = useState("");
   const [maintenance, setMaintenance] = useState("");
+
+  // Step 6 & 7: Photos & Description
   const [description, setDescription] = useState("");
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+
+  // Step 8: Contact
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
-  const [isAiGenerating, setIsAiGenerating] = useState(false);
 
   const stepsList = [
     "Purpose",
@@ -46,16 +88,48 @@ export default function NewPropertyWizard() {
   const handleAiGenerate = () => {
     setIsAiGenerating(true);
     setTimeout(() => {
-      setDescription(
-        `Stunning modern ${bhk} BHK ${propertyType} located in the premium locality of ${area || "Arera Colony"}, ${city}. Fully configured with ${furnished.toLowerCase()} finishes, spacious ${bathrooms} bathrooms, independent layout size of ${size || "1200"} sqft. Conveniently positioned near key landmarks and local shopping zones. Ready to move in.`
-      );
+      let generatedText = "";
+
+      if (propertyType === "Shop") {
+        generatedText = `Prime commercial retail shop with ${size || "650"} sqft carpet area situated in the prime high-footfall commercial corridor of ${area || "MP Nagar"}, ${city}. Features ${frontage} frontage on the ${shopFloor.toLowerCase()} with ${roadFacing.toLowerCase()}. Equipped with ${shopWashroom.toLowerCase()}, ideal for ${suitableFor.toLowerCase()}. Excellent visibility and customer footfall guaranteed.`;
+      } else if (propertyType === "Office Space") {
+        generatedText = `Modern commercial office space spanning ${size || "1500"} sqft in the prestigious business hub of ${area || "Arera Colony"}, ${city}. Fully setup with ${cabins}, ${workstations}, ${conferenceRoom === "Yes" ? "dedicated conference room" : "meeting zone"}, ${pantry.toLowerCase()}, and ${powerBackup.toLowerCase()}. Ready for immediate corporate setup.`;
+      } else if (propertyType === "Plot / Land") {
+        generatedText = `Premium residential / commercial plot measuring ${size || "1500"} sqft (${dimensions}) in the rapidly developing area of ${area || "Kolar Road"}, ${city}. Features ${facing}, ${boundaryWall === "Yes (Constructed)" ? "secure boundary wall" : "clear demarcation"}, and ${cornerPlot.toLowerCase()}. Clear legal titles, RERA compliant, ready for immediate registration & construction.`;
+      } else if (propertyType === "Warehouse") {
+        generatedText = `High-capacity industrial warehouse offering ${size || "5000"} sqft covered storage in ${area || "Industrial Area"}, ${city}. Features ${ceilingHeight} clear height, ${loadingDocks}, heavy-duty concrete flooring, and ${truckAccess.toLowerCase()}. Ideal for logistics, FMCG distribution, and 3PL operations.`;
+      } else if (propertyType === "PG / Hostel") {
+        generatedText = `Comfortable and fully-managed PG / Coliving space in ${area || "Indrapuri"}, ${city} available for ${pgFor.toLowerCase()}. Offers ${roomType.toLowerCase()} with ${foodIncluded.toLowerCase()}, high-speed Wi-Fi, 24/7 security, power backup, and daily housekeeping.`;
+      } else {
+        generatedText = `Stunning modern ${bhk} BHK ${propertyType} located in the premium residential locality of ${area || "Arera Colony"}, ${city}. Spans a spacious ${size || "1200"} sqft with ${furnished.toLowerCase()} finishes, ${bathrooms} bathrooms, ${balconies} balcony, positioned on the ${floor.toLowerCase()}. Excellent ventilation, 24/7 water supply, reserved parking, and close to top schools & shopping.`;
+      }
+
+      setDescription(generatedText);
       setIsAiGenerating(false);
-    }, 1500); // simulate delay
+    }, 1200);
   };
 
   const handlePublish = () => {
-    // Redirect to dashboard listings
     window.location.href = "/dashboard/properties";
+  };
+
+  const getPreviewTitle = () => {
+    if (propertyType === "Shop") {
+      return `${size || "650"} sqft Commercial Retail Shop in ${area || "MP Nagar"}, ${city}`;
+    }
+    if (propertyType === "Office Space") {
+      return `${size || "1500"} sqft Commercial Office Space in ${area || "Arera Colony"}, ${city}`;
+    }
+    if (propertyType === "Plot / Land") {
+      return `${size || "1500"} sqft ${facing} Plot / Land in ${area || "Kolar Road"}, ${city}`;
+    }
+    if (propertyType === "Warehouse") {
+      return `${size || "5000"} sqft Industrial Warehouse in ${area || "Industrial Area"}, ${city}`;
+    }
+    if (propertyType === "PG / Hostel") {
+      return `Premium PG / Coliving Space (${roomType}) in ${area || "Indrapuri"}, ${city}`;
+    }
+    return `${bhk} BHK ${propertyType} in ${area || "Arera Colony"}, ${city}`;
   };
 
   return (
@@ -76,7 +150,7 @@ export default function NewPropertyWizard() {
       </div>
 
       <div className="wizard-content-box premium-card">
-        {/* Step Content */}
+        {/* Step 1: Purpose */}
         {step === 1 && (
           <div className="step-content fade-in">
             <h2>Step 1 — Property Purpose</h2>
@@ -102,12 +176,13 @@ export default function NewPropertyWizard() {
           </div>
         )}
 
+        {/* Step 2: Property Type */}
         {step === 2 && (
           <div className="step-content fade-in">
             <h2>Step 2 — Property Type</h2>
-            <p className="step-intro-text">Select your property category.</p>
+            <p className="step-intro-text">Select your property category to customize the listing specifications.</p>
             <div className="type-grid">
-              {["Apartment", "Villa / House", "Independent Floor", "Plot / Land", "Office Space", "Shop", "Warehouse", "PG / Hostel"].map((t) => (
+              {["Apartment", "Villa / House", "Independent Floor", "Shop", "Office Space", "Plot / Land", "Warehouse", "PG / Hostel"].map((t) => (
                 <button 
                   key={t}
                   type="button" 
@@ -121,124 +196,362 @@ export default function NewPropertyWizard() {
           </div>
         )}
 
+        {/* Step 3: Location */}
         {step === 3 && (
           <div className="step-content fade-in">
-            <h2>Step 3 — Location</h2>
-            <p className="step-intro-text">Specify where your property is situated.</p>
+            <h2>Step 3 — Location Details</h2>
+            <p className="step-intro-text">Specify where your {propertyType} is situated.</p>
             <div className="form-grid">
               <div className="form-group">
                 <label>City</label>
-                <input type="text" value={city} onChange={(e) => setCity(e.target.value)} />
+                <input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="e.g. Bhopal" />
               </div>
               <div className="form-group">
-                <label>Area / Locality</label>
-                <input type="text" placeholder="e.g. Arera Colony" value={area} onChange={(e) => setArea(e.target.value)} />
+                <label>Area / Main Locality</label>
+                <input type="text" placeholder="e.g. Arera Colony, MP Nagar, Vijay Nagar" value={area} onChange={(e) => setArea(e.target.value)} />
               </div>
               <div className="form-group">
-                <label>Locality Sub-area</label>
-                <input type="text" placeholder="e.g. Sector E-5" value={locality} onChange={(e) => setLocality(e.target.value)} />
+                <label>Locality Sub-area / Sector</label>
+                <input type="text" placeholder="e.g. Zone-II, Sector E-5, Main Market" value={locality} onChange={(e) => setLocality(e.target.value)} />
               </div>
             </div>
           </div>
         )}
 
+        {/* Step 4: DYNAMIC SPECIFICATIONS BASED ON PROPERTY TYPE */}
         {step === 4 && (
           <div className="step-content fade-in">
-            <h2>Step 4 — Specifications</h2>
-            <p className="step-intro-text">Provide dimensions and layout counts.</p>
-            <div className="form-grid">
-              <div className="form-group">
-                <label>BHK Size</label>
-                <select value={bhk} onChange={(e) => setBhk(Number(e.target.value))}>
-                  <option value={1}>1 BHK</option>
-                  <option value={2}>2 BHK</option>
-                  <option value={3}>3 BHK</option>
-                  <option value={4}>4 BHK</option>
-                </select>
+            <h2>Step 4 — {propertyType} Specifications</h2>
+            <p className="step-intro-text">
+              Provide exact dimensions and features tailored for <strong>{propertyType}</strong>.
+            </p>
+
+            {/* RETAIL SHOP FORM */}
+            {propertyType === "Shop" && (
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>Carpet Area (sqft)</label>
+                  <input type="text" placeholder="e.g. 650" value={size} onChange={(e) => setSize(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Frontage / Shop Width</label>
+                  <input type="text" placeholder="e.g. 15 ft, 20 ft" value={frontage} onChange={(e) => setFrontage(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Floor Location</label>
+                  <select value={shopFloor} onChange={(e) => setShopFloor(e.target.value)}>
+                    <option value="Ground Floor">Ground Floor (Prime Access)</option>
+                    <option value="1st Floor">1st Floor</option>
+                    <option value="Basement">Basement Level</option>
+                    <option value="Mezzanine">Mezzanine Floor</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Road / Market Orientation</label>
+                  <select value={roadFacing} onChange={(e) => setRoadFacing(e.target.value)}>
+                    <option value="Main Road Facing (High Visibility)">Main Road Facing (High Visibility)</option>
+                    <option value="Inside Commercial Mall">Inside Commercial Mall / Complex</option>
+                    <option value="Market Lane / Corner">Market Lane / Corner Location</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Suitable Business Categories</label>
+                  <input type="text" placeholder="e.g. Retail Showroom, Pharmacy, Grocery, Cafe, Salon" value={suitableFor} onChange={(e) => setSuitableFor(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Washroom Availability</label>
+                  <select value={shopWashroom} onChange={(e) => setShopWashroom(e.target.value)}>
+                    <option value="Private Washroom">Private Washroom Inside Shop</option>
+                    <option value="Shared Complex Washroom">Shared Complex Washroom</option>
+                    <option value="No Washroom">No Dedicated Washroom</option>
+                  </select>
+                </div>
               </div>
-              <div className="form-group">
-                <label>Size (sqft)</label>
-                <input type="text" placeholder="e.g. 1200" value={size} onChange={(e) => setSize(e.target.value)} />
+            )}
+
+            {/* COMMERCIAL OFFICE SPACE FORM */}
+            {propertyType === "Office Space" && (
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>Total Office Area (sqft)</label>
+                  <input type="text" placeholder="e.g. 1800" value={size} onChange={(e) => setSize(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Private Cabins</label>
+                  <select value={cabins} onChange={(e) => setCabins(e.target.value)}>
+                    <option value="1 Cabin">1 Private Cabin</option>
+                    <option value="2 Cabins">2 Private Cabins</option>
+                    <option value="3+ Cabins">3+ Cabins</option>
+                    <option value="Open Hall Layout">Open Hall / Zero Cabins</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Workstation Capacity</label>
+                  <input type="text" placeholder="e.g. 15-25 Seats" value={workstations} onChange={(e) => setWorkstations(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Conference / Meeting Room</label>
+                  <select value={conferenceRoom} onChange={(e) => setConferenceRoom(e.target.value)}>
+                    <option value="Yes">Yes, Dedicated Conference Room</option>
+                    <option value="No">No Meeting Room</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Pantry & Cafeteria</label>
+                  <select value={pantry} onChange={(e) => setPantry(e.target.value)}>
+                    <option value="Dry Pantry">Dry Pantry (Tea/Coffee Station)</option>
+                    <option value="Wet Pantry">Wet Pantry with Sink & Cabinets</option>
+                    <option value="Shared Cafeteria">Shared Complex Cafeteria</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Power Backup</label>
+                  <select value={powerBackup} onChange={(e) => setPowerBackup(e.target.value)}>
+                    <option value="100% Full Power Backup">100% Full DG Power Backup</option>
+                    <option value="Partial Backup">Partial Inverter Backup</option>
+                    <option value="None">None</option>
+                  </select>
+                </div>
               </div>
-              <div className="form-group">
-                <label>Bathrooms</label>
-                <select value={bathrooms} onChange={(e) => setBathrooms(Number(e.target.value))}>
-                  <option value={1}>1 Bath</option>
-                  <option value={2}>2 Baths</option>
-                  <option value={3}>3 Baths</option>
-                </select>
+            )}
+
+            {/* PLOT / LAND FORM */}
+            {propertyType === "Plot / Land" && (
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>Plot Area (sqft / sq yards)</label>
+                  <input type="text" placeholder="e.g. 1500 sqft (166 sq yards)" value={size} onChange={(e) => setSize(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Dimensions (Length × Breadth)</label>
+                  <input type="text" placeholder="e.g. 30 × 50 ft" value={dimensions} onChange={(e) => setDimensions(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Boundary Wall</label>
+                  <select value={boundaryWall} onChange={(e) => setBoundaryWall(e.target.value)}>
+                    <option value="Yes (Constructed)">Yes (Full Boundary Wall Constructed)</option>
+                    <option value="Demarcated Only">Demarcated / Pillars Only</option>
+                    <option value="Open Plot">Open Plot</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Corner Plot / Road Width</label>
+                  <select value={cornerPlot} onChange={(e) => setCornerPlot(e.target.value)}>
+                    <option value="Corner Plot (Dual Road)">Corner Plot (Dual Road Access)</option>
+                    <option value="Standard Main Road Plot">Standard Plot (30ft+ Front Road)</option>
+                    <option value="Gated Colony Plot">Gated Colony Plot</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Plot Facing Direction</label>
+                  <select value={facing} onChange={(e) => setFacing(e.target.value)}>
+                    <option value="East Facing">East Facing (Auspicious / Vastu Compliant)</option>
+                    <option value="North Facing">North Facing</option>
+                    <option value="West Facing">West Facing</option>
+                    <option value="South Facing">South Facing</option>
+                  </select>
+                </div>
               </div>
-              <div className="form-group">
-                <label>Furnished Status</label>
-                <select value={furnished} onChange={(e) => setFurnished(e.target.value)}>
-                  <option value="Fully Furnished">Fully Furnished</option>
-                  <option value="Semi Furnished">Semi Furnished</option>
-                  <option value="Unfurnished">Unfurnished</option>
-                </select>
+            )}
+
+            {/* INDUSTRIAL WAREHOUSE FORM */}
+            {propertyType === "Warehouse" && (
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>Covered Storage Area (sqft)</label>
+                  <input type="text" placeholder="e.g. 5000" value={size} onChange={(e) => setSize(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Clear Ceiling Height (ft)</label>
+                  <input type="text" placeholder="e.g. 24 ft, 30 ft" value={ceilingHeight} onChange={(e) => setCeilingHeight(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Loading Docks / Bays</label>
+                  <select value={loadingDocks} onChange={(e) => setLoadingDocks(e.target.value)}>
+                    <option value="1 Loading Bay">1 Loading Bay</option>
+                    <option value="2 Loading Bays">2 Loading Bays</option>
+                    <option value="4+ Loading Bays">4+ Loading Bays</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Truck & Trailer Access</label>
+                  <select value={truckAccess} onChange={(e) => setTruckAccess(e.target.value)}>
+                    <option value="Direct 40ft Container Access">Direct 40ft Multi-Axle Container Access</option>
+                    <option value="Standard Truck Access">Standard 20ft Truck Access</option>
+                  </select>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* PG / HOSTEL FORM */}
+            {propertyType === "PG / Hostel" && (
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>Available For</label>
+                  <select value={pgFor} onChange={(e) => setPgFor(e.target.value)}>
+                    <option value="Any (Boys / Girls / Working)">Any (Boys / Girls / Working)</option>
+                    <option value="Boys Only">Boys / Male Professionals Only</option>
+                    <option value="Girls Only">Girls / Female Students Only</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Room Sharing Options</label>
+                  <select value={roomType} onChange={(e) => setRoomType(e.target.value)}>
+                    <option value="Single & Double Sharing">Single & Double Sharing</option>
+                    <option value="Single Private Room Only">Single Private Room Only</option>
+                    <option value="Triple / Dormitory Sharing">Triple / Dormitory Sharing</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Food & Mess Facilities</label>
+                  <select value={foodIncluded} onChange={(e) => setFoodIncluded(e.target.value)}>
+                    <option value="Breakfast & Dinner Included">Breakfast & Dinner Included</option>
+                    <option value="All 3 Meals Included">All 3 Meals (Breakfast, Lunch, Dinner)</option>
+                    <option value="Self Cooking / No Food">Self Cooking / Kitchen Access</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* STANDARD RESIDENTIAL FORM (Apartment, Villa, Independent Floor) */}
+            {["Apartment", "Villa / House", "Independent Floor"].includes(propertyType) && (
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>BHK Configuration</label>
+                  <select value={bhk} onChange={(e) => setBhk(Number(e.target.value))}>
+                    <option value={1}>1 BHK</option>
+                    <option value={2}>2 BHK</option>
+                    <option value={3}>3 BHK</option>
+                    <option value={4}>4 BHK</option>
+                    <option value={5}>5+ BHK / Penthouse</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Carpet Area (sqft)</label>
+                  <input type="text" placeholder="e.g. 1200" value={size} onChange={(e) => setSize(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Number of Bathrooms</label>
+                  <select value={bathrooms} onChange={(e) => setBathrooms(Number(e.target.value))}>
+                    <option value={1}>1 Bathroom</option>
+                    <option value={2}>2 Bathrooms</option>
+                    <option value={3}>3 Bathrooms</option>
+                    <option value={4}>4+ Bathrooms</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Furnished Status</label>
+                  <select value={furnished} onChange={(e) => setFurnished(e.target.value)}>
+                    <option value="Fully Furnished">Fully Furnished</option>
+                    <option value="Semi Furnished">Semi Furnished</option>
+                    <option value="Unfurnished">Unfurnished</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Floor Level</label>
+                  <select value={floor} onChange={(e) => setFloor(e.target.value)}>
+                    <option value="Ground Floor">Ground Floor</option>
+                    <option value="1st Floor">1st Floor</option>
+                    <option value="2nd to 4th Floor">2nd to 4th Floor</option>
+                    <option value="5th Floor and Above">5th Floor and Above</option>
+                    <option value="Top Floor / Penthouse">Top Floor / Penthouse</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Balconies</label>
+                  <select value={balconies} onChange={(e) => setBalconies(Number(e.target.value))}>
+                    <option value={0}>0 Balconies</option>
+                    <option value={1}>1 Balcony</option>
+                    <option value={2}>2 Balconies</option>
+                    <option value={3}>3+ Balconies</option>
+                  </select>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
+        {/* Step 5: Pricing */}
         {step === 5 && (
           <div className="step-content fade-in">
-            <h2>Step 5 — Pricing</h2>
-            <p className="step-intro-text">Specify details relating to expected price.</p>
+            <h2>Step 5 — Pricing & Financials</h2>
+            <p className="step-intro-text">Specify details relating to expected price for your {propertyType}.</p>
             <div className="form-grid">
               <div className="form-group">
-                <label>{purpose === "rent" ? "Expected Rent / Month" : "Expected Price"}</label>
-                <input type="text" placeholder="e.g. 22000" value={price} onChange={(e) => setPrice(e.target.value)} />
+                <label>{purpose === "rent" ? "Expected Monthly Rent (₹)" : "Expected Total Price (₹)"}</label>
+                <input type="text" placeholder={purpose === "rent" ? "e.g. 25000" : "e.g. 8500000"} value={price} onChange={(e) => setPrice(e.target.value)} />
               </div>
-              <div className="form-group">
-                <label>Security Deposit</label>
-                <input type="text" placeholder="e.g. 44000" value={deposit} onChange={(e) => setDeposit(e.target.value)} />
-              </div>
-              <div className="form-group">
-                <label>Monthly Maintenance</label>
-                <input type="text" placeholder="e.g. 1500" value={maintenance} onChange={(e) => setMaintenance(e.target.value)} />
-              </div>
+              {purpose === "rent" ? (
+                <>
+                  <div className="form-group">
+                    <label>Security Deposit (₹)</label>
+                    <input type="text" placeholder="e.g. 50000" value={deposit} onChange={(e) => setDeposit(e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label>Monthly Maintenance (₹)</label>
+                    <input type="text" placeholder="e.g. 1500" value={maintenance} onChange={(e) => setMaintenance(e.target.value)} />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="form-group">
+                    <label>Booking / Token Amount (₹)</label>
+                    <input type="text" placeholder="e.g. 100000" value={deposit} onChange={(e) => setDeposit(e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label>Price Negotiable?</label>
+                    <select>
+                      <option value="yes">Yes, Slightly Negotiable</option>
+                      <option value="fixed">Fixed Price</option>
+                    </select>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
 
+        {/* Step 6: Photos */}
         {step === 6 && (
           <div className="step-content fade-in">
             <h2>Step 6 — Photos Upload</h2>
-            <p className="step-intro-text">Upload listing photos (drag & drop simulation).</p>
+            <p className="step-intro-text">Upload high-quality images of your {propertyType}.</p>
             <div className="photo-upload-zone">
               <span className="upload-icon">📸</span>
               <p>Drag and drop property images here, or click to upload</p>
-              <span className="file-hint">Supported formats: JPG, PNG. Max size: 5MB per file.</span>
+              <span className="file-hint">Supported formats: JPG, PNG, WebP. High resolution photos receive 3x more contact unlocks.</span>
             </div>
           </div>
         )}
 
+        {/* Step 7: Description */}
         {step === 7 && (
           <div className="step-content fade-in">
             <h2>Step 7 — Description</h2>
-            <p className="step-intro-text">Write a detailed summary of your listing space.</p>
+            <p className="step-intro-text">Write a detailed summary of your {propertyType}.</p>
             
             <div className="ai-assist-box">
               <button type="button" className="btn-secondary" onClick={handleAiGenerate} disabled={isAiGenerating}>
-                {isAiGenerating ? "Generating description..." : "✨ Generate Description with AI"}
+                {isAiGenerating ? "Generating description..." : `✨ Generate ${propertyType} Description with AI`}
               </button>
-              <span className="ai-hint">Converts your step specs into a highly converting professional write-up.</span>
+              <span className="ai-hint">Converts your specifications into a high-converting property write-up.</span>
             </div>
 
             <textarea 
               rows={6}
               className="desc-textarea"
-              placeholder="Tell buyers/tenants about unique points of your property..."
+              placeholder={`Tell buyers/tenants about unique points of your ${propertyType}...`}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
         )}
 
+        {/* Step 8: Contact */}
         {step === 8 && (
           <div className="step-content fade-in">
             <h2>Step 8 — Contact Details</h2>
-            <p className="step-intro-text">Confirm owner/agent profile details.</p>
+            <p className="step-intro-text">Confirm owner / agent profile details for lead unlocks.</p>
             <div className="form-grid">
               <div className="form-group">
                 <label>Contact Name</label>
@@ -246,21 +559,24 @@ export default function NewPropertyWizard() {
               </div>
               <div className="form-group">
                 <label>Mobile Number (For verification)</label>
-                <input type="text" placeholder="e.g. 9893024190" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
+                <input type="tel" placeholder="e.g. 9893024190" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
               </div>
             </div>
           </div>
         )}
 
+        {/* Step 9: Preview & Publish */}
         {step === 9 && (
           <div className="step-content fade-in">
             <h2>Step 9 — Preview & Publish</h2>
-            <p className="step-intro-text">Your property is ready to go live! Review summary below.</p>
+            <p className="step-intro-text">Your property listing is ready to go live! Review summary below.</p>
             
             <div className="preview-summary-card premium-card">
-              <h3>{bhk} BHK {propertyType} in {area || "Arera Colony"}, {city}</h3>
-              <p className="preview-price">{purpose === "rent" ? "Rent:" : "Price:"} ₹{price || "22,000"} / Month</p>
-              <p className="preview-desc-snippet">{description || "No description provided yet."}</p>
+              <h3>{getPreviewTitle()}</h3>
+              <p className="preview-price">
+                {purpose === "rent" ? "Expected Rent:" : "Expected Price:"} ₹{price || (purpose === "rent" ? "25,000 / Month" : "85,00,000")}
+              </p>
+              <p className="preview-desc-snippet">{description || "No description generated yet."}</p>
             </div>
 
             <div className="publish-disclosures">
@@ -299,7 +615,6 @@ export default function NewPropertyWizard() {
           padding: 40px 24px;
         }
         
-        /* Progress Bar Header */
         .wizard-progress-bar {
           padding: 24px;
           margin-bottom: 30px;
@@ -348,7 +663,6 @@ export default function NewPropertyWizard() {
           color: white;
         }
         
-        /* Wizard Content Box */
         .wizard-content-box {
           padding: 40px;
         }
@@ -361,7 +675,6 @@ export default function NewPropertyWizard() {
           margin-bottom: 30px;
         }
         
-        /* Step 1 Purpose buttons */
         .purpose-select-grid {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
@@ -380,6 +693,8 @@ export default function NewPropertyWizard() {
           align-items: center;
           gap: 16px;
           transition: var(--transition-normal);
+          cursor: pointer;
+          background: var(--surface);
         }
         .purpose-btn:hover {
           border-color: var(--primary);
@@ -394,7 +709,6 @@ export default function NewPropertyWizard() {
           font-size: 36px;
         }
         
-        /* Step 2 Type Button Grid */
         .type-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -409,6 +723,7 @@ export default function NewPropertyWizard() {
           background: var(--surface);
           text-align: center;
           transition: var(--transition-fast);
+          cursor: pointer;
         }
         .type-btn:hover, .type-btn.selected {
           border-color: var(--primary);
@@ -416,7 +731,6 @@ export default function NewPropertyWizard() {
           background: var(--primary-light);
         }
         
-        /* Form Grids */
         .form-grid {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
@@ -438,9 +752,13 @@ export default function NewPropertyWizard() {
           border: 1px solid var(--border);
           background: var(--surface);
           color: var(--text-primary);
+          font-size: 14px;
+          outline: none;
+        }
+        .form-group input:focus, .form-group select:focus {
+          border-color: var(--primary);
         }
         
-        /* Photo Zone */
         .photo-upload-zone {
           padding: 60px 40px;
           border: 2px dashed var(--border);
@@ -461,12 +779,12 @@ export default function NewPropertyWizard() {
           margin-top: 10px;
         }
         
-        /* AI Assist Box */
         .ai-assist-box {
           display: flex;
           align-items: center;
           gap: 12px;
           margin-bottom: 16px;
+          flex-wrap: wrap;
         }
         .ai-hint {
           font-size: 12px;
@@ -480,12 +798,19 @@ export default function NewPropertyWizard() {
           background: var(--surface);
           color: var(--text-primary);
           font-family: var(--font-body);
+          font-size: 14px;
+          line-height: 1.6;
+          outline: none;
+        }
+        .desc-textarea:focus {
+          border-color: var(--primary);
         }
         
         .preview-summary-card {
           padding: 24px;
           background: var(--primary-light);
           border-color: var(--primary);
+          border-radius: var(--radius-md);
         }
         .preview-price {
           font-size: 20px;
@@ -496,6 +821,7 @@ export default function NewPropertyWizard() {
         .preview-desc-snippet {
           font-size: 14px;
           line-height: 1.6;
+          color: var(--text-secondary);
         }
         .publish-disclosures {
           margin-top: 24px;
@@ -503,7 +829,6 @@ export default function NewPropertyWizard() {
           color: var(--text-muted);
         }
         
-        /* Controls Footer */
         .wizard-controls-row {
           display: flex;
           justify-content: space-between;
@@ -544,10 +869,10 @@ export default function NewPropertyWizard() {
             padding: 36px 16px;
           }
           .purpose-select-grid,
-          .type-select-grid,
-          .furnishing-grid {
+          .type-grid,
+          .form-grid {
             grid-template-columns: 1fr !important;
-            gap: 10px;
+            gap: 12px;
           }
           .wizard-controls-row {
             margin-top: 24px;

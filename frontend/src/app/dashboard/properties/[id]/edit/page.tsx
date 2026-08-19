@@ -16,6 +16,10 @@ export default function EditPropertyPage({ params }: { params: Promise<{ id: str
   const [bhk, setBhk] = useState("2");
   const [area, setArea] = useState("");
   const [bathrooms, setBathrooms] = useState("2");
+  const [frontage, setFrontage] = useState("15 ft");
+  const [shopFloor, setShopFloor] = useState("Ground Floor");
+  const [suitableFor, setSuitableFor] = useState("Retail Showroom / Pharmacy");
+  const [cabins, setCabins] = useState("2 Cabins");
   const [description, setDescription] = useState("");
 
   const [loading, setLoading] = useState(true);
@@ -30,20 +34,21 @@ export default function EditPropertyPage({ params }: { params: Promise<{ id: str
         setTitle(data.title);
         setPrice(data.price.toString());
         setPurpose(data.purpose);
-        setPropertyType(data.property_type);
+        setPropertyType(data.property_type || "Apartment");
         setBhk(data.bhk?.toString() || "2");
         setArea(data.area_sqft?.toString() || "");
         setBathrooms(data.bathrooms?.toString() || "2");
+        setDescription(data.description || "");
       } catch {
-        // Mock fallback to allow demo usage offline
-        setTitle("Luxury Penthouse in Arera Colony");
-        setPrice("12500000");
-        setPurpose("sell");
-        setPropertyType("Penthouse");
-        setBhk("4");
-        setArea("3200");
-        setBathrooms("4");
-        setDescription("Premium, top-floor luxury penthouse with panoramic city views, modern fittings, and private terrace.");
+        // Fallback for offline demo usage
+        setTitle("Commercial Retail Space in MP Nagar");
+        setPrice("45000");
+        setPurpose("rent");
+        setPropertyType("Shop");
+        setArea("650");
+        setFrontage("18 ft");
+        setShopFloor("Ground Floor");
+        setDescription("Prime commercial shop on the main commercial market road with high footfall.");
       } finally {
         setLoading(false);
       }
@@ -57,21 +62,19 @@ export default function EditPropertyPage({ params }: { params: Promise<{ id: str
     setErrorMsg("");
     setSuccessMsg("");
     try {
-      // Send updates
       await api.createProperty({
         title,
-        price: parseFloat(price),
+        price: parseFloat(price) || 0,
         purpose,
         category,
         property_type: propertyType,
-        bhk: parseInt(bhk),
-        area_sqft: parseFloat(area),
-        bathrooms: parseInt(bathrooms),
+        bhk: ["Apartment", "Villa / House", "Independent Floor"].includes(propertyType) ? parseInt(bhk) : 0,
+        area_sqft: parseFloat(area) || 0,
+        bathrooms: ["Apartment", "Villa / House", "Independent Floor"].includes(propertyType) ? parseInt(bathrooms) : 0,
         description
       });
       setSuccessMsg("Property details updated successfully!");
-    } catch (err: any) {
-      // Fallback update indicator
+    } catch {
       setSuccessMsg("Property details updated successfully! (Simulated)");
     } finally {
       setSaving(false);
@@ -80,12 +83,16 @@ export default function EditPropertyPage({ params }: { params: Promise<{ id: str
 
   if (loading) return <div style={{ padding: "40px", textAlign: "center" }}>Loading Property Editor...</div>;
 
+  const isResidential = ["Apartment", "Villa / House", "Independent Floor"].includes(propertyType);
+  const isShop = propertyType === "Shop";
+  const isOffice = propertyType === "Office Space";
+
   return (
     <div className="wizard-page-container fade-in">
-      <div className="header-row">
+      <div className="header-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
         <div>
-          <h1>Edit Property Listing</h1>
-          <p>Modify and update your property details on AuraHomes.</p>
+          <h1>Edit {propertyType} Listing</h1>
+          <p style={{ color: "var(--text-secondary)", fontSize: "14px" }}>Modify specifications and pricing for this listing.</p>
         </div>
         <a href="/dashboard/properties" className="btn-secondary">
           ← Cancel & Back
@@ -93,7 +100,7 @@ export default function EditPropertyPage({ params }: { params: Promise<{ id: str
       </div>
 
       <div className="premium-card wizard-content-box" style={{ padding: "32px" }}>
-        <form onSubmit={handleSubmit} className="register-form" style={{ gap: "24px" }}>
+        <form onSubmit={handleSubmit} className="register-form" style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
           
           {successMsg && (
             <div style={{ background: "var(--primary-light)", color: "var(--primary)", padding: "14px", borderRadius: "var(--radius-md)", fontWeight: "700" }}>
@@ -114,14 +121,30 @@ export default function EditPropertyPage({ params }: { params: Promise<{ id: str
 
           <div className="form-grid">
             <div className="form-group">
-              <label>Purpose</label>
-              <select value={purpose} onChange={(e) => setPurpose(e.target.value)}>
-                <option value="rent">Rent Out</option>
-                <option value="sell">Sell Property</option>
+              <label>Property Category / Type</label>
+              <select value={propertyType} onChange={(e) => setPropertyType(e.target.value)} disabled={saving}>
+                <option value="Apartment">Apartment</option>
+                <option value="Villa / House">Villa / House</option>
+                <option value="Independent Floor">Independent Floor</option>
+                <option value="Shop">Shop (Commercial Retail)</option>
+                <option value="Office Space">Office Space</option>
+                <option value="Plot / Land">Plot / Land</option>
+                <option value="Warehouse">Warehouse</option>
+                <option value="PG / Hostel">PG / Hostel</option>
               </select>
             </div>
             <div className="form-group">
-              <label>Expected Price (₹)</label>
+              <label>Purpose</label>
+              <select value={purpose} onChange={(e) => setPurpose(e.target.value)} disabled={saving}>
+                <option value="rent">Rent Out / Lease</option>
+                <option value="sell">Sell Property</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="form-grid">
+            <div className="form-group">
+              <label>{purpose === "rent" ? "Expected Monthly Rent (₹)" : "Expected Total Price (₹)"}</label>
               <input 
                 type="number" 
                 required
@@ -130,21 +153,8 @@ export default function EditPropertyPage({ params }: { params: Promise<{ id: str
                 onChange={(e) => setPrice(e.target.value)}
               />
             </div>
-          </div>
-
-          <div className="form-grid">
             <div className="form-group">
-              <label>BHK Count</label>
-              <input 
-                type="number" 
-                required
-                disabled={saving}
-                value={bhk}
-                onChange={(e) => setBhk(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label>Super Area (Sq.Ft)</label>
+              <label>Total / Carpet Area (Sq.Ft)</label>
               <input 
                 type="number" 
                 required
@@ -154,6 +164,89 @@ export default function EditPropertyPage({ params }: { params: Promise<{ id: str
               />
             </div>
           </div>
+
+          {/* DYNAMIC SPECS FOR RESIDENTIAL */}
+          {isResidential && (
+            <div className="form-grid">
+              <div className="form-group">
+                <label>BHK Configuration</label>
+                <select value={bhk} onChange={(e) => setBhk(e.target.value)} disabled={saving}>
+                  <option value="1">1 BHK</option>
+                  <option value="2">2 BHK</option>
+                  <option value="3">3 BHK</option>
+                  <option value="4">4 BHK</option>
+                  <option value="5">5+ BHK</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Bathrooms</label>
+                <select value={bathrooms} onChange={(e) => setBathrooms(e.target.value)} disabled={saving}>
+                  <option value="1">1 Bathroom</option>
+                  <option value="2">2 Bathrooms</option>
+                  <option value="3">3 Bathrooms</option>
+                  <option value="4">4+ Bathrooms</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* DYNAMIC SPECS FOR SHOP */}
+          {isShop && (
+            <div className="form-grid">
+              <div className="form-group">
+                <label>Shop Frontage / Width</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. 18 ft"
+                  value={frontage}
+                  onChange={(e) => setFrontage(e.target.value)}
+                  disabled={saving}
+                />
+              </div>
+              <div className="form-group">
+                <label>Floor Location</label>
+                <select value={shopFloor} onChange={(e) => setShopFloor(e.target.value)} disabled={saving}>
+                  <option value="Ground Floor">Ground Floor</option>
+                  <option value="1st Floor">1st Floor</option>
+                  <option value="Basement">Basement Level</option>
+                  <option value="Mezzanine">Mezzanine Floor</option>
+                </select>
+              </div>
+              <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                <label>Suitable Business Categories</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. Retail Showroom, Pharmacy, Grocery, Cafe, Salon"
+                  value={suitableFor}
+                  onChange={(e) => setSuitableFor(e.target.value)}
+                  disabled={saving}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* DYNAMIC SPECS FOR OFFICE SPACE */}
+          {isOffice && (
+            <div className="form-grid">
+              <div className="form-group">
+                <label>Private Cabins</label>
+                <select value={cabins} onChange={(e) => setCabins(e.target.value)} disabled={saving}>
+                  <option value="1 Cabin">1 Cabin</option>
+                  <option value="2 Cabins">2 Cabins</option>
+                  <option value="3+ Cabins">3+ Cabins</option>
+                  <option value="Open Hall Layout">Open Hall Layout</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Power Backup</label>
+                <select disabled={saving}>
+                  <option value="100% DG Backup">100% Full DG Backup</option>
+                  <option value="Partial Backup">Partial Inverter Backup</option>
+                  <option value="None">None</option>
+                </select>
+              </div>
+            </div>
+          )}
 
           <div className="form-group">
             <label>Property Description</label>
