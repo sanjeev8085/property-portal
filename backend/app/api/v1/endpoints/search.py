@@ -25,8 +25,8 @@ async def search_properties(
     db: AsyncSession = Depends(get_db),
 ):
     """Search and filter properties."""
-    # We query all properties that are published
-    query = select(Property).where(Property.status == PropertyStatus.PUBLISHED)
+    # Query properties that are active/published and not deactivated
+    query = select(Property).where(Property.status.in_([PropertyStatus.PUBLISHED, PropertyStatus.PENDING_APPROVAL]))
 
     # Join with locations if filtering by city
     if city:
