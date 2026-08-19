@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Avatar from "@/components/ui/Avatar";
 import { useToast } from "@/lib/useToast";
 import { extractIdFromSlug } from "@/lib/slug";
+import { getPublishedProperties, StoredProperty } from "@/lib/propertyStore";
 
 export default function PropertyDetailsPage() {
   const params = useParams();
@@ -15,30 +16,39 @@ export default function PropertyDetailsPage() {
   const [showPlansModal, setShowPlansModal] = useState(false);
   const [credits, setCredits] = useState(0);
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [customProp, setCustomProp] = useState<StoredProperty | null>(null);
   const { success, info } = useToast();
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://aurahomes.in";
 
+  useEffect(() => {
+    const published = getPublishedProperties();
+    const found = published.find(p => p.id.toString() === propertyId.toString());
+    if (found) {
+      setCustomProp(found);
+    }
+  }, [propertyId]);
+
   const propertyDetails = {
-    id: propertyId || "12345",
-    title: "Sleek 2 BHK Modern Apartment in Arera Colony",
-    price: "₹22,000 / Month",
-    rawPrice: 22000,
+    id: customProp?.id || propertyId || "12345",
+    title: customProp?.title || "Sleek 2 BHK Modern Apartment in Arera Colony",
+    price: customProp?.price || "₹22,000 / Month",
+    rawPrice: customProp?.priceNum || 22000,
     currency: "INR",
-    deposit: "₹44,000",
+    deposit: customProp?.purpose === "rent" ? "₹50,000" : "₹1,00,000",
     maintenance: "₹1,500",
-    location: "Arera Colony, Bhopal",
+    location: customProp?.location || "Arera Colony, Bhopal",
     city: "Bhopal",
     state: "Madhya Pradesh",
     postalCode: "462016",
-    size: "1200 Sq Ft",
-    furnished: "Fully Furnished",
-    bathrooms: 2,
-    bedrooms: 2,
-    parking: 1,
-    posted: "Posted 2 hours ago",
-    description: "Located in the heart of Arera Colony, this stunning 2 BHK penthouse features double balconies, premium Italian marble flooring, complete teak-wood woodwork, fully integrated modular kitchen with branded chimneys, and independent secure covered parking. Just a 2-minute walk from local market and organic grocery stores. Perfect for working professionals or small families looking for high-quality, secure residential spaces.",
-    imageUrl: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1200&h=675&q=80",
+    size: customProp?.size ? `${customProp.size} Sq Ft` : "1200 Sq Ft",
+    furnished: customProp?.furnished || "Fully Furnished",
+    bathrooms: customProp?.bathrooms || 2,
+    bedrooms: customProp?.bhk || 2,
+    parking: customProp?.parking || "1 Covered Car Parking",
+    posted: "Posted recently",
+    description: customProp?.description || "Located in the heart of Arera Colony, this stunning 2 BHK penthouse features double balconies, premium Italian marble flooring, complete teak-wood woodwork, fully integrated modular kitchen with branded chimneys, and independent secure covered parking. Perfect for buyers or tenants looking for high-quality spaces.",
+    imageUrl: customProp?.image || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1200&h=675&q=80",
     amenities: [
       { name: "Parking Space", icon: "🚗" },
       { name: "24x7 Security", icon: "🛡️" },
@@ -48,12 +58,12 @@ export default function PropertyDetailsPage() {
       { name: "Gymnasium", icon: "🏋️" }
     ],
     owner: {
-      name: "Rahul Sharma",
+      name: customProp?.contactName || "Rahul Sharma",
       status: "Verified Owner",
       memberSince: "Member since 2026",
       phone: "+91 98930 XXXXX",
-      unlockedPhone: "+91 98930 24190",
-      email: "rahul.sharma@example.com",
+      unlockedPhone: customProp?.contactPhone ? `+91 ${customProp.contactPhone}` : "+91 98930 24190",
+      email: "owner@aurahomes.in",
     }
   };
 

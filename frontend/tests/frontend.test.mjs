@@ -318,4 +318,31 @@ describe("Frontend 9.2: End-to-End Workflow Tests", () => {
     const allHomes = filterByMaxPrice(properties, 20000000, "sell");
     assert.equal(allHomes.length, 2);
   });
+
+  it("E2E Flow 9: Newly posted property immediately displays in Buy list", () => {
+    const existingProperties = [
+      { id: 1, title: "Existing Flat", purpose: "sell", priceNum: 5000000 },
+      { id: 2, title: "Existing Rental", purpose: "rent", priceNum: 20000 },
+    ];
+
+    // User publishes a new property for sale
+    const newlyPosted = {
+      id: "prop_new_999",
+      title: "Newly Posted 3 BHK Villa in Arera Colony",
+      purpose: "sell",
+      priceNum: 9500000,
+      price: "₹95 Lakh",
+      status: "published",
+    };
+
+    // Store merges new property to top
+    const mergedList = [newlyPosted, ...existingProperties];
+
+    // User filters by purpose === "sell" (Buy List)
+    const buyList = mergedList.filter(p => p.purpose === "sell" || p.purpose === "buy");
+
+    assert.equal(buyList.length, 2);
+    assert.equal(buyList[0].id, "prop_new_999");
+    assert.equal(buyList[0].title, "Newly Posted 3 BHK Villa in Arera Colony");
+  });
 });

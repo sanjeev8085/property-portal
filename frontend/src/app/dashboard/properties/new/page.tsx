@@ -2,6 +2,8 @@
 
 import React, { useState, useRef } from "react";
 import { useToast } from "@/lib/useToast";
+import { savePublishedProperty } from "@/lib/propertyStore";
+import { api } from "@/lib/api";
 
 export default function NewPropertyWizard() {
   const [step, setStep] = useState(1);
@@ -203,11 +205,75 @@ export default function NewPropertyWizard() {
     }, 1200);
   };
 
-  const handlePublish = () => {
-    success("Property published successfully! Redirecting to your dashboard...");
+  const handlePublish = async () => {
+    const propertyId = Date.now();
+    const finalPriceNum = parseFloat(price) || (purpose === "rent" ? 25000 : 8500000);
+    const finalPriceStr = purpose === "rent" 
+      ? `₹${finalPriceNum.toLocaleString("en-IN")} / Month`
+      : (finalPriceNum >= 10000000 
+          ? `₹${(finalPriceNum / 10000000).toFixed(2)} Cr` 
+          : `₹${(finalPriceNum / 100000).toFixed(0)} Lakh`);
+
+    let specsSummary = "";
+    if (propertyType === "Shop") {
+      specsSummary = `${size || "650"} sqft | ${frontage} Front | ${shopFloor} | ${parking || "Roadside Parking"}`;
+    } else if (propertyType === "Office Space") {
+      specsSummary = `${size || "1500"} sqft | ${cabins} | ${workstations} | ${parking}`;
+    } else if (propertyType === "Plot / Land") {
+      specsSummary = `${size || "1500"} sqft | ${dimensions} | ${facing}`;
+    } else {
+      specsSummary = `${bhk} Beds | ${bathrooms} Baths | ${size || "1200"} sqft | ${parking}`;
+    }
+
+    const newPropertyObj = {
+      id: propertyId,
+      title: getPreviewTitle(),
+      price: finalPriceStr,
+      priceNum: finalPriceNum,
+      purpose: purpose,
+      type: propertyType,
+      bhk: ["Apartment", "Villa / House", "Independent Floor"].includes(propertyType) ? bhk : 0,
+      bathrooms: bathrooms,
+      furnished: furnished,
+      parking: parking,
+      size: size || (purpose === "rent" ? "1200" : "1500"),
+      location: `${locality ? locality + ", " : ""}${area || "Arera Colony"}, ${city}`,
+      specs: specsSummary,
+      image: photos[0] || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80",
+      photos: photos,
+      description: description || "Verified listing posted by owner on AuraHomes portal.",
+      contactName: contactName || "Property Owner",
+      contactPhone: contactPhone || "9893024190",
+      created_at: new Date().toISOString(),
+      views: 1,
+      leads: 0,
+      status: "published",
+    };
+
+    // Save to persistent client store so it appears in Search, Buy, Rent, and Dashboard
+    savePublishedProperty(newPropertyObj);
+
+    // Try backend API save if connected
+    try {
+      await api.createProperty({
+        title: newPropertyObj.title,
+        price: finalPriceNum,
+        purpose: purpose,
+        category: ["Shop", "Office Space", "Warehouse"].includes(propertyType) ? "commercial" : "residential",
+        property_type: propertyType,
+        bhk: newPropertyObj.bhk,
+        area_sqft: parseFloat(size) || 1200,
+        bathrooms: bathrooms,
+        description: newPropertyObj.description,
+      });
+    } catch {
+      // Local fallback handled
+    }
+
+    success("🎉 Property published successfully! It is now live in the search & buy listings.");
     setTimeout(() => {
-      window.location.href = "/dashboard/properties";
-    }, 1000);
+      window.location.href = `/search?purpose=${purpose === "sell" ? "sell" : "rent"}`;
+    }, 1200);
   };
 
   const getPreviewTitle = () => {

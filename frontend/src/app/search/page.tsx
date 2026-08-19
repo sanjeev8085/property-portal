@@ -4,9 +4,10 @@ import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { generatePropertySlug } from "@/lib/slug";
 import { useToast } from "@/lib/useToast";
+import { getPublishedProperties } from "@/lib/propertyStore";
 
 interface Property {
-  id: number;
+  id: number | string;
   title: string;
   price: string;
   priceNum: number;
@@ -132,7 +133,8 @@ const ALL_PROPERTIES: Property[] = [
 
 function SearchContent() {
   const searchParams = useSearchParams();
-  const initialPurpose = searchParams?.get("purpose") || "all";
+  const rawPurpose = searchParams?.get("purpose") || "all";
+  const initialPurpose = rawPurpose === "buy" ? "sell" : rawPurpose;
   const initialLocation = searchParams?.get("location") || "";
   const initialType = searchParams?.get("type") || searchParams?.get("category") || "all";
 
@@ -142,8 +144,27 @@ function SearchContent() {
   const [bhk, setBhk] = useState<number[]>([]);
   const [sortBy, setSortBy] = useState<string>("newest");
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
-  const [savedIds, setSavedIds] = useState<number[]>([]);
+  const [savedIds, setSavedIds] = useState<(number | string)[]>([]);
+  const [allProperties, setAllProperties] = useState<Property[]>(ALL_PROPERTIES);
   const { success } = useToast();
+
+  // Load published properties from persistent store and merge dynamically
+  useEffect(() => {
+    const loadProps = () => {
+      const published = getPublishedProperties();
+      if (published.length > 0) {
+        const publishedIds = new Set(published.map(p => p.id));
+        const filteredDefaults = ALL_PROPERTIES.filter(p => !publishedIds.has(p.id));
+        setAllProperties([...(published as Property[]), ...filteredDefaults]);
+      } else {
+        setAllProperties(ALL_PROPERTIES);
+      }
+    };
+
+    loadProps();
+    window.addEventListener("aurahomes_properties_updated", loadProps);
+    return () => window.removeEventListener("aurahomes_properties_updated", loadProps);
+  }, []);
 
   // Price range settings based on purpose
   const isRentMode = purpose === "rent";
@@ -181,7 +202,7 @@ function SearchContent() {
     setSortBy("newest");
   };
 
-  const handleToggleLike = (id: number) => {
+  const handleToggleLike = (id: number | string) => {
     if (savedIds.includes(id)) {
       setSavedIds(savedIds.filter(x => x !== id));
       success("Removed from saved properties.");
@@ -203,8 +224,10 @@ function SearchContent() {
   };
 
   // Filter properties
-  const filtered = ALL_PROPERTIES.filter(prop => {
-    if (purpose !== "all" && prop.purpose !== purpose) return false;
+  const filtered = allProperties.filter(prop => {
+    const propPurpose = (prop.purpose as string) === "buy" ? "sell" : prop.purpose;
+    const currentPurpose = purpose === "buy" ? "sell" : purpose;
+    if (currentPurpose !== "all" && propPurpose !== currentPurpose) return false;
     if (type !== "all" && prop.type.toLowerCase() !== type.toLowerCase()) return false;
     if (bhk.length > 0 && !bhk.includes(prop.bhk)) return false;
     if (prop.priceNum > maxPrice) return false;
@@ -222,7 +245,7 @@ function SearchContent() {
   const sortedProperties = [...filtered].sort((a, b) => {
     if (sortBy === "price_asc") return a.priceNum - b.priceNum;
     if (sortBy === "price_desc") return b.priceNum - a.priceNum;
-    return b.id - a.id;
+    return Number(b.id) - Number(a.id);
   });
 
   const activeFilterCount =
