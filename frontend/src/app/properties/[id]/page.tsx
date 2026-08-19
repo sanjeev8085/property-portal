@@ -8,6 +8,13 @@ import { extractIdFromSlug } from "@/lib/slug";
 import { getPublishedProperties, StoredProperty } from "@/lib/propertyStore";
 import { api } from "@/lib/api";
 
+const DEFAULT_GALLERY_IMAGES = [
+  "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1200&h=750&q=80",
+  "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&h=750&q=80",
+  "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&h=750&q=80",
+  "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&h=750&q=80",
+];
+
 export default function PropertyDetailsPage() {
   const params = useParams();
   const rawParam = (params?.id as string) || "";
@@ -17,6 +24,7 @@ export default function PropertyDetailsPage() {
   const [showPlansModal, setShowPlansModal] = useState(false);
   const [credits, setCredits] = useState(0);
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [activePhotoIdx, setActivePhotoIdx] = useState(0);
   const [customProp, setCustomProp] = useState<StoredProperty | null>(null);
   const { success, info } = useToast();
 
@@ -31,7 +39,7 @@ export default function PropertyDetailsPage() {
         return;
       }
 
-      // Try fetching from cloud database for cross-device links (mobile -> laptop)
+      // Fetch from cloud database for cross-device links (mobile -> laptop)
       try {
         const remote = await api.getProperty(propertyId);
         if (remote && remote.title) {
@@ -46,7 +54,8 @@ export default function PropertyDetailsPage() {
             priceNum: Number(remote.price) || 0,
             location: remote.locality ? `${remote.locality}, ${remote.city || "Bhopal"}` : (remote.city || "Bhopal"),
             specs: `${remote.bhk || 2} Beds | ${remote.bathrooms || 2} Baths | ${remote.area_sqft || 1200} sqft`,
-            image: remote.images?.[0] || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1200&h=675&q=80",
+            image: remote.images?.[0] || remote.image || DEFAULT_GALLERY_IMAGES[0],
+            photos: remote.images && remote.images.length > 0 ? remote.images : (remote.image ? [remote.image] : DEFAULT_GALLERY_IMAGES),
             type: remote.property_type || "Apartment",
             purpose: remote.purpose === "rent" ? "rent" : "sell",
             bhk: remote.bhk || 2,
@@ -58,21 +67,27 @@ export default function PropertyDetailsPage() {
           });
         }
       } catch {
-        // Fallback to default
+        // Fallback handled
       }
     };
 
     loadDetails();
   }, [propertyId]);
 
+  const rawPhotos = (customProp?.photos && customProp.photos.length > 0)
+    ? customProp.photos
+    : (customProp?.image ? [customProp.image, ...DEFAULT_GALLERY_IMAGES.slice(1)] : DEFAULT_GALLERY_IMAGES);
+
   const propertyDetails = {
     id: customProp?.id || propertyId || "12345",
     title: customProp?.title || "Sleek 2 BHK Modern Apartment in Arera Colony",
     price: customProp?.price || "₹22,000 / Month",
     rawPrice: customProp?.priceNum || 22000,
+    purpose: customProp?.purpose || "rent",
+    propertyType: customProp?.type || "Apartment",
     currency: "INR",
     deposit: customProp?.purpose === "rent" ? "₹50,000" : "₹1,00,000",
-    maintenance: "₹1,500",
+    maintenance: "₹1,500 / mo",
     location: customProp?.location || "Arera Colony, Bhopal",
     city: "Bhopal",
     state: "Madhya Pradesh",
@@ -82,16 +97,18 @@ export default function PropertyDetailsPage() {
     bathrooms: customProp?.bathrooms || 2,
     bedrooms: customProp?.bhk || 2,
     parking: customProp?.parking || "1 Covered Car Parking",
-    posted: "Posted recently",
-    description: customProp?.description || "Located in the heart of Arera Colony, this stunning 2 BHK penthouse features double balconies, premium Italian marble flooring, complete teak-wood woodwork, fully integrated modular kitchen with branded chimneys, and independent secure covered parking. Perfect for buyers or tenants looking for high-quality spaces.",
-    imageUrl: customProp?.image || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1200&h=675&q=80",
+    posted: "Just Listed",
+    description: customProp?.description || "Located in the heart of Arera Colony, this stunning property features double balconies, premium Italian marble flooring, complete teak-wood woodwork, fully integrated modular kitchen with branded chimneys, and independent secure covered parking. Perfect for buyers or tenants looking for high-quality spaces.",
+    photos: rawPhotos,
     amenities: [
-      { name: "Parking Space", icon: "🚗" },
+      { name: "Covered Parking", icon: "🚗" },
       { name: "24x7 Security", icon: "🛡️" },
       { name: "Full Power Backup", icon: "⚡" },
-      { name: "High-speed Lift", icon: "🛗" },
-      { name: "CCTV Cameras", icon: "📹" },
-      { name: "Gymnasium", icon: "🏋️" }
+      { name: "High-Speed Lift", icon: "🛗" },
+      { name: "CCTV Surveillance", icon: "📹" },
+      { name: "Fitness Center / Gym", icon: "🏋️" },
+      { name: "Children Play Area", icon: "🛝" },
+      { name: "Vastu Compliant", icon: "🧭" }
     ],
     owner: {
       name: customProp?.contactName || "Rahul Sharma",
@@ -99,77 +116,19 @@ export default function PropertyDetailsPage() {
       memberSince: "Member since 2026",
       phone: "+91 98930 XXXXX",
       unlockedPhone: customProp?.contactPhone ? `+91 ${customProp.contactPhone}` : "+91 98930 24190",
+      rawPhone: customProp?.contactPhone || "9893024190",
       email: "owner@aurahomes.in",
     }
   };
 
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "RealEstateListing",
-    "name": propertyDetails.title,
-    "description": propertyDetails.description,
-    "url": `${siteUrl}/properties/${rawParam}`,
-    "image": [propertyDetails.imageUrl],
-    "datePosted": "2026-08-18",
-    "offers": {
-      "@type": "Offer",
-      "price": propertyDetails.rawPrice,
-      "priceCurrency": propertyDetails.currency,
-      "availability": "https://schema.org/InStock",
-      "validFrom": "2026-08-18",
-      "priceSpecification": {
-        "@type": "UnitPriceSpecification",
-        "price": propertyDetails.rawPrice,
-        "priceCurrency": propertyDetails.currency,
-        "unitText": "MONTH"
-      }
-    },
-    "address": {
-      "@type": "PostalAddress",
-      "streetAddress": "Arera Colony",
-      "addressLocality": propertyDetails.city,
-      "addressRegion": propertyDetails.state,
-      "postalCode": propertyDetails.postalCode,
-      "addressCountry": "IN"
-    },
-    "numberOfRooms": propertyDetails.bedrooms,
-    "numberOfBathroomsTotal": propertyDetails.bathrooms,
-    "floorSize": {
-      "@type": "QuantitativeValue",
-      "value": 1200,
-      "unitText": "SQFT"
-    }
+  const currentPhoto = propertyDetails.photos[activePhotoIdx] || propertyDetails.photos[0];
+
+  const handleNextPhoto = () => {
+    setActivePhotoIdx((prev) => (prev + 1) % propertyDetails.photos.length);
   };
 
-  const jsonLdBreadcrumbs = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    "itemListElement": [
-      {
-        "@type": "ListItem",
-        "position": 1,
-        "name": "Home",
-        "item": siteUrl
-      },
-      {
-        "@type": "ListItem",
-        "position": 2,
-        "name": "Properties",
-        "item": `${siteUrl}/search`
-      },
-      {
-        "@type": "ListItem",
-        "position": 3,
-        "name": propertyDetails.city,
-        "item": `${siteUrl}/search?location=${encodeURIComponent(propertyDetails.city)}`
-      },
-      {
-        "@type": "ListItem",
-        "position": 4,
-        "name": propertyDetails.title,
-        "item": `${siteUrl}/properties/${rawParam}`
-      }
-    ]
+  const handlePrevPhoto = () => {
+    setActivePhotoIdx((prev) => (prev - 1 + propertyDetails.photos.length) % propertyDetails.photos.length);
   };
 
   const handleContactOwner = () => {
@@ -190,112 +149,197 @@ export default function PropertyDetailsPage() {
   const handleShare = async () => {
     const shareData = {
       title: propertyDetails.title,
-      text: `Check out this property: ${propertyDetails.title} — ${propertyDetails.price}`,
+      text: `Check out this property on AuraHomes: ${propertyDetails.title} — ${propertyDetails.price}`,
       url: window.location.href,
     };
-    if (navigator.share) {
+    if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share(shareData);
       } catch {
-        // user cancelled share — ignore
+        // Ignored
       }
-    } else {
+    } else if (typeof navigator !== "undefined" && navigator.clipboard) {
       try {
         await navigator.clipboard.writeText(window.location.href);
         info("Link copied to clipboard! 📋");
       } catch {
-        info("Copy this URL: " + window.location.href);
+        info("URL: " + window.location.href);
       }
     }
   };
 
+  const whatsappMsg = encodeURIComponent(
+    `Hi ${propertyDetails.owner.name}, I am interested in your property "${propertyDetails.title}" listed on AuraHomes (${propertyDetails.price}). Could you please share more details?`
+  );
+  const whatsappUrl = `https://wa.me/91${propertyDetails.owner.rawPhone.replace(/\D/g, "")}?text=${whatsappMsg}`;
+
   return (
     <div className="detail-page-container fade-in">
-      {/* Schema.org Structured Data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdBreadcrumbs) }}
-      />
+      {/* Mobile Top Navigation Bar */}
+      <div className="mobile-top-bar">
+        <a href="/search" className="back-circle-btn" aria-label="Back to search">
+          ←
+        </a>
+        <div className="top-bar-actions">
+          <button type="button" className="share-circle-btn" onClick={handleShare} aria-label="Share property">
+            🔗
+          </button>
+        </div>
+      </div>
 
-      {/* Breadcrumb Navigation */}
-      <nav aria-label="Breadcrumb" className="detail-breadcrumbs">
+      {/* Desktop Breadcrumbs */}
+      <nav aria-label="Breadcrumb" className="detail-breadcrumbs desktop-only">
         <a href="/">Home</a> <span>/</span>
         <a href="/search">Properties</a> <span>/</span>
         <a href={`/search?location=${encodeURIComponent(propertyDetails.city)}`}>{propertyDetails.city}</a> <span>/</span>
         <span className="current-crumb">{propertyDetails.title}</span>
       </nav>
 
-      {/* Back link + Share */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
-        <a href="/search" className="back-link">← Back to search results</a>
-        <button type="button" className="share-btn" onClick={handleShare} aria-label="Share property">
-          🔗 Share
-        </button>
-      </div>
-
-      {/* Main Grid */}
+      {/* Main Grid Layout */}
       <div className="detail-layout">
-        {/* Main Info Column */}
+        {/* Main Column */}
         <div className="info-column">
-          <div className="image-gallery-card premium-card">
-            {!imgLoaded && <div className="gallery-shimmer" aria-hidden="true" />}
-            <img 
-              src={propertyDetails.imageUrl}
-              alt={propertyDetails.title}
-              width={1200}
-              height={675}
-              className="main-gallery-img"
-              loading="eager"
-              decoding="async"
-              style={{ opacity: imgLoaded ? 1 : 0, transition: "opacity 0.3s ease" }}
-              onLoad={() => setImgLoaded(true)}
-            />
+          {/* Photo Gallery with Touch Navigation & Thumbnails */}
+          <div className="gallery-wrapper">
+            <div className="image-gallery-card premium-card">
+              {!imgLoaded && <div className="gallery-shimmer" aria-hidden="true" />}
+              <img 
+                src={currentPhoto}
+                alt={propertyDetails.title}
+                width={1200}
+                height={750}
+                className="main-gallery-img"
+                loading="eager"
+                decoding="async"
+                style={{ opacity: imgLoaded ? 1 : 0, transition: "opacity 0.25s ease" }}
+                onLoad={() => setImgLoaded(true)}
+              />
+
+              {/* Photo Counter Pill */}
+              <div className="gallery-counter-pill">
+                📷 {activePhotoIdx + 1} / {propertyDetails.photos.length}
+              </div>
+
+              {/* Verified Ribbon */}
+              <div className="gallery-verified-pill">
+                🛡️ Verified
+              </div>
+
+              {/* Photo Prev/Next Touch Controls */}
+              {propertyDetails.photos.length > 1 && (
+                <>
+                  <button type="button" className="gallery-nav-btn prev" onClick={handlePrevPhoto} aria-label="Previous photo">
+                    ‹
+                  </button>
+                  <button type="button" className="gallery-nav-btn next" onClick={handleNextPhoto} aria-label="Next photo">
+                    ›
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Thumbnail Strip */}
+            {propertyDetails.photos.length > 1 && (
+              <div className="thumbnail-strip">
+                {propertyDetails.photos.map((photo, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    className={`thumb-btn ${index === activePhotoIdx ? "active" : ""}`}
+                    onClick={() => {
+                      setActivePhotoIdx(index);
+                      setImgLoaded(false);
+                    }}
+                    aria-label={`View photo ${index + 1}`}
+                  >
+                    <img src={photo} alt={`Thumbnail ${index + 1}`} width={100} height={70} />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
+          {/* Property Title & Price Header */}
           <div className="property-main-header">
-            <div className="title-price">
-              <h1>{propertyDetails.title}</h1>
-              <span className="price-tag">{propertyDetails.price}</span>
+            <div className="header-badges">
+              <span className={`purpose-pill ${propertyDetails.purpose === "rent" ? "rent" : "sale"}`}>
+                {propertyDetails.purpose === "rent" ? "FOR RENT" : "FOR SALE"}
+              </span>
+              <span className="type-pill">{propertyDetails.propertyType}</span>
+              <span className="listed-pill">{propertyDetails.posted}</span>
             </div>
-            <p className="location-tag">📍 {propertyDetails.location}</p>
+
+            <h1 className="detail-title">{propertyDetails.title}</h1>
+            
+            <div className="price-location-box">
+              <div className="price-wrapper">
+                <span className="price-tag">{propertyDetails.price}</span>
+                {propertyDetails.purpose === "rent" && (
+                  <span className="deposit-tag">Deposit: {propertyDetails.deposit}</span>
+                )}
+              </div>
+              <p className="location-tag">📍 {propertyDetails.location}</p>
+            </div>
           </div>
 
-          {/* Quick Specs Grid */}
+          {/* Key Specifications Grid */}
           <div className="quick-specs-grid">
-            <div className="spec-item premium-card">
-              <span className="spec-label">Area</span>
-              <span className="spec-value">{propertyDetails.size}</span>
+            <div className="spec-card">
+              <span className="spec-icon">📐</span>
+              <div className="spec-text">
+                <span className="spec-label">Carpet Area</span>
+                <span className="spec-value">{propertyDetails.size}</span>
+              </div>
             </div>
-            <div className="spec-item premium-card">
-              <span className="spec-label">Furnished</span>
-              <span className="spec-value">{propertyDetails.furnished}</span>
+            <div className="spec-card">
+              <span className="spec-icon">🛏️</span>
+              <div className="spec-text">
+                <span className="spec-label">Configuration</span>
+                <span className="spec-value">{propertyDetails.bedrooms} BHK</span>
+              </div>
             </div>
-            <div className="spec-item premium-card">
-              <span className="spec-label">Bathrooms</span>
-              <span className="spec-value">{propertyDetails.bathrooms} Baths</span>
+            <div className="spec-card">
+              <span className="spec-icon">🚿</span>
+              <div className="spec-text">
+                <span className="spec-label">Bathrooms</span>
+                <span className="spec-value">{propertyDetails.bathrooms} Baths</span>
+              </div>
             </div>
-            <div className="spec-item premium-card">
-              <span className="spec-label">Parking</span>
-              <span className="spec-value">{propertyDetails.parking} Covered</span>
+            <div className="spec-card">
+              <span className="spec-icon">🛋️</span>
+              <div className="spec-text">
+                <span className="spec-label">Furnishing</span>
+                <span className="spec-value">{propertyDetails.furnished}</span>
+              </div>
+            </div>
+            <div className="spec-card">
+              <span className="spec-icon">🚗</span>
+              <div className="spec-text">
+                <span className="spec-label">Parking</span>
+                <span className="spec-value">{propertyDetails.parking}</span>
+              </div>
+            </div>
+            <div className="spec-card">
+              <span className="spec-icon">⚡</span>
+              <div className="spec-text">
+                <span className="spec-label">Maintenance</span>
+                <span className="spec-value">{propertyDetails.maintenance}</span>
+              </div>
             </div>
           </div>
 
-          {/* Description */}
-          <div className="details-section">
-            <h2>Description</h2>
+          {/* Description Section */}
+          <div className="details-card premium-card">
+            <h2>About This Property</h2>
             <p className="desc-text">{propertyDetails.description}</p>
           </div>
 
-          {/* Amenities */}
-          <div className="details-section">
-            <h2>Amenities & Features</h2>
+          {/* Amenities & Highlights */}
+          <div className="details-card premium-card">
+            <h2>Amenities & Highlights</h2>
             <div className="amenities-grid">
               {propertyDetails.amenities.map((amenity, i) => (
-                <div key={i} className="amenity-item premium-card">
+                <div key={i} className="amenity-chip">
                   <span className="amenity-icon">{amenity.icon}</span>
                   <span className="amenity-name">{amenity.name}</span>
                 </div>
@@ -304,33 +348,42 @@ export default function PropertyDetailsPage() {
           </div>
         </div>
 
-        {/* Masked Contact Sidebar */}
-        <aside className="contact-sidebar">
+        {/* Desktop Sidebar Column */}
+        <aside className="contact-sidebar desktop-only">
           <div className="premium-card owner-widget">
             <div className="owner-avatar-info">
               <Avatar name={propertyDetails.owner.name} size="lg" />
               <div>
-                <h3>{propertyDetails.owner.name}</h3>
-                <span className="owner-badge">✓ {propertyDetails.owner.status}</span>
+                <div className="owner-name-row">
+                  <h3>{propertyDetails.owner.name}</h3>
+                  <span className="verified-check">✓</span>
+                </div>
+                <span className="owner-badge">{propertyDetails.owner.status}</span>
               </div>
             </div>
-            <p className="member-since">{propertyDetails.owner.memberSince}</p>
+
+            <div className="owner-meta-row">
+              <span>⚡ Fast Responder</span>
+              <span>⭐ Verified Listing</span>
+            </div>
 
             <div className="divider"></div>
 
             {/* Credit Info */}
             <div className="credit-display">
-              <span>Your Available Contact Credits:</span>
+              <span>Available Contact Credits:</span>
               <span className="credit-badge">{credits} Credits</span>
             </div>
 
             {isUnlocked ? (
               <div className="unlocked-contact-info fade-in">
-                <p className="unlock-success-msg">✓ Contact Unlocked Successfully!</p>
+                <p className="unlock-success-msg">✓ Owner Contact Unlocked</p>
                 <div className="contact-details">
                   <div className="contact-row">
                     <span className="label">Phone:</span>
-                    <span className="value">{propertyDetails.owner.unlockedPhone}</span>
+                    <a href={`tel:${propertyDetails.owner.unlockedPhone}`} className="value-link">
+                      {propertyDetails.owner.unlockedPhone}
+                    </a>
                   </div>
                   <div className="contact-row">
                     <span className="label">Email:</span>
@@ -338,7 +391,7 @@ export default function PropertyDetailsPage() {
                   </div>
                 </div>
                 <a 
-                  href={`https://wa.me/919893024190?text=Hi%20Rahul,%20I%20am%20interested%20in%20your%202%20BHK%20property%20listed%20on%20AuraHomes.`}
+                  href={whatsappUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="btn-whatsapp"
@@ -349,141 +402,92 @@ export default function PropertyDetailsPage() {
             ) : (
               <div className="locked-contact-info">
                 <div className="locked-phone-display">
-                  <span className="lock-icon">🔒</span>
-                  <span className="masked-phone">{propertyDetails.owner.phone}</span>
+                  <span>📞 {propertyDetails.owner.phone}</span>
                 </div>
                 <button 
                   type="button" 
                   className="btn-primary full-width-btn"
                   onClick={handleContactOwner}
                 >
-                  Unlock Owner Contact
+                  Unlock Owner Contact (1 Credit)
                 </button>
-                <p className="gating-disclosure">Unlocking this contact requires 1 Contact Credit.</p>
+                <p className="gating-disclosure">🔒 Verified Direct Owner Phone & WhatsApp Number</p>
               </div>
             )}
           </div>
         </aside>
       </div>
 
-      {/* ─── Sticky Mobile Contact Action Bar (Screens <= 768px) ─── */}
-      <div className="mobile-sticky-action-bar">
-        <div className="mobile-action-price">
-          <span className="mobile-price-val">{propertyDetails.price}</span>
-          <span className="mobile-credits-info">{credits} Credits Left</span>
+      {/* Sticky Mobile Floating Bottom Action Bar */}
+      <div className="mobile-floating-action-bar">
+        <div className="bar-price-col">
+          <span className="bar-price">{propertyDetails.price}</span>
+          <span className="bar-sub">{propertyDetails.size}</span>
         </div>
-        {isUnlocked ? (
-          <a 
-            href={`https://wa.me/919893024190?text=Hi%20Rahul,%20I%20am%20interested%20in%20your%202%20BHK%20property%20listed%20on%20AuraHomes.`}
-            target="_blank"
-            rel="noreferrer"
-            className="mobile-btn-wa"
-          >
-            💬 WhatsApp
-          </a>
-        ) : (
-          <button 
-            type="button" 
-            className="mobile-btn-unlock"
-            onClick={handleContactOwner}
-          >
-            🔓 Unlock ({credits > 0 ? "1 Credit" : "Get Credits"})
-          </button>
-        )}
+        <div className="bar-buttons-col">
+          {isUnlocked ? (
+            <>
+              <a href={whatsappUrl} target="_blank" rel="noreferrer" className="btn-mobile-wa">
+                💬 WhatsApp
+              </a>
+              <a href={`tel:${propertyDetails.owner.unlockedPhone}`} className="btn-mobile-call">
+                📞 Call
+              </a>
+            </>
+          ) : (
+            <>
+              <a href={whatsappUrl} target="_blank" rel="noreferrer" className="btn-mobile-wa">
+                💬 WhatsApp
+              </a>
+              <button type="button" className="btn-mobile-call" onClick={handleContactOwner}>
+                📞 Contact Owner
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* ─── Upgrade Plan Modal ─── */}
+      {/* Credit / Plans Modal */}
       {showPlansModal && (
-        <div className="modal-overlay">
-          <div className="modal-content premium-card slide-up">
+        <div className="modal-overlay fade-in" onClick={() => setShowPlansModal(false)}>
+          <div className="modal-content premium-card" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Purchase Credits</h2>
+              <h2>Unlock Owner Contact</h2>
               <button type="button" className="close-modal-btn" onClick={() => setShowPlansModal(false)}>×</button>
             </div>
-            
-            <p className="modal-intro">To prevent platform spam and protect owners&apos; privacy, contacting listing owners requires paid credits.</p>
-
+            <p className="modal-intro">
+              You need <strong>1 Contact Credit</strong> to view verified owner contact details and WhatsApp numbers.
+            </p>
             <div className="plan-comparison-card">
-              <div className="plan-badge-popular">Most Popular</div>
-              <h3>Standard Bundle</h3>
-              <p className="plan-price">₹199 <span className="period">/ 15 Credits</span></p>
+              <span className="plan-badge-popular">Most Popular</span>
+              <h3>Buyer Pro Pack</h3>
+              <div className="plan-price">₹499 <span className="period">/ 10 Contacts</span></div>
               <ul className="plan-perks">
-                <li>✓ Unlock contact details for 15 listings</li>
-                <li>✓ Unlimited property browsing</li>
-                <li>✓ Validity: 30 days</li>
-                <li>✓ Priority support</li>
+                <li>✓ 10 Verified Owner Phone Numbers</li>
+                <li>✓ Direct 1-Click WhatsApp Chat</li>
+                <li>✓ Instant SMS Owner Introductions</li>
+                <li>✓ Zero Brokerage Guaranteed</li>
               </ul>
-              <button type="button" className="btn-primary full-width-btn" onClick={() => { setCredits(5); setShowPlansModal(false); success("5 credits added! Try unlocking again."); }}>
-                Purchase Package (Razorpay Mock)
-              </button>
+              <a href="/plans" className="btn-primary full-width-btn">
+                Get Contact Credits
+              </a>
             </div>
           </div>
         </div>
       )}
 
+      {/* Page Styling */}
       <style dangerouslySetInnerHTML={{ __html: `
-        .mobile-sticky-action-bar {
-          display: none;
-        }
-        @media (max-width: 768px) {
-          .mobile-sticky-action-bar {
-            display: flex;
-            position: fixed;
-            bottom: calc(56px + env(safe-area-inset-bottom, 0px));
-            left: 0;
-            right: 0;
-            background: var(--surface);
-            border-top: 1px solid var(--border);
-            padding: 10px 16px;
-            z-index: 150;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.1);
-          }
-          .mobile-action-price {
-            display: flex;
-            flex-direction: column;
-          }
-          .mobile-price-val {
-            font-size: 16px;
-            font-weight: 800;
-            color: var(--primary);
-            line-height: 1.2;
-          }
-          .mobile-credits-info {
-            font-size: 11px;
-            color: var(--text-muted);
-            font-weight: 600;
-          }
-          .mobile-btn-unlock {
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            color: white;
-            border: none;
-            padding: 10px 18px;
-            border-radius: var(--radius-md);
-            font-size: 13px;
-            font-weight: 700;
-            cursor: pointer;
-          }
-          .mobile-btn-wa {
-            background: #25d366;
-            color: white !important;
-            padding: 10px 18px;
-            border-radius: var(--radius-md);
-            font-size: 13px;
-            font-weight: 700;
-            text-decoration: none;
-          }
-          .detail-page-container {
-            padding-bottom: calc(130px + env(safe-area-inset-bottom, 0px)) !important;
-          }
-        }
         .detail-page-container {
           max-width: 1200px;
           margin: 0 auto;
-          padding: 24px;
+          padding: 24px 20px 100px;
         }
+
+        .mobile-top-bar {
+          display: none;
+        }
+
         .detail-breadcrumbs {
           display: flex;
           align-items: center;
@@ -491,7 +495,6 @@ export default function PropertyDetailsPage() {
           font-size: 13px;
           color: var(--text-muted);
           margin-bottom: 20px;
-          flex-wrap: wrap;
         }
         .detail-breadcrumbs a {
           color: var(--text-secondary);
@@ -508,45 +511,24 @@ export default function PropertyDetailsPage() {
           text-overflow: ellipsis;
           white-space: nowrap;
         }
-        .back-link {
-          color: var(--primary);
-          font-weight: 600;
-          display: inline-block;
-          font-size: 14px;
-        }
-        .share-btn {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          padding: 8px 16px;
-          border: 1px solid var(--border);
-          border-radius: var(--radius-full);
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--text-secondary);
-          background: var(--surface);
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-        .share-btn:hover {
-          border-color: var(--primary);
-          color: var(--primary);
-          background: var(--primary-light);
-        }
+
         .detail-layout {
           display: grid;
-          grid-template-columns: 1fr 340px;
-          gap: 40px;
+          grid-template-columns: 1fr 360px;
+          gap: 36px;
         }
-        
-        /* Gallery Column */
+
+        /* Gallery */
+        .gallery-wrapper {
+          margin-bottom: 28px;
+        }
         .image-gallery-card {
-          border-radius: var(--radius-lg);
+          border-radius: var(--radius-xl, 20px);
           overflow: hidden;
           aspect-ratio: 16 / 9;
-          margin-bottom: 30px;
           position: relative;
-          background: #f0f0f0;
+          background: #0f172a;
+          box-shadow: 0 10px 30px -5px rgba(0,0,0,0.12);
         }
         .main-gallery-img {
           width: 100%;
@@ -557,116 +539,305 @@ export default function PropertyDetailsPage() {
         .gallery-shimmer {
           position: absolute;
           inset: 0;
-          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 37%, #f0f0f0 63%);
+          background: linear-gradient(90deg, #1e293b 25%, #334155 37%, #1e293b 63%);
           background-size: 400% 100%;
           animation: shimmer 1.4s ease infinite;
         }
         @keyframes shimmer {
-          0%   { background-position: 100% 50%; }
-          100% { background-position: 0%   50%; }
+          0% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
         }
-        .property-main-header {
-          margin-bottom: 32px;
+
+        .gallery-counter-pill {
+          position: absolute;
+          bottom: 16px;
+          right: 16px;
+          background: rgba(15, 23, 42, 0.75);
+          backdrop-filter: blur(8px);
+          color: white;
+          font-size: 13px;
+          font-weight: 700;
+          padding: 6px 14px;
+          border-radius: 999px;
+          border: 1px solid rgba(255,255,255,0.15);
         }
-        .title-price {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          gap: 16px;
-        }
-        .title-price h1 {
-          font-size: 28px;
-        }
-        .price-tag {
-          font-size: 26px;
+        .gallery-verified-pill {
+          position: absolute;
+          top: 16px;
+          left: 16px;
+          background: rgba(16, 185, 129, 0.9);
+          backdrop-filter: blur(8px);
+          color: white;
+          font-size: 12px;
           font-weight: 800;
-          color: var(--primary);
-          white-space: nowrap;
+          padding: 6px 12px;
+          border-radius: 999px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
-        .location-tag {
-          margin-top: 8px;
+        .gallery-nav-btn {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          background: rgba(15, 23, 42, 0.7);
+          backdrop-filter: blur(8px);
+          color: white;
+          border: 1px solid rgba(255,255,255,0.2);
+          font-size: 24px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .gallery-nav-btn:hover {
+          background: rgba(15, 23, 42, 0.95);
+          transform: translateY(-50%) scale(1.05);
+        }
+        .gallery-nav-btn.prev { left: 16px; }
+        .gallery-nav-btn.next { right: 16px; }
+
+        .thumbnail-strip {
+          display: flex;
+          gap: 12px;
+          margin-top: 14px;
+          overflow-x: auto;
+          padding-bottom: 4px;
+          scrollbar-width: thin;
+        }
+        .thumb-btn {
+          flex: 0 0 90px;
+          height: 60px;
+          border-radius: 10px;
+          overflow: hidden;
+          border: 2px solid transparent;
+          cursor: pointer;
+          padding: 0;
+          background: #1e293b;
+          transition: all 0.2s ease;
+        }
+        .thumb-btn.active {
+          border-color: var(--primary);
+          box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
+        }
+        .thumb-btn img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        /* Property Header */
+        .property-main-header {
+          margin-bottom: 28px;
+        }
+        .header-badges {
+          display: flex;
+          gap: 8px;
+          margin-bottom: 12px;
+          flex-wrap: wrap;
+        }
+        .purpose-pill {
+          padding: 4px 10px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.5px;
+        }
+        .purpose-pill.sale { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
+        .purpose-pill.rent { background: rgba(16, 185, 129, 0.12); color: #10b981; }
+        .type-pill {
+          padding: 4px 10px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 700;
+          background: var(--surface-hover, #f1f5f9);
           color: var(--text-secondary);
         }
-        
-        /* Specs Grid */
+        .listed-pill {
+          padding: 4px 10px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 600;
+          color: var(--text-muted);
+        }
+        .detail-title {
+          font-size: 26px;
+          font-weight: 800;
+          line-height: 1.3;
+          margin-bottom: 16px;
+          color: var(--text-primary);
+        }
+        .price-location-box {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-end;
+          flex-wrap: wrap;
+          gap: 12px;
+          padding-bottom: 16px;
+          border-bottom: 1px solid var(--border);
+        }
+        .price-wrapper {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .price-tag {
+          font-size: 30px;
+          font-weight: 900;
+          color: var(--primary);
+          letter-spacing: -0.5px;
+        }
+        .deposit-tag {
+          font-size: 13px;
+          color: var(--text-muted);
+          font-weight: 500;
+        }
+        .location-tag {
+          font-size: 15px;
+          color: var(--text-secondary);
+          font-weight: 500;
+        }
+
+        /* Quick Specs Grid */
         .quick-specs-grid {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 16px;
-          margin-bottom: 40px;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 14px;
+          margin-bottom: 32px;
         }
-        .spec-item {
-          padding: 16px;
-          text-align: center;
+        .spec-card {
+          padding: 16px 14px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-lg, 16px);
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          transition: transform 0.15s ease;
+        }
+        .spec-card:hover {
+          transform: translateY(-2px);
+          border-color: var(--primary-light);
+        }
+        .spec-icon {
+          font-size: 24px;
+          background: var(--surface-hover, #f8fafc);
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .spec-text {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
         }
         .spec-label {
-          display: block;
           font-size: 11px;
           color: var(--text-muted);
           text-transform: uppercase;
-          font-weight: 600;
-          margin-bottom: 4px;
+          font-weight: 700;
+          letter-spacing: 0.5px;
+          margin-bottom: 2px;
         }
         .spec-value {
-          font-size: 15px;
-          font-weight: 700;
+          font-size: 14.5px;
+          font-weight: 800;
+          color: var(--text-primary);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
-        
-        .details-section {
-          margin-bottom: 40px;
+
+        /* Cards */
+        .details-card {
+          padding: 24px;
+          margin-bottom: 24px;
+          border-radius: var(--radius-lg, 16px);
         }
-        .details-section h2 {
-          font-size: 22px;
+        .details-card h2 {
+          font-size: 20px;
+          font-weight: 800;
           margin-bottom: 16px;
         }
         .desc-text {
           font-size: 15px;
-          line-height: 1.7;
+          line-height: 1.75;
+          color: var(--text-secondary);
         }
-        
+
         /* Amenities */
         .amenities-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-          gap: 16px;
-        }
-        .amenity-item {
-          padding: 16px;
-          display: flex;
-          align-items: center;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
           gap: 12px;
         }
-        .amenity-icon {
-          font-size: 24px;
-        }
-        .amenity-name {
+        .amenity-chip {
+          padding: 12px 14px;
+          background: var(--surface-hover, #f8fafc);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 13.5px;
           font-weight: 600;
-          font-size: 14px;
         }
-        
-        /* Sidebar Widget */
+        .amenity-icon {
+          font-size: 18px;
+        }
+
+        /* Owner Sidebar */
         .owner-widget {
           padding: 24px;
           display: flex;
           flex-direction: column;
-          gap: 16px;
+          gap: 18px;
+          border-radius: var(--radius-xl, 20px);
+          position: sticky;
+          top: 90px;
         }
         .owner-avatar-info {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 14px;
+        }
+        .owner-name-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .owner-name-row h3 {
+          font-size: 17px;
+          font-weight: 800;
+        }
+        .verified-check {
+          color: #10b981;
+          font-weight: 900;
+          font-size: 14px;
         }
         .owner-badge {
-          background: var(--success);
-          color: white;
+          display: inline-block;
+          margin-top: 3px;
+          background: rgba(16, 185, 129, 0.12);
+          color: #10b981;
           font-size: 11px;
-          font-weight: 700;
+          font-weight: 800;
           padding: 2px 8px;
-          border-radius: var(--radius-full);
+          border-radius: 6px;
         }
-        .member-since {
+        .owner-meta-row {
+          display: flex;
+          justify-content: space-between;
           font-size: 12px;
           color: var(--text-muted);
+          font-weight: 600;
         }
         .divider {
           height: 1px;
@@ -680,23 +851,25 @@ export default function PropertyDetailsPage() {
         }
         .credit-badge {
           color: var(--primary);
-          font-weight: 700;
+          font-weight: 800;
         }
         .locked-phone-display {
           display: flex;
           justify-content: center;
           align-items: center;
-          gap: 8px;
           padding: 16px;
           background: var(--surface-hover);
           border: 1px dashed var(--border);
           border-radius: var(--radius-md);
-          margin-bottom: 16px;
-          font-weight: 700;
+          margin-bottom: 12px;
+          font-weight: 800;
+          font-size: 16px;
         }
         .full-width-btn {
           width: 100%;
           justify-content: center;
+          padding: 14px;
+          font-weight: 800;
         }
         .gating-disclosure {
           margin-top: 8px;
@@ -704,7 +877,7 @@ export default function PropertyDetailsPage() {
           color: var(--text-muted);
           text-align: center;
         }
-        
+
         .unlocked-contact-info {
           display: flex;
           flex-direction: column;
@@ -712,7 +885,7 @@ export default function PropertyDetailsPage() {
         }
         .unlock-success-msg {
           color: var(--success);
-          font-weight: 700;
+          font-weight: 800;
           font-size: 14px;
         }
         .contact-details {
@@ -732,23 +905,33 @@ export default function PropertyDetailsPage() {
           color: var(--text-secondary);
         }
         .contact-row .value {
-          font-weight: 700;
+          font-weight: 800;
+        }
+        .value-link {
+          font-weight: 800;
+          color: var(--primary);
+          text-decoration: none;
         }
         .btn-whatsapp {
           background: #25d366;
           color: white;
-          padding: 12px;
+          padding: 14px;
           border-radius: var(--radius-md);
           text-align: center;
-          font-weight: 700;
-          box-shadow: 0 4px 12px 0 rgba(37, 211, 102, 0.2);
+          font-weight: 800;
+          box-shadow: 0 4px 14px 0 rgba(37, 211, 102, 0.25);
           text-decoration: none;
+          transition: transform 0.15s ease;
         }
         .btn-whatsapp:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 6px 18px 0 rgba(37, 211, 102, 0.3);
+          transform: translateY(-2px);
         }
-        
+
+        /* Floating Sticky Mobile Bottom Action Bar */
+        .mobile-floating-action-bar {
+          display: none;
+        }
+
         /* Modal */
         .modal-overlay {
           position: fixed;
@@ -756,24 +939,29 @@ export default function PropertyDetailsPage() {
           left: 0;
           width: 100%;
           height: 100%;
-          background: rgba(15, 23, 42, 0.6);
+          background: rgba(15, 23, 42, 0.7);
+          backdrop-filter: blur(4px);
           display: flex;
           justify-content: center;
           align-items: center;
           z-index: 10000;
-          padding: 24px;
+          padding: 20px;
         }
         .modal-content {
           max-width: 440px;
           width: 100%;
-          padding: 32px;
-          position: relative;
+          padding: 28px;
+          border-radius: var(--radius-xl, 20px);
         }
         .modal-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 16px;
+          margin-bottom: 14px;
+        }
+        .modal-header h2 {
+          font-size: 20px;
+          font-weight: 800;
         }
         .close-modal-btn {
           font-size: 28px;
@@ -784,32 +972,34 @@ export default function PropertyDetailsPage() {
         }
         .modal-intro {
           font-size: 14px;
-          margin-bottom: 24px;
+          color: var(--text-secondary);
+          margin-bottom: 20px;
+          line-height: 1.5;
         }
         .plan-comparison-card {
-          padding: 24px;
+          padding: 20px;
           border: 1px solid var(--primary);
-          border-radius: var(--radius-md);
+          border-radius: var(--radius-lg, 16px);
           background: var(--primary-light);
           position: relative;
         }
         .plan-badge-popular {
           position: absolute;
-          top: -12px;
-          right: 24px;
+          top: -10px;
+          right: 20px;
           background: var(--accent);
           color: white;
           font-size: 10px;
           font-weight: 800;
-          padding: 2px 10px;
-          border-radius: var(--radius-full);
+          padding: 3px 10px;
+          border-radius: 999px;
           text-transform: uppercase;
         }
         .plan-price {
-          font-size: 32px;
-          font-weight: 800;
+          font-size: 28px;
+          font-weight: 900;
           color: var(--primary);
-          margin: 12px 0;
+          margin: 10px 0;
         }
         .plan-price .period {
           font-size: 14px;
@@ -818,80 +1008,200 @@ export default function PropertyDetailsPage() {
         }
         .plan-perks {
           list-style: none;
-          margin-bottom: 24px;
+          margin-bottom: 20px;
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 8px;
           font-size: 13px;
+          color: var(--text-secondary);
         }
-        
+
+        /* ─── Responsive Media Queries ─────────────────────────────────────── */
         @media (max-width: 900px) {
-          .detail-page-container {
-            padding: 20px 16px;
-          }
           .detail-layout {
             grid-template-columns: 1fr;
             gap: 24px;
           }
           .quick-specs-grid {
             grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-          }
-          .amenities-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
           }
         }
 
-        @media (max-width: 640px) {
-          .detail-page-container {
-            padding: 16px 12px;
+        @media (max-width: 768px) {
+          .desktop-only {
+            display: none !important;
           }
-          .detail-breadcrumbs {
-            overflow-x: auto;
-            white-space: nowrap;
-            padding-bottom: 6px;
-            font-size: 12px;
+
+          .detail-page-container {
+            padding: 0 0 110px 0;
+          }
+
+          /* Mobile Top Bar */
+          .mobile-top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            right: 14px;
+            z-index: 20;
+          }
+          .back-circle-btn, .share-circle-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(8px);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 800;
+            border: 1px solid rgba(255,255,255,0.2);
+            text-decoration: none;
+            cursor: pointer;
+          }
+
+          /* Hero Gallery on Mobile */
+          .gallery-wrapper {
+            margin-bottom: 18px;
           }
           .image-gallery-card {
-            aspect-ratio: 16 / 10;
-            border-radius: var(--radius-md);
-            margin-bottom: 20px;
+            border-radius: 0;
+            aspect-ratio: 4 / 3;
+            max-height: 380px;
           }
-          .title-price {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 10px;
+          .thumbnail-strip {
+            padding: 0 16px;
+            margin-top: 10px;
           }
-          .title-price h1 {
-            font-size: 20px;
+          .thumb-btn {
+            flex: 0 0 75px;
+            height: 52px;
+          }
+
+          /* Content spacing on mobile */
+          .property-main-header,
+          .quick-specs-grid,
+          .details-card {
+            padding-left: 16px;
+            padding-right: 16px;
+          }
+
+          .detail-title {
+            font-size: 21px;
             line-height: 1.35;
           }
           .price-tag {
-            font-size: 22px;
+            font-size: 24px;
           }
+          .location-tag {
+            font-size: 14px;
+          }
+
           .quick-specs-grid {
             grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
+            gap: 10px;
             margin-bottom: 24px;
           }
-          .spec-item {
-            padding: 12px 8px;
+          .spec-card {
+            padding: 12px 10px;
+            border-radius: 12px;
+            gap: 10px;
+          }
+          .spec-icon {
+            width: 36px;
+            height: 36px;
+            font-size: 18px;
+            border-radius: 8px;
+          }
+          .spec-label {
+            font-size: 10px;
           }
           .spec-value {
-            font-size: 13.5px;
+            font-size: 13px;
           }
-          .owner-widget {
-            padding: 18px 14px;
+
+          .details-card {
+            border-radius: 0;
+            border-left: none;
+            border-right: none;
+            margin-bottom: 12px;
           }
-          .modal-content {
-            padding: 20px 16px;
+          .details-card h2 {
+            font-size: 18px;
           }
-          .plan-comparison-card {
-            padding: 16px 12px;
+          .amenities-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
           }
-          .plan-price {
-            font-size: 26px;
+          .amenity-chip {
+            padding: 10px 12px;
+            font-size: 12.5px;
+          }
+
+          /* Floating Mobile Action Bar */
+          .mobile-floating-action-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 999;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(12px);
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+            padding: 12px 16px;
+            padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+            box-shadow: 0 -10px 25px -5px rgba(0,0,0,0.3);
+          }
+          .bar-price-col {
+            display: flex;
+            flex-direction: column;
+          }
+          .bar-price {
+            font-size: 18px;
+            font-weight: 900;
+            color: #ffffff;
+          }
+          .bar-sub {
+            font-size: 11px;
+            color: #94a3b8;
+          }
+          .bar-buttons-col {
+            display: flex;
+            gap: 8px;
+          }
+          .btn-mobile-wa {
+            background: #25d366;
+            color: white;
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 800;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+          }
+          .btn-mobile-call {
+            background: var(--primary, #6366f1);
+            color: white;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 800;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            cursor: pointer;
           }
         }
       `}} />
