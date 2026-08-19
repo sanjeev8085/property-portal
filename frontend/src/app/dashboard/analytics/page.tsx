@@ -42,7 +42,7 @@ export default function OwnerAnalyticsPage() {
             {performance.map(item => (
               <div key={item.id} style={{ borderBottom: "1px solid var(--border)", paddingBottom: "20px" }}>
                 <h4 style={{ fontSize: "16px", marginBottom: "12px" }}>{item.title}</h4>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px", background: "var(--surface-hover)", padding: "16px", borderRadius: "var(--radius-md)" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 140px), 1fr))", gap: "16px", background: "var(--surface-hover)", padding: "16px", borderRadius: "var(--radius-md)" }}>
                   <div>
                     <span style={{ fontSize: "11px", color: "var(--text-muted)", display: "block" }}>Views Count</span>
                     <strong style={{ fontSize: "18px" }}>👁️ {item.views}</strong>

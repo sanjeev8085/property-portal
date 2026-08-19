@@ -16,13 +16,18 @@ export default function CheckoutPage({ params }: { params: Promise<{ plan_id: st
 
   useEffect(() => {
     async function loadPlan() {
+      const planPresets: Record<string, any> = {
+        basic: { name: "Basic Bundle", price: 99, contact_limit: 5, validity_days: 30 },
+        standard: { name: "Standard Package", price: 199, contact_limit: 15, validity_days: 30 },
+        premium: { name: "Premium Package", price: 399, contact_limit: 50, validity_days: 60 },
+      };
+
       try {
         const plans = await api.listPlans();
-        const found = plans.find((p: any) => p.id === planId || p.name.toLowerCase() === planId.toLowerCase());
-        setPlan(found || { name: "Standard Plan", price: 199, contact_limit: 15, validity_days: 30 });
+        const found = plans.find((p: any) => String(p.id) === planId || p.name.toLowerCase().includes(planId.toLowerCase()));
+        setPlan(found || planPresets[planId] || planPresets.standard);
       } catch {
-        // Fallback mock details if offline
-        setPlan({ name: "Standard Plan", price: 199, contact_limit: 15, validity_days: 30 });
+        setPlan(planPresets[planId] || planPresets.standard);
       } finally {
         setLoading(false);
       }

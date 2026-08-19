@@ -272,6 +272,11 @@ export default function Footer() {
             grid-column: 1 / -1;
           }
         }
+        @media (max-width: 768px) {
+          .site-footer {
+            padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+          }
+        }
         @media (max-width: 600px) {
           .footer-container {
             grid-template-columns: 1fr 1fr;

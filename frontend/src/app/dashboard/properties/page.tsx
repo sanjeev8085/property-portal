@@ -71,6 +71,7 @@ export default function MyPropertiesPage() {
 
             <div className="listing-actions">
               <a href={`/properties/${prop.id}`} className="btn-secondary btn-sm">View Listing</a>
+              <a href={`/dashboard/properties/${prop.id}/edit`} className="btn-outline btn-sm">Edit</a>
               {prop.status === "Published" && (
                 <button 
                   type="button" 

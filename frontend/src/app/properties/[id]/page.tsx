@@ -430,7 +430,7 @@ export default function PropertyDetailsPage() {
             text-decoration: none;
           }
           .detail-page-container {
-            padding-bottom: 90px;
+            padding-bottom: calc(130px + env(safe-area-inset-bottom, 0px)) !important;
           }
         }
         .detail-page-container {

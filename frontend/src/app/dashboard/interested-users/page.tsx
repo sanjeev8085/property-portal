@@ -54,6 +54,25 @@ export default function InterestedUsersPage() {
           ))}
         </div>
       </div>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media (max-width: 640px) {
+          .lead-item {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 12px !important;
+            padding: 16px !important;
+          }
+          .lead-item .contact-details {
+            flex-direction: column !important;
+            gap: 10px !important;
+            padding: 12px !important;
+          }
+          .lead-item .btn-whatsapp {
+            width: 100%;
+            text-align: center;
+          }
+        }
+      `}} />
     </div>
   );
 }

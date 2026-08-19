@@ -5,6 +5,7 @@ import React from "react";
 export default function PlansPage() {
   const plans = [
     {
+      id: "free",
       name: "Free",
       price: "₹0",
       description: "Ideal for basic home searchers.",
@@ -13,13 +14,14 @@ export default function PlansPage() {
         "Browse residential/commercial listings",
         "Save favorite properties",
         "Create up to 2 property search alerts",
-        "❌ Contact details unlocked"
+        "❌ Contact details locked"
       ],
-      cta: "Current Free Plan",
+      cta: "Browse Properties Free",
       featured: false,
       accent: "#64748b"
     },
     {
+      id: "basic",
       name: "Basic Bundle",
       price: "₹99",
       description: "Best for casual home hunting.",
@@ -36,6 +38,7 @@ export default function PlansPage() {
       accent: "var(--secondary)"
     },
     {
+      id: "standard",
       name: "Standard Package",
       price: "₹199",
       description: "Recommended for serious renters and buyers.",
@@ -53,6 +56,7 @@ export default function PlansPage() {
       accent: "var(--primary)"
     },
     {
+      id: "premium",
       name: "Premium Package",
       price: "₹399",
       description: "For active agents or heavy investors.",
@@ -71,16 +75,24 @@ export default function PlansPage() {
     }
   ];
 
+  const handlePlanClick = (planId: string) => {
+    if (planId === "free") {
+      window.location.href = "/search";
+    } else {
+      window.location.href = `/checkout/${planId}`;
+    }
+  };
+
   return (
     <div className="plans-page-container fade-in">
       <div className="plans-header">
         <h1>Monetized Contact Access Packages</h1>
-        <p>AuraHomes operates under a credit system to eliminate listing spam and protect owners' privacy. Select a bundle that fits your property search journey.</p>
+        <p>AuraHomes operates under a credit system to eliminate listing spam and protect owners&apos; privacy. Select a bundle that fits your property search journey.</p>
       </div>
 
       <div className="plans-grid">
-        {plans.map((plan, i) => (
-          <div key={i} className={`premium-card plan-card ${plan.featured ? "featured" : ""}`}>
+        {plans.map((plan) => (
+          <div key={plan.id} className={`premium-card plan-card ${plan.featured ? "featured" : ""}`}>
             {plan.featured && <div className="popular-ribbon">Most Popular</div>}
             
             <div className="plan-meta">
@@ -102,14 +114,13 @@ export default function PlansPage() {
               type="button" 
               className={`plan-cta-btn ${plan.featured ? "btn-primary" : "btn-secondary"}`}
               style={{ borderColor: plan.featured ? "transparent" : plan.accent }}
+              onClick={() => handlePlanClick(plan.id)}
             >
               {plan.cta}
             </button>
           </div>
         ))}
       </div>
-
-
     </div>
   );
 }
