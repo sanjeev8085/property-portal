@@ -83,7 +83,7 @@ async def client(db_session: AsyncSession) -> AsyncClient:
     ]
     started = [p.start() for p in patches]
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test", headers={"x-test-suite": "1"}) as ac:
         yield ac
 
     for p in patches:

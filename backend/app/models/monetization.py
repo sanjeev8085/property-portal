@@ -76,8 +76,16 @@ class ContactCredit(Base):
         return self.total_credits - self.used_credits
 
 
+from sqlalchemy import (
+    Boolean, Column, DateTime, Enum, Float, ForeignKey,
+    Integer, String, Text, JSON, UniqueConstraint
+)
+
 class ContactUnlock(Base):
     __tablename__ = "contact_unlocks"
+    __table_args__ = (
+        UniqueConstraint("user_id", "property_id", name="uq_contact_unlock_user_property"),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)

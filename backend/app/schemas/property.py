@@ -29,3 +29,4 @@ class PropertyCreate(BaseModel):
     contact_name: Optional[str] = None
     contact_phone: Optional[str] = None
     contact_whatsapp: Optional[str] = None
+    idempotency_key: Optional[str] = None

@@ -6,18 +6,43 @@ import { api } from "@/lib/api";
 
 export default function ResetPasswordPage() {
   const { success, error } = useToast();
-  
+
+  const [step, setStep] = useState<"REQUEST_OTP" | "ENTER_NEW_PASSWORD">("REQUEST_OTP");
   const [identifier, setIdentifier] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [resetToken, setResetToken] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  const handleReset = async (e: React.FormEvent) => {
+  const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!identifier.trim()) {
       error("Please enter your registered mobile number or email.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await api.requestPasswordReset(identifier.trim());
+      if (res.reset_token) {
+        setResetToken(res.reset_token);
+      }
+      setStep("ENTER_NEW_PASSWORD");
+      success("📩 Verification code dispatched! Please check your mobile or email.");
+    } catch (err: any) {
+      error(err?.message || "No registered account found with this email or mobile.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otpCode.trim() && !resetToken) {
+      error("Please enter the 6-digit verification code sent to your contact.");
       return;
     }
     if (!newPassword || newPassword.length < 8) {
@@ -34,12 +59,14 @@ export default function ResetPasswordPage() {
       await api.resetPassword({
         mobile_or_email: identifier.trim(),
         new_password: newPassword,
+        otp: otpCode.trim(),
+        reset_token: resetToken || undefined,
       });
 
       setIsSuccess(true);
       success("🎉 Password reset successfully! You can now log in.");
     } catch (err: any) {
-      error(err?.message || "Could not reset password. Please check your email or mobile.");
+      error(err?.message || "Invalid or expired verification code. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -51,20 +78,24 @@ export default function ResetPasswordPage() {
         <div className="reset-header">
           <div className="reset-icon">🔑</div>
           <h1>Reset Account Password</h1>
-          <p>Enter your registered email or phone number to set a new password.</p>
+          <p>
+            {step === "REQUEST_OTP"
+              ? "Enter your registered email or phone to receive a secure verification code."
+              : `Enter the code sent to ${identifier} and choose your new password.`}
+          </p>
         </div>
 
         {isSuccess ? (
           <div className="success-state-box fade-in">
             <div className="success-icon">✅</div>
             <h3>Password Changed Successfully!</h3>
-            <p>Your account password has been updated. Please log in with your new credentials.</p>
+            <p>Your account password has been securely updated. Please log in with your new credentials.</p>
             <a href="/login" className="btn-primary full-width-btn" style={{ marginTop: "16px", textAlign: "center", textDecoration: "none" }}>
               Proceed to Login →
             </a>
           </div>
-        ) : (
-          <form onSubmit={handleReset} className="reset-form">
+        ) : step === "REQUEST_OTP" ? (
+          <form onSubmit={handleRequestOtp} className="reset-form">
             <div className="form-group">
               <label>Registered Email or 10-digit Mobile Number</label>
               <input
@@ -73,6 +104,29 @@ export default function ResetPasswordPage() {
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 required
+              />
+            </div>
+
+            <button type="submit" className="btn-primary full-width-btn" disabled={isLoading}>
+              {isLoading ? "Sending Verification Code..." : "Send Verification Code →"}
+            </button>
+
+            <div className="reset-footer-links">
+              <a href="/login" className="back-link">← Back to Login</a>
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={handleResetPassword} className="reset-form fade-in">
+            <div className="form-group">
+              <label>6-Digit Verification Code (OTP)</label>
+              <input
+                type="text"
+                maxLength={6}
+                placeholder="e.g. 123456"
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value)}
+                required
+                autoFocus
               />
             </div>
 
@@ -110,11 +164,19 @@ export default function ResetPasswordPage() {
             </div>
 
             <button type="submit" className="btn-primary full-width-btn" disabled={isLoading}>
-              {isLoading ? "Updating Password..." : "Reset Password & Login"}
+              {isLoading ? "Verifying & Updating..." : "Verify OTP & Update Password"}
             </button>
 
-            <div className="reset-footer-links">
-              <a href="/login" className="back-link">← Back to Login</a>
+            <div className="reset-footer-links" style={{ display: "flex", justifyContent: "space-between" }}>
+              <button
+                type="button"
+                className="text-btn"
+                onClick={() => setStep("REQUEST_OTP")}
+                style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer", fontSize: "14px" }}
+              >
+                ← Change Number/Email
+              </button>
+              <a href="/login" className="back-link">Back to Login</a>
             </div>
           </form>
         )}
@@ -143,73 +205,84 @@ export default function ResetPasswordPage() {
           margin-bottom: 12px;
         }
         .reset-header h1 {
-          font-size: 22px;
-          font-weight: 800;
+          font-size: 24px;
+          font-weight: 700;
           color: var(--text-primary);
+          margin-bottom: 8px;
         }
         .reset-header p {
-          font-size: 13.5px;
+          font-size: 14px;
           color: var(--text-secondary);
-          margin-top: 6px;
+          line-height: 1.5;
         }
         .reset-form {
           display: flex;
           flex-direction: column;
-          gap: 18px;
+          gap: 20px;
         }
         .form-group {
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: 8px;
         }
         .form-group label {
           font-size: 13px;
-          font-weight: 700;
-          color: var(--text-primary);
+          font-weight: 600;
+          color: var(--text-secondary);
         }
         .form-group input {
+          width: 100%;
           padding: 12px 16px;
-          border-radius: 12px;
-          border: 1px solid var(--border);
+          border-radius: var(--radius-md, 10px);
+          border: 1px solid var(--border-color);
           background: var(--surface);
           color: var(--text-primary);
-          font-size: 14px;
+          font-size: 15px;
+          box-sizing: border-box;
+          transition: border-color 0.2s;
+        }
+        .form-group input:focus {
           outline: none;
+          border-color: var(--primary);
         }
         .input-toggle-wrapper {
           position: relative;
           display: flex;
           align-items: center;
         }
-        .input-toggle-wrapper input {
-          width: 100%;
-          padding-right: 42px;
-        }
         .eye-btn {
           position: absolute;
           right: 12px;
           background: none;
           border: none;
+          font-size: 18px;
           cursor: pointer;
-          font-size: 16px;
+          opacity: 0.7;
+          transition: opacity 0.2s;
+        }
+        .eye-btn:hover {
+          opacity: 1;
         }
         .full-width-btn {
           width: 100%;
           padding: 14px;
           font-size: 15px;
-          font-weight: 800;
-          border-radius: 12px;
-          margin-top: 6px;
+          font-weight: 600;
+          margin-top: 8px;
+          border-radius: var(--radius-md, 10px);
         }
         .reset-footer-links {
           text-align: center;
-          margin-top: 10px;
+          margin-top: 8px;
         }
         .back-link {
-          font-size: 13.5px;
-          color: var(--primary);
+          font-size: 14px;
+          color: var(--text-secondary);
           text-decoration: none;
-          font-weight: 700;
+          transition: color 0.2s;
+        }
+        .back-link:hover {
+          color: var(--primary);
         }
         .success-state-box {
           text-align: center;
@@ -217,17 +290,17 @@ export default function ResetPasswordPage() {
         }
         .success-icon {
           font-size: 48px;
-          margin-bottom: 12px;
+          margin-bottom: 16px;
         }
         .success-state-box h3 {
-          font-size: 18px;
-          font-weight: 800;
+          font-size: 20px;
           color: var(--text-primary);
-          margin-bottom: 6px;
+          margin-bottom: 8px;
         }
         .success-state-box p {
-          font-size: 13.5px;
+          font-size: 14px;
           color: var(--text-secondary);
+          line-height: 1.5;
         }
       `}} />
     </div>

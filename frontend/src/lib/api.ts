@@ -115,7 +115,14 @@ export const api = {
     });
   },
 
-  async resetPassword(payload: { mobile_or_email: string; new_password: string }) {
+  async requestPasswordReset(mobile_or_email: string) {
+    return apiFetch("/auth/request-password-reset", {
+      method: "POST",
+      body: JSON.stringify({ mobile_or_email }),
+    });
+  },
+
+  async resetPassword(payload: { mobile_or_email: string; new_password: string; otp?: string; reset_token?: string }) {
     return apiFetch("/auth/reset-password", {
       method: "POST",
       body: JSON.stringify(payload),

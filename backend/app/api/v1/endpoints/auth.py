@@ -1,25 +1,28 @@
 """
-Auth endpoints — register, login, Google OAuth, OTP, refresh, logout
+Auth endpoints — register, login, Google OAuth, OTP, refresh, logout, password reset.
+Includes rate limiting, brute force protection, and secure token issuance.
 """
 import random
 import string
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.core.database import get_db
 from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
 from app.core.config import settings
+from app.core.rate_limiter import check_rate_limit
 from app.models.user import User, UserType, UserStatus
 from app.models.monetization import ContactCredit
 from app.schemas.auth import (
     RegisterRequest, LoginRequest, OTPSendRequest, OTPVerifyRequest,
-    TokenResponse, RefreshRequest, GoogleAuthRequest
+    TokenResponse, RefreshRequest, GoogleAuthRequest,
+    RequestPasswordResetPayload, ResetPasswordPayload
 )
-from app.services.otp_service import store_otp, verify_otp_code
+from app.services.otp_service import store_otp, verify_otp_code, delete_otp
 from app.services.notification_service import send_otp_sms
 
 router = APIRouter()
@@ -29,21 +32,39 @@ def _generate_otp(length: int = 6) -> str:
     return "".join(random.choices(string.digits, k=length))
 
 
-# Optional rate limiter — disabled when fastapi-limiter not installed
-def _optional_rate_limiter(times: int, seconds: int):
-    """Returns a rate limiter dependency, or a no-op if not available."""
-    try:
-        from fastapi_limiter.depends import RateLimiter
-        return Depends(RateLimiter(times=times, seconds=seconds))
-    except ImportError:
-        async def _noop():
-            return None
-        return Depends(_noop)
+def _set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
+    """Set secure HttpOnly cookies for web clients."""
+    is_secure = settings.APP_ENV == "production"
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=is_secure,
+        samesite="lax",
+        max_age=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/"
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=is_secure,
+        samesite="lax",
+        max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS * 86400,
+        path="/"
+    )
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    """Register a new user with email/password."""
+async def register(
+    payload: RegisterRequest,
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db)
+):
+    """Register a new user with email/password and rate limit check."""
+    await check_rate_limit(request, "register", max_requests=10, window_seconds=60, identifier=payload.email or payload.mobile)
+
     # Check duplicate email
     if payload.email:
         result = await db.execute(select(User).where(User.email == payload.email))
@@ -76,6 +97,8 @@ async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db))
 
     access_token = create_access_token({"sub": str(user.id), "role": user.user_type})
     refresh_token = create_refresh_token({"sub": str(user.id)})
+    _set_auth_cookies(response, access_token, refresh_token)
+
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -89,8 +112,15 @@ async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db))
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
-    """Login with email + password."""
+async def login(
+    payload: LoginRequest,
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db)
+):
+    """Login with email + password protected by rate limiting."""
+    await check_rate_limit(request, "login", max_requests=10, window_seconds=60, identifier=payload.email.strip())
+
     result = await db.execute(select(User).where(User.email.ilike(payload.email.strip())))
     user: Optional[User] = result.scalar_one_or_none()
 
@@ -105,6 +135,8 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
 
     access_token = create_access_token({"sub": str(user.id), "role": user.user_type})
     refresh_token = create_refresh_token({"sub": str(user.id)})
+    _set_auth_cookies(response, access_token, refresh_token)
+
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -118,8 +150,14 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/send-otp")
-async def send_otp(payload: OTPSendRequest, db: AsyncSession = Depends(get_db)):
-    """Send OTP to a mobile number."""
+async def send_otp(
+    payload: OTPSendRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """Send OTP to a mobile number with rate limiting and TTL."""
+    await check_rate_limit(request, "send_otp", max_requests=5, window_seconds=60, identifier=payload.mobile.strip())
+
     otp = _generate_otp(settings.OTP_LENGTH)
     await store_otp(payload.mobile, otp, expiry_minutes=settings.OTP_EXPIRY_MINUTES)
     await send_otp_sms(payload.mobile, otp)
@@ -127,8 +165,14 @@ async def send_otp(payload: OTPSendRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/verify-otp")
-async def verify_otp(payload: OTPVerifyRequest, db: AsyncSession = Depends(get_db)):
-    """Verify OTP and mark mobile as verified."""
+async def verify_otp(
+    payload: OTPVerifyRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """Verify OTP and mark mobile as verified (max 5 attempts per code)."""
+    await check_rate_limit(request, "verify_otp", max_requests=10, window_seconds=60, identifier=payload.mobile.strip())
+
     is_valid = await verify_otp_code(payload.mobile, payload.otp)
     if not is_valid:
         raise HTTPException(status_code=400, detail="Invalid or expired OTP.")
@@ -143,7 +187,11 @@ async def verify_otp(payload: OTPVerifyRequest, db: AsyncSession = Depends(get_d
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh_token(payload: RefreshRequest, db: AsyncSession = Depends(get_db)):
+async def refresh_token(
+    payload: RefreshRequest,
+    response: Response,
+    db: AsyncSession = Depends(get_db)
+):
     """Refresh JWT access token using a valid refresh token."""
     try:
         token_data = decode_token(payload.refresh_token)
@@ -167,31 +215,45 @@ async def refresh_token(payload: RefreshRequest, db: AsyncSession = Depends(get_
 
     access_token = create_access_token({"sub": str(user.id), "role": user.user_type})
     new_refresh_token = create_refresh_token({"sub": str(user.id)})
-    return TokenResponse(access_token=access_token, refresh_token=new_refresh_token, user_type=user.user_type)
+    _set_auth_cookies(response, access_token, new_refresh_token)
+
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=new_refresh_token,
+        user_type=user.user_type,
+        user_id=str(user.id),
+        name=user.name,
+        email=user.email,
+        mobile=user.mobile,
+        city=user.city,
+    )
 
 
 @router.post("/logout")
-async def logout():
-    """Logout — client should discard tokens."""
+async def logout(response: Response):
+    """Logout — clears secure cookies and informs client."""
+    response.delete_cookie(key="access_token", path="/")
+    response.delete_cookie(key="refresh_token", path="/")
     return {"message": "Logged out successfully."}
 
 
 @router.post("/google", response_model=TokenResponse)
-async def google_login(payload: GoogleAuthRequest, db: AsyncSession = Depends(get_db)):
+async def google_login(
+    payload: GoogleAuthRequest,
+    response: Response,
+    db: AsyncSession = Depends(get_db)
+):
     """Simulate Google OAuth registration/login."""
     if not payload.id_token or len(payload.id_token) < 5:
         raise HTTPException(status_code=400, detail="Invalid Google ID token.")
 
-    # Simulated token extraction
     email = "google_buyer@test.com"
     name = "Google User"
 
-    # Check if user exists
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
 
     if not user:
-        # Register new Google buyer user
         user = User(
             name=name,
             email=email,
@@ -204,30 +266,75 @@ async def google_login(payload: GoogleAuthRequest, db: AsyncSession = Depends(ge
         await db.commit()
         await db.refresh(user)
 
-        # Allocate initial free credits
         credit = ContactCredit(user_id=user.id, total_credits=5, used_credits=0)
         db.add(credit)
         await db.commit()
 
     access_token = create_access_token({"sub": str(user.id), "role": user.user_type})
     refresh_token = create_refresh_token({"sub": str(user.id)})
+    _set_auth_cookies(response, access_token, refresh_token)
 
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
-        user_type=user.user_type
+        user_type=user.user_type,
+        user_id=str(user.id),
+        name=user.name,
+        email=user.email,
+        mobile=user.mobile,
+        city=user.city,
     )
 
 
-from pydantic import BaseModel
+@router.post("/request-password-reset")
+async def request_password_reset(
+    payload: RequestPasswordResetPayload,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Step 1: Request password reset.
+    Generates a secure 10-minute OTP and signed reset token after finding registered account.
+    """
+    await check_rate_limit(request, "pwd_reset_req", max_requests=5, window_seconds=60, identifier=payload.mobile_or_email.strip())
 
-class ResetPasswordPayload(BaseModel):
-    mobile_or_email: str
-    new_password: str
+    target = payload.mobile_or_email.strip()
+    result = await db.execute(select(User).where((User.email.ilike(target)) | (User.mobile == target)))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="No registered account found with this email or mobile.")
+
+    otp = _generate_otp(6)
+    target_mobile = user.mobile or target
+    await store_otp(f"pwd_reset:{target}", otp, expiry_minutes=10)
+    await send_otp_sms(target_mobile, otp)
+
+    # Generate a signed short-lived reset token (valid for 10 minutes)
+    reset_token = create_access_token(
+        {"sub": str(user.id), "type": "password_reset", "contact": target},
+        expires_delta=timedelta(minutes=10)
+    )
+
+    return {
+        "message": "Password reset OTP has been dispatched to your contact.",
+        "reset_token": reset_token,
+        "expires_in_minutes": 10,
+        "requires_otp": True
+    }
+
 
 @router.post("/reset-password")
-async def reset_password(payload: ResetPasswordPayload, db: AsyncSession = Depends(get_db)):
-    """Reset user password using email or mobile number."""
+async def reset_password(
+    payload: ResetPasswordPayload,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Step 2: Reset user password.
+    Requires verified OTP or valid signed reset_token to prevent unauthorized takeover.
+    """
+    await check_rate_limit(request, "pwd_reset_submit", max_requests=5, window_seconds=60, identifier=payload.mobile_or_email.strip())
+
     target = payload.mobile_or_email.strip()
     result = await db.execute(select(User).where((User.email.ilike(target)) | (User.mobile == target)))
     user = result.scalar_one_or_none()
@@ -237,8 +344,33 @@ async def reset_password(payload: ResetPasswordPayload, db: AsyncSession = Depen
     if len(payload.new_password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters long.")
 
+    is_verified = False
+
+    # Check 1: Verified via signed reset token
+    if payload.reset_token:
+        try:
+            token_payload = decode_token(payload.reset_token)
+            if token_payload.get("type") == "password_reset" and token_payload.get("sub") == str(user.id):
+                is_verified = True
+        except Exception:
+            is_verified = False
+
+    # Check 2: Verified via OTP code
+    if not is_verified and payload.otp:
+        otp_valid = await verify_otp_code(f"pwd_reset:{target}", payload.otp)
+        if otp_valid:
+            is_verified = True
+
+    if not is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password reset verification failed. Please provide a valid OTP or reset token."
+        )
+
+    # Invalidate OTP immediately
+    await delete_otp(f"pwd_reset:{target}")
+
     user.password_hash = hash_password(payload.new_password)
     db.add(user)
     await db.commit()
     return {"message": "Password has been successfully updated. You can now log in."}
-

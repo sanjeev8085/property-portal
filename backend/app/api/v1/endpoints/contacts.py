@@ -1,13 +1,23 @@
-"""Contact credits & unlock endpoint."""
-from fastapi import APIRouter, Depends, HTTPException
-from app.api.deps import get_current_active_user, require_verified_mobile
-from app.models.user import User
+"""Contact credits & atomic lead unlock endpoints."""
+import uuid
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
+
+from app.api.deps import get_current_active_user, require_verified_mobile, get_optional_user
+from app.models.user import User
+from app.models.property import Property
+from app.models.monetization import ContactCredit, ContactUnlock
 from app.core.database import get_db
-from app.models.monetization import ContactCredit
 
 router = APIRouter()
+
+
+class UnlockContactPayload(BaseModel):
+    property_id: str
 
 
 @router.get("/credits")
@@ -27,60 +37,55 @@ async def get_credits(
     }
 
 
-from app.models.property import Property
-from app.models.monetization import ContactUnlock
-import uuid
-
-@router.post("/unlock/{property_id}")
-async def unlock_contact(
-    property_id: str,
-    current_user: User = Depends(require_verified_mobile),
-    db: AsyncSession = Depends(get_db),
-):
-    """Unlock owner contact for a property (costs 1 credit)."""
+async def _execute_atomic_unlock(property_id_str: str, current_user: User, db: AsyncSession):
     try:
-        pid = uuid.UUID(property_id)
+        pid = uuid.UUID(property_id_str)
     except ValueError:
-        raise HTTPException(status_code=422, detail="Invalid property ID.")
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid property ID format.")
 
-    prop_result = await db.execute(
-        select(Property).where(Property.id == pid)
-    )
+    prop_result = await db.execute(select(Property).where(Property.id == pid))
     prop = prop_result.scalar_one_or_none()
     if not prop:
-        raise HTTPException(status_code=404, detail="Property not found.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found.")
 
-    # Check duplicate unlock
+    # Check if already unlocked
     dup_result = await db.execute(
         select(ContactUnlock).where(ContactUnlock.user_id == current_user.id, ContactUnlock.property_id == pid)
     )
     dup = dup_result.scalar_one_or_none()
     if dup:
-        # Fetch owner details
         owner_result = await db.execute(select(User).where(User.id == prop.owner_id))
         owner = owner_result.scalar_one_or_none()
+        phone = prop.contact_phone or (owner.mobile if owner else "")
         return {
             "message": "Already unlocked.",
+            "contact_phone": phone,
+            "contact_whatsapp": prop.contact_whatsapp or phone,
             "contact": {
-                "name": owner.name if owner else "Unknown",
-                "phone": owner.mobile if owner else "",
-                "email": owner.email if owner else "",
+                "name": prop.contact_name or (owner.name if owner else "Verified Owner"),
+                "phone": phone,
+                "email": prop.contact_email or (owner.email if owner else ""),
             }
         }
 
-    credits_result = await db.execute(select(ContactCredit).where(ContactCredit.user_id == current_user.id))
-    credits = credits_result.scalar_one_or_none()
-    if not credits or credits.available_credits < 1:
+    # Atomic Credit Check & Deduction (Concurrency Safe)
+    # Deducts 1 credit only if total_credits > used_credits
+    deduct_stmt = (
+        update(ContactCredit)
+        .where(
+            ContactCredit.user_id == current_user.id,
+            ContactCredit.total_credits > ContactCredit.used_credits
+        )
+        .values(used_credits=ContactCredit.used_credits + 1)
+    )
+    res = await db.execute(deduct_stmt)
+    if res.rowcount == 0:
         raise HTTPException(
-            status_code=402,
-            detail="Insufficient contact credits. Please purchase a plan.",
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="Insufficient contact credits. Please purchase a contact pack.",
         )
 
-    # Deduct credit
-    credits.used_credits += 1
-    db.add(credits)
-
-    # Save unlock entry
+    # Insert Unlocked Contact Record with Unique Constraint
     unlock_entry = ContactUnlock(
         user_id=current_user.id,
         property_id=pid,
@@ -88,30 +93,60 @@ async def unlock_contact(
         credit_used=1
     )
     db.add(unlock_entry)
-    await db.commit()
 
-    # Trigger unlock alert notification!
-    from app.services.notification_service import send_contact_unlocked_notification
+    try:
+        await db.commit()
+    except IntegrityError:
+        # Concurrent request already inserted unlock row
+        await db.rollback()
+
+    # Trigger notification to owner
     if prop.owner_id:
-        await send_contact_unlocked_notification(
-            owner_id=prop.owner_id,
-            property_title=prop.title,
-            user_name=current_user.name,
-            db=db
-        )
+        try:
+            from app.services.notification_service import send_contact_unlocked_notification
+            await send_contact_unlocked_notification(
+                owner_id=prop.owner_id,
+                property_title=prop.title,
+                user_name=current_user.name,
+                db=db
+            )
+        except Exception:
+            pass
 
-    # Fetch owner details
     owner_result = await db.execute(select(User).where(User.id == prop.owner_id))
     owner = owner_result.scalar_one_or_none()
+    phone = prop.contact_phone or (owner.mobile if owner else "")
 
     return {
         "message": "Contact unlocked successfully.",
+        "contact_phone": phone,
+        "contact_whatsapp": prop.contact_whatsapp or phone,
         "contact": {
-            "name": owner.name if owner else "Unknown",
-            "phone": owner.mobile if owner else "",
-            "email": owner.email if owner else "",
+            "name": prop.contact_name or (owner.name if owner else "Verified Owner"),
+            "phone": phone,
+            "email": prop.contact_email or (owner.email if owner else ""),
         }
     }
+
+
+@router.post("/unlock/{property_id}")
+async def unlock_contact_by_path(
+    property_id: str,
+    current_user: User = Depends(require_verified_mobile),
+    db: AsyncSession = Depends(get_db),
+):
+    """Unlock owner contact by URL parameter."""
+    return await _execute_atomic_unlock(property_id, current_user, db)
+
+
+@router.post("/unlock")
+async def unlock_contact_by_body(
+    payload: UnlockContactPayload,
+    current_user: User = Depends(require_verified_mobile),
+    db: AsyncSession = Depends(get_db),
+):
+    """Unlock owner contact by JSON payload."""
+    return await _execute_atomic_unlock(payload.property_id, current_user, db)
 
 
 @router.get("/unlocked")

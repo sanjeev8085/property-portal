@@ -50,6 +50,17 @@ class TokenResponse(BaseModel):
     city: Optional[str] = None
 
 
+class RequestPasswordResetPayload(BaseModel):
+    mobile_or_email: str
+
+
+class ResetPasswordPayload(BaseModel):
+    mobile_or_email: str
+    new_password: str
+    otp: Optional[str] = None
+    reset_token: Optional[str] = None
+
+
 class GoogleAuthRequest(BaseModel):
     id_token: str
 

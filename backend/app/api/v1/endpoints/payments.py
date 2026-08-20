@@ -95,11 +95,27 @@ async def verify_payment(
     if not payment:
         raise HTTPException(status_code=404, detail="Order record not found.")
 
-    # Verify signature stub check (mock check: accept anything unless it contains 'bad' or is empty)
-    if "bad" in sig:
-        payment.status = PaymentStatus.FAILED
-        await db.commit()
-        raise HTTPException(status_code=400, detail="Invalid signature. Payment rejected.")
+    # Signature verification
+    if settings.APP_ENV == "development" or not settings.RAZORPAY_KEY_SECRET:
+        # Development sandbox verification check
+        if "bad" in sig:
+            payment.status = PaymentStatus.FAILED
+            await db.commit()
+            raise HTTPException(status_code=400, detail="Invalid signature. Payment rejected.")
+    else:
+        # Strict Production HMAC SHA256 Verification
+        import hmac
+        import hashlib
+        msg = f"{order_id}|{payment_id}".encode("utf-8")
+        expected_sig = hmac.new(
+            settings.RAZORPAY_KEY_SECRET.encode("utf-8"),
+            msg,
+            hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(expected_sig, sig):
+            payment.status = PaymentStatus.FAILED
+            await db.commit()
+            raise HTTPException(status_code=400, detail="Cryptographic payment signature verification failed.")
 
     # Prevent double crediting
     if payment.status == PaymentStatus.SUCCESSFUL:
