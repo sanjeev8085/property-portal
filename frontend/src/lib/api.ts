@@ -77,6 +77,10 @@ export const api = {
     });
   },
 
+  async getMe() {
+    return apiFetch("/users/me");
+  },
+
   // Properties API
   async getProperties(filters: string = "") {
     try {

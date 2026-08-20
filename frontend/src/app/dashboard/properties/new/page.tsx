@@ -86,6 +86,26 @@ export default function NewPropertyWizard() {
   const [contactPhone, setContactPhone] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);
 
+  // Auto-fill logged in user credentials so user never has to retype
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedName = localStorage.getItem("user_name") || localStorage.getItem("user_email")?.split("@")[0] || "";
+      const storedMobile = localStorage.getItem("user_mobile") || localStorage.getItem("user_phone") || "";
+      if (storedName) setContactName(storedName);
+      if (storedMobile) setContactPhone(storedMobile);
+
+      const token = localStorage.getItem("access_token");
+      if (token) {
+        api.getMe().then((user: any) => {
+          if (user) {
+            if (user.name) setContactName(user.name);
+            if (user.mobile) setContactPhone(user.mobile);
+          }
+        }).catch(() => {});
+      }
+    }
+  }, []);
+
   const stepsList = [
     "Purpose",
     "Type",
@@ -825,14 +845,33 @@ export default function NewPropertyWizard() {
         {step === 8 && (
           <div className="step-content fade-in">
             <h2>Step 8 — Contact Details</h2>
-            <p className="step-intro-text">Confirm owner / agent profile details for lead unlocks.</p>
+            <p className="step-intro-text">Confirm owner / agent profile details for verified buyer unlocks.</p>
+            
+            {contactName && contactPhone && (
+              <div style={{
+                background: "rgba(16, 185, 129, 0.1)",
+                border: "1px solid rgba(16, 185, 129, 0.3)",
+                padding: "12px 16px",
+                borderRadius: "12px",
+                marginBottom: "20px",
+                fontSize: "13.5px",
+                color: "#10b981",
+                fontWeight: 600,
+                display: "flex",
+                alignItems: "center",
+                gap: "8px"
+              }}>
+                <span style={{ fontSize: "16px" }}>✓</span> Auto-filled from your logged-in profile. You can edit below if needed.
+              </div>
+            )}
+
             <div className="form-grid">
               <div className="form-group">
                 <label>Contact Name</label>
                 <input type="text" placeholder="e.g. Rahul Sharma" value={contactName} onChange={(e) => setContactName(e.target.value)} />
               </div>
               <div className="form-group">
-                <label>Mobile Number (For verification)</label>
+                <label>Mobile Number (For direct calls & WhatsApp)</label>
                 <input type="tel" placeholder="e.g. 9893024190" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
               </div>
             </div>

@@ -348,6 +348,62 @@ export default function PropertyDetailsPage() {
               ))}
             </div>
           </div>
+
+          {/* Direct In-Page Owner & Contact Card (Visible on Mobile & Desktop) */}
+          <div className="details-card premium-card owner-inpage-card">
+            <div className="owner-avatar-info">
+              <Avatar name={propertyDetails.owner.name} size="lg" />
+              <div>
+                <div className="owner-name-row">
+                  <h3>{propertyDetails.owner.name}</h3>
+                  <span className="verified-check">✓</span>
+                </div>
+                <span className="owner-badge">Verified Owner • Fast Responder</span>
+              </div>
+            </div>
+
+            <div className="divider" style={{ margin: "16px 0" }}></div>
+
+            {isUnlocked || (typeof window !== "undefined" && localStorage.getItem("access_token")) ? (
+              <div className="unlocked-contact-box fade-in">
+                <div className="contact-info-grid">
+                  <div className="contact-item">
+                    <span className="contact-item-label">📞 Phone Number:</span>
+                    <a href={`tel:${propertyDetails.owner.unlockedPhone}`} className="contact-item-val link-phone">
+                      {propertyDetails.owner.unlockedPhone}
+                    </a>
+                  </div>
+                  <div className="contact-item">
+                    <span className="contact-item-label">✉️ Email Address:</span>
+                    <span className="contact-item-val">{propertyDetails.owner.email}</span>
+                  </div>
+                </div>
+
+                <div className="contact-action-buttons-row">
+                  <a href={`tel:${propertyDetails.owner.unlockedPhone}`} className="btn-call-direct">
+                    📞 Call Owner Now
+                  </a>
+                  <a href={whatsappUrl} target="_blank" rel="noreferrer" className="btn-whatsapp-direct">
+                    💬 WhatsApp Chat
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <div className="locked-contact-box">
+                <p style={{ fontSize: "14px", color: "var(--text-secondary)", marginBottom: "14px" }}>
+                  Log in or unlock with 1 credit to view direct phone number and chat on WhatsApp with the owner.
+                </p>
+                <div className="contact-action-buttons-row">
+                  <button type="button" className="btn-call-direct" onClick={handleContactOwner}>
+                    🔓 Unlock Phone & Contact Details
+                  </button>
+                  <a href={whatsappUrl} target="_blank" rel="noreferrer" className="btn-whatsapp-direct">
+                    💬 WhatsApp Chat
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Desktop Sidebar Column */}
@@ -377,7 +433,7 @@ export default function PropertyDetailsPage() {
               <span className="credit-badge">{credits} Credits</span>
             </div>
 
-            {isUnlocked ? (
+            {isUnlocked || (typeof window !== "undefined" && localStorage.getItem("access_token")) ? (
               <div className="unlocked-contact-info fade-in">
                 <p className="unlock-success-msg">✓ Owner Contact Unlocked</p>
                 <div className="contact-details">
@@ -1018,6 +1074,96 @@ export default function PropertyDetailsPage() {
           color: var(--text-secondary);
         }
 
+        /* In-Page Owner Contact Card */
+        .owner-inpage-card {
+          border: 1px solid var(--border);
+          background: var(--surface);
+          border-radius: var(--radius-lg, 16px);
+          padding: 24px;
+        }
+        .contact-info-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 14px;
+          margin-bottom: 20px;
+          background: var(--surface-hover, #f8fafc);
+          padding: 16px;
+          border-radius: 12px;
+          border: 1px solid var(--border);
+        }
+        .contact-item {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .contact-item-label {
+          font-size: 12px;
+          font-weight: 700;
+          color: var(--text-muted);
+          text-transform: uppercase;
+        }
+        .contact-item-val {
+          font-size: 15px;
+          font-weight: 800;
+          color: var(--text-primary);
+        }
+        .link-phone {
+          color: var(--primary);
+          text-decoration: none;
+        }
+        .link-phone:hover {
+          text-decoration: underline;
+        }
+        .contact-action-buttons-row {
+          display: flex;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+        .btn-call-direct {
+          flex: 1;
+          min-width: 180px;
+          background: var(--primary, #6366f1);
+          color: white;
+          padding: 14px 20px;
+          border-radius: 12px;
+          font-size: 14.5px;
+          font-weight: 800;
+          text-align: center;
+          text-decoration: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          border: none;
+          cursor: pointer;
+          box-shadow: 0 4px 14px 0 rgba(99, 102, 241, 0.25);
+          transition: transform 0.15s ease;
+        }
+        .btn-call-direct:hover {
+          transform: translateY(-2px);
+        }
+        .btn-whatsapp-direct {
+          flex: 1;
+          min-width: 180px;
+          background: #25d366;
+          color: white;
+          padding: 14px 20px;
+          border-radius: 12px;
+          font-size: 14.5px;
+          font-weight: 800;
+          text-align: center;
+          text-decoration: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          box-shadow: 0 4px 14px 0 rgba(37, 211, 102, 0.25);
+          transition: transform 0.15s ease;
+        }
+        .btn-whatsapp-direct:hover {
+          transform: translateY(-2px);
+        }
+
         /* ─── Responsive Media Queries ─────────────────────────────────────── */
         @media (max-width: 900px) {
           .detail-layout {
@@ -1035,7 +1181,7 @@ export default function PropertyDetailsPage() {
           }
 
           .detail-page-container {
-            padding: 0 0 110px 0;
+            padding: 0 0 120px 0;
           }
 
           /* Mobile Top Bar */
@@ -1073,7 +1219,7 @@ export default function PropertyDetailsPage() {
           .image-gallery-card {
             border-radius: 0;
             aspect-ratio: 4 / 3;
-            max-height: 380px;
+            max-height: 340px;
           }
           .thumbnail-strip {
             padding: 0 16px;
@@ -1093,37 +1239,42 @@ export default function PropertyDetailsPage() {
           }
 
           .detail-title {
-            font-size: 21px;
-            line-height: 1.35;
+            font-size: 20px;
+            line-height: 1.4;
+            word-break: break-word;
+            overflow-wrap: break-word;
           }
           .price-tag {
-            font-size: 24px;
+            font-size: 22px;
           }
           .location-tag {
-            font-size: 14px;
+            font-size: 13.5px;
           }
 
           .quick-specs-grid {
             grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            margin-bottom: 24px;
+            gap: 8px;
+            margin-bottom: 20px;
           }
           .spec-card {
-            padding: 12px 10px;
+            padding: 10px 8px;
             border-radius: 12px;
-            gap: 10px;
+            gap: 8px;
           }
           .spec-icon {
-            width: 36px;
-            height: 36px;
-            font-size: 18px;
+            width: 32px;
+            height: 32px;
+            font-size: 16px;
             border-radius: 8px;
           }
           .spec-label {
-            font-size: 10px;
+            font-size: 9.5px;
           }
           .spec-value {
-            font-size: 13px;
+            font-size: 12.5px;
+            white-space: normal;
+            word-break: break-word;
+            line-height: 1.2;
           }
 
           .details-card {
@@ -1133,7 +1284,7 @@ export default function PropertyDetailsPage() {
             margin-bottom: 12px;
           }
           .details-card h2 {
-            font-size: 18px;
+            font-size: 17px;
           }
           .amenities-grid {
             grid-template-columns: repeat(2, 1fr);
@@ -1144,34 +1295,33 @@ export default function PropertyDetailsPage() {
             font-size: 12.5px;
           }
 
-          /* Floating Mobile Action Bar */
+          /* Floating Mobile Action Bar (Positioned above bottom nav) */
           .mobile-floating-action-bar {
             display: flex;
             justify-content: space-between;
             align-items: center;
             position: fixed;
-            bottom: 0;
+            bottom: 64px;
             left: 0;
             right: 0;
-            z-index: 999;
-            background: rgba(15, 23, 42, 0.95);
+            z-index: 990;
+            background: rgba(15, 23, 42, 0.96);
             backdrop-filter: blur(12px);
             border-top: 1px solid rgba(255, 255, 255, 0.12);
-            padding: 12px 16px;
-            padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-            box-shadow: 0 -10px 25px -5px rgba(0,0,0,0.3);
+            padding: 10px 14px;
+            box-shadow: 0 -8px 20px -4px rgba(0,0,0,0.3);
           }
           .bar-price-col {
             display: flex;
             flex-direction: column;
           }
           .bar-price {
-            font-size: 18px;
+            font-size: 17px;
             font-weight: 900;
             color: #ffffff;
           }
           .bar-sub {
-            font-size: 11px;
+            font-size: 10.5px;
             color: #94a3b8;
           }
           .bar-buttons-col {
@@ -1181,9 +1331,9 @@ export default function PropertyDetailsPage() {
           .btn-mobile-wa {
             background: #25d366;
             color: white;
-            padding: 10px 14px;
+            padding: 9px 12px;
             border-radius: 10px;
-            font-size: 13px;
+            font-size: 12.5px;
             font-weight: 800;
             text-decoration: none;
             display: flex;
@@ -1194,9 +1344,9 @@ export default function PropertyDetailsPage() {
           .btn-mobile-call {
             background: var(--primary, #6366f1);
             color: white;
-            padding: 10px 16px;
+            padding: 9px 14px;
             border-radius: 10px;
-            font-size: 13px;
+            font-size: 12.5px;
             font-weight: 800;
             text-decoration: none;
             display: flex;
