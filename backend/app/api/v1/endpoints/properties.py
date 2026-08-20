@@ -24,31 +24,34 @@ async def create_property(
     from app.models.location import Location
     from app.models.property import PropertyCategory
 
-    # Determine owner user ID
-    owner_id = None
-    if current_user:
-        owner_id = current_user.id
-    else:
-        if payload.contact_phone:
-            u_check = await db.execute(select(User).where(User.mobile == payload.contact_phone))
-            existing_user = u_check.scalar_one_or_none()
-            if existing_user:
-                owner_id = existing_user.id
-        if not owner_id:
-            admin_check = await db.execute(select(User).where(User.email == "admin@aurahomes.in"))
-            admin_u = admin_check.scalar_one_or_none()
-            if admin_u:
-                owner_id = admin_u.id
-            else:
-                first_u = (await db.execute(select(User).limit(1))).scalar_one_or_none()
-                if first_u:
-                    owner_id = first_u.id
+    # 1. Require Authentication
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Authentication required to create a property listing."
+        )
 
-    # Find or link Location
+    # 2. Require Active Account
+    if current_user.status != UserStatus.ACTIVE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account is suspended or blocked."
+        )
+
+    # 3. Role Restriction — Only Owner, Agent, or Admin
+    if current_user.user_type not in (UserType.OWNER, UserType.AGENT, UserType.ADMIN):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only owner or agent accounts can create property listings. Please upgrade your role in Profile settings."
+        )
+
+    owner_id = current_user.id
+
+    # 4. Find or link Location
     location_id = None
-    if payload.city or payload.locality:
+    if payload.city or payload.locality or payload.area:
         loc_city = payload.city or "Bhopal"
-        loc_locality = payload.locality or "Arera Colony"
+        loc_locality = payload.locality or payload.area or "Arera Colony"
         loc_res = await db.execute(
             select(Location).where(
                 Location.city.ilike(f"%{loc_city}%"),
@@ -67,18 +70,21 @@ async def create_property(
             await db.flush()
         location_id = loc_obj.id
 
-    # Deduplicate rapid multi-taps (return existing property if posted within same session)
-    target_phone = payload.contact_phone or (current_user.mobile if current_user else "9893024190")
+    # 5. Deduplicate rapid multi-taps & identical listings
+    target_phone = payload.contact_phone or current_user.mobile or "9893024190"
     dup_check = await db.execute(
         select(Property).where(
+            Property.owner_id == owner_id,
             Property.title == payload.title,
             Property.price == payload.price,
-            Property.contact_phone == target_phone
         )
     )
     existing_prop = dup_check.scalars().first()
     if existing_prop:
-        return {"id": str(existing_prop.id), "title": existing_prop.title, "status": existing_prop.status}
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Duplicate listing detected. A property with matching title and price already exists in your account."
+        )
 
     prop = Property(
         owner_id=owner_id,
@@ -92,10 +98,10 @@ async def create_property(
         area_sqft=payload.area_sqft,
         bathrooms=payload.bathrooms,
         description=payload.description,
-        contact_name=payload.contact_name or (current_user.name if current_user else "Property Owner"),
-        contact_phone=payload.contact_phone or (current_user.mobile if current_user else "9893024190"),
-        contact_whatsapp=payload.contact_whatsapp or payload.contact_phone or (current_user.mobile if current_user else "9893024190"),
-        status=PropertyStatus.PUBLISHED,
+        contact_name=payload.contact_name or current_user.name or "Property Owner",
+        contact_phone=target_phone,
+        contact_whatsapp=payload.contact_whatsapp or target_phone,
+        status=PropertyStatus.PENDING_APPROVAL,
     )
     db.add(prop)
     await db.commit()
@@ -121,7 +127,11 @@ async def create_property(
         ))
         await db.commit()
 
-    return {"id": str(prop.id), "title": prop.title, "status": prop.status}
+    return {
+        "id": str(prop.id),
+        "title": prop.title,
+        "status": prop.status.value if hasattr(prop.status, "value") else str(prop.status)
+    }
 
 
 @router.get("/me/listings")

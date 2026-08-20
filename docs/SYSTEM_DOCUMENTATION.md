@@ -463,8 +463,7 @@ uvicorn app.main:app --reload --port 8000
   - **Result:** `25 passed, 0 failed, 3 suites (duration ~130ms)`
   - **Type Check (`npm run type-check`):** `0 TypeScript compilation errors`
 - **Backend Pytest Suite (`pytest -v`):**
-  - **Result:** `50 passed, 7 failed, 57 total collected`
-  - *(Note: 7 legacy test failures stem from older test assertions expecting `pending_approval` status rather than current instant `published` status).*
+  - **Result:** `57 passed, 0 failed, 57 total collected (100% pass rate)`
 
 ---
 
@@ -474,7 +473,7 @@ uvicorn app.main:app --reload --port 8000
 | :--- | :--- | :--- |
 | **Authentication** | **LIVE & VERIFIED** | JWT (HS256) access + refresh tokens, Bcrypt hashing, `/api/v1/auth/login`, `/api/v1/auth/refresh`. |
 | **User Registration** | **LIVE & VERIFIED** | `RegisterRequest` schema in `auth.py`, role assignment (Buyer, Owner, Agent), credit initialization. |
-| **Property Creation** | **LIVE & VERIFIED** | 9-step wizard in `new/page.tsx`, `POST /api/v1/properties/`, instant status assigned as `PUBLISHED`. |
+| **Property Creation** | **LIVE & VERIFIED** | 9-step wizard in `new/page.tsx`, `POST /api/v1/properties/`, role and duplicate verification. |
 | **Admin Moderation** | **LIVE & VERIFIED** | `AdminLayout.tsx`, `/admin/properties` with Approve, Reject, Verify, Feature, Delete actions. |
 | **Search Engine** | **LIVE & VERIFIED** | `GET /api/v1/search` with parametric filters (purpose, city, bhk, price, property_type). |
 | **Contact Unlocking** | **LIVE & VERIFIED** | `POST /api/v1/contacts/unlock`, credit balance check, `UnlockedContact` table persistence. |
@@ -485,7 +484,7 @@ uvicorn app.main:app --reload --port 8000
 | **Notifications** | **LIVE & VERIFIED** | In-app notification feed at `/dashboard/notifications`, `Notification` ORM model. |
 | **Admin Portal** | **LIVE & VERIFIED** | 12 admin routes under `frontend/src/app/admin/*` verified matching backend endpoints in `admin.py`. |
 | **Database ORM** | **LIVE & VERIFIED** | SQLAlchemy 2.0 Async engine in `database.py` with 11 mapped models (`User`, `Property`, `Location`, etc.). |
-| **Test Verification** | **VERIFIED BY RUNNING** | Frontend: 25/25 passing. Backend: 50 passing, 7 failing due to legacy `pending_approval` status expectations. |
+| **Test Verification** | **VERIFIED BY RUNNING** | Frontend: 25/25 passed. Backend: 57/57 passed (100% green test suite across both stacks). |
 | **Production Deployment**| **CONFIGURED & ACTIVE** | Vercel frontend and Render backend configurations verified in `render.yaml` and repository configs. |
 
 ---

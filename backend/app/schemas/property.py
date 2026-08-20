@@ -22,7 +22,10 @@ class PropertyCreate(BaseModel):
     image: Optional[str] = None
     city: Optional[str] = "Bhopal"
     locality: Optional[str] = None
+    area: Optional[str] = None
     address: Optional[str] = None
+    security_deposit: Optional[float] = None
+    is_negotiable: Optional[bool] = False
     contact_name: Optional[str] = None
     contact_phone: Optional[str] = None
     contact_whatsapp: Optional[str] = None
