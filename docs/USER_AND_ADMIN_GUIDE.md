@@ -1,73 +1,45 @@
 # AuraHomes — Complete User & Admin Master Guide 🏠✨
 
-Welcome to **AuraHomes**, a modern, mobile-first real estate portal designed for verified property discovery, instant owner-buyer connections, and comprehensive admin management.
+Welcome to **AuraHomes**, a modern real estate marketplace designed for verified property discovery, instant owner-buyer connections, and comprehensive admin management.
 
 ---
 
 ## 📑 Table of Contents
-1. [Project Overview & Live Links](#1-project-overview--live-links)
-2. [User Roles & Permissions](#2-user-roles--permissions)
+1. [Project Overview & Verified URLs](#1-project-overview--verified-urls)
+2. [User Roles & Access Rules](#2-user-roles--access-rules)
 3. [Buyer & Tenant Guide (Finding & Unlocking Properties)](#3-buyer--tenant-guide)
-4. [Owner & Agent Guide (Listing Properties)](#4-owner--agent-guide)
-5. [Cross-Device Synchronization Guide](#5-cross-device-synchronization)
+4. [Owner & Agent Guide (Listing & Managing Properties)](#4-owner--agent-guide)
+5. [Cross-Device Synchronization & Gating](#5-cross-device-synchronization--gating)
 6. [Admin Portal Guide (Management & Moderation)](#6-admin-portal-guide)
-7. [Search & Max Budget Guide](#7-search--max-budget-guide)
+7. [Search & Budget Filtering Guide](#7-search--budget-filtering-guide)
 8. [Form Validations & Security Rules](#8-form-validations--security-rules)
 9. [Developer Guide (Running & Testing Locally)](#9-developer-guide)
-10. [Updating This Project](#10-updating-this-project)
+10. [Known Limitations & Current Integration Status](#10-known-limitations--current-integration-status)
 
 ---
 
-## 1. Project Overview & Live Links
+## 1. Project Overview & Verified URLs
 
 | Component | Platform / URL | Details |
 | :--- | :--- | :--- |
-| **Frontend Portal** | `http://localhost:3000` / Vercel | Next.js 16 (Turbopack, TypeScript, Responsive CSS) |
-| **Backend API** | `https://aurahomes-backend-tz1c.onrender.com` | FastAPI, PostgreSQL, Redis, JWT Auth |
-| **API Docs (Swagger)**| `https://aurahomes-backend-tz1c.onrender.com/docs` | Interactive OpenAPI 3.0 Documentation |
-| **GitHub Repository** | `https://github.com/sanjeev8085/property-portal.git` | Main branch |
+| **Frontend Portal** | `http://localhost:3000` / Vercel | Next.js 16.3.1 (React 19.2.8, TypeScript, Custom CSS) |
+| **Backend API** | `https://aurahomes-backend-tz1c.onrender.com` | FastAPI 0.115.0, SQLAlchemy 2.0 Async, JWT Auth |
+| **API Docs (Swagger)**| `https://aurahomes-backend-tz1c.onrender.com/docs` | Interactive OpenAPI Documentation |
+| **GitHub Repository** | `https://github.com/sanjeev8085/property-portal.git` | `main` branch |
 
 ---
 
 ## 2. User Roles & Access Rules
 
-- 🌍 **Public Browsing (Anyone without login)**:
-  - Any visitor can browse the homepage, search properties, filter by budget/BHK/city, and view complete property details and high-resolution photo galleries.
+- 🌍 **Public Visitor (No Login Needed)**:
+  - Browse homepage, perform full-text and parametric searches, filter by budget/BHK/city, and view property photo galleries and specifications.
 - 🔐 **Posting a Property (Login Required)**:
-  - If an unauthenticated user clicks "+ Post New Property", they are automatically directed to login/register.
+  - Clicking "+ Post Property" redirects unauthenticated visitors to login.
   - Any registered user (Owner, Agent, or Buyer) can create listings with full photos and dynamic specifications.
-
-```
-                  ┌────────────────────────┐
-                  │    AuraHomes Users     │
-                  └───────────┬────────────┘
-         ┌────────────────────┼────────────────────┐
-         ▼                    ▼                    ▼
-┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
-│  Public Visitor  │ │ Registered User  │ │   Super Admin    │
-│  - Public View   │ │  - Post Listings │ │  - Full Control  │
-│  - Search & Buy  │ │  - Upload Photos │ │  - Moderate Ads  │
-│  - View Photos   │ │  - Unlock Phone  │ │  - User RBAC     │
-└──────────────────┘ └──────────────────┘ └──────────────────┘
-```
-
-1. **Public Visitor (No Login Needed)**:
-   - Search across Buy, Rent, and Commercial properties.
-   - Filter by Max Budget, BHK size, City, Locality, and Furnishing status.
-   - View property photo galleries and specifications.
-2. **Registered User (`buyer` / `owner` / `agent`)**:
-   - Post free or premium listings with dynamic specifications and photos.
-   - Upload high-resolution photos with cover image selection.
-   - Generate AI-powered SEO-friendly property descriptions.
-   - Track listing views and manage listed properties.
-   - Purchase Contact Credits or Subscriptions to reveal owner phone number & WhatsApp chat.
-   - Post multiple builder floors, luxury penthouses, plots, shops, and commercial offices.
-   - Manage multiple listings with real-time analytics and lead notifications.
-4. **Super Admin (`user_type: admin`)**:
-   - Protected behind authentication and role verification (`/admin/login`).
-   - Full property approval, rejection, and featuring capabilities.
-   - User account status management (activate/suspend/ban).
-   - Subscription revenue and financial tracking.
+- 🛡️ **Super Admin (`user_type: admin`)**:
+  - Full access to the Admin Portal (`/admin/dashboard`).
+  - Moderate property listings (Approve, Reject, Verify, Feature, Delete).
+  - Manage user accounts (Activate, Suspend, Block, Grant credits).
 
 ---
 
@@ -77,166 +49,143 @@ Welcome to **AuraHomes**, a modern, mobile-first real estate portal designed for
 1. **From Homepage (`/`)**:
    - Select **Buy**, **Rent**, or **Commercial**.
    - Type your desired locality (e.g. *Arera Colony*, *MP Nagar*, *Vijay Nagar*).
-   - Choose property type or leave as **All Property Types**.
-   - Enter your budget limit (e.g. *₹25,000* or *₹80 Lakh*) and click **🔍 Search**.
+   - Filter by budget and click **🔍 Search**.
 2. **From Search Page (`/search`)**:
-   - **Looking To**: Switch seamlessly between **All**, **Rent**, and **Buy**.
-   - **Max Budget Controls**:
-     - Drag the price slider.
-     - Or tap one of the quick budget preset chips (e.g., `₹50 Lakh`, `₹1 Crore`, `₹2 Crore`, `Any Budget`).
-   - **BHK Filters**: Tap `1 BHK`, `2 BHK`, `3 BHK`, or `4 BHK`.
+   - **Purpose Filter**: Switch between **All**, **Rent**, and **Buy**.
+   - **Max Budget Slider**: Drag the slider or click quick preset chips (`₹25,000`, `₹50 Lakh`, `₹1 Crore`, `Any Budget`).
+   - **BHK Chips**: Tap `1 BHK`, `2 BHK`, `3 BHK`, or `4+ BHK`.
    - **Property Type**: Select between *Apartment*, *Villa / House*, *Commercial*, *Shop*, *Office*, *Plot*, *Warehouse*, or *PG / Hostel*.
 
 ### How to View Details & Unlock Owner Contact:
 1. Tap on any property card to open its **Details Page** (`/properties/[id]`).
-2. Explore high-res photos, size in Sq Ft, Bathrooms, Furnishing status, and Parking amenities.
-3. Tap **"Unlock Contact Details"**:
-   - If logged in with active credits, the owner's verified phone number and a one-tap **WhatsApp Chat** button will immediately unlock.
-   - If credits are 0, choose a credit pack or monthly subscription plan.
+2. Review high-resolution photos, carpet area, configuration, bathrooms, furnishing status, and parking amenities.
+3. Tap **"Unlock Owner Contact (1 Credit)"**:
+   - If logged in with active credits, 1 credit is deducted and the owner's verified phone number and direct **WhatsApp Chat** button are revealed.
+   - If credits are 0, you are redirected to choose a package at `/plans` and complete sandbox/live checkout at `/checkout/[plan_id]`.
 
 ---
 
-## 4. Owner & Agent Guide (Listing Properties)
+## 4. Owner & Agent Guide (Listing & Managing Properties)
 
-### How to Post a Property (9-Step Wizard):
-Navigate to `/dashboard/properties/new` and follow the guided wizard:
-
-- **Step 1 — Purpose**: Choose **For Rent** or **For Sale (Buy)**.
-- **Step 2 — Category & Type**:
-  - Residential: *Apartment*, *Villa / House*, *Independent Floor*.
-  - Commercial: *Shop / Retail*, *Office Space*, *Warehouse*.
-  - Land / Other: *Plot / Land*, *PG / Hostel*.
-- **Step 3 — Location**: Enter City (*Bhopal*, *Indore*, etc.), Area/Locality, Full Address, and 6-digit Pincode.
-- **Step 4 — Dynamic Specifications**:
-  - **For Residential**: Carpet Area (Sq Ft), BHK Configuration, Bathrooms, Furnishing (*Fully Furnished*, *Semi-Furnished*, *Unfurnished*), and **Parking Facility** (*1 Covered Car Parking*, *2 Covered*, *Open*, *2-Wheeler*).
-  - **For Shop**: Carpet Area, Frontage width, Floor (Ground/1st/Basement), Road Facing, Washroom availability, and Suitable business types.
-  - **For Office**: Carpet Area, Cabins, Workstations, Conference Room, Pantry, and 100% DG Power Backup.
-  - **For Plot**: Plot Area, Dimensions (Length × Breadth), Boundary Wall, Corner Plot road width, and Facing Direction.
-  - **For Warehouse**: Covered Area, Clear Ceiling Height, Loading Docks, and 40ft Container Truck Access.
-- **Step 5 — Pricing**: Enter Monthly Rent (for rentals) or Total Expected Price (for sale) with deposit and maintenance details.
-- **Step 6 — Photos Upload**:
-  - Pick files from your device (JPG, PNG, WebP) or drag-and-drop.
-  - Set any photo as the **⭐ Main Cover Photo** with 1 click.
-  - Delete unwanted pictures or use **✨ Load Sample Photos** for instant testing.
-- **Step 7 — AI Description Generator**: Tap **"✨ Generate AI Description"** to create a tailored, SEO-rich marketing description based on your exact specs.
-- **Step 8 — Contact Details**: Add owner name, contact number, and WhatsApp number.
-- **Step 9 — Preview & Publish**: Review the specification summary pills and tap **"Publish Property Listing"**.
-
-Your listing immediately goes live across all search and buy lists with a **`⭐ Your Listed Property`** badge!
+### How to Post a Property (9-Step Wizard at `/dashboard/properties/new`):
+1. **Step 1: Purpose** — Select *Rent* or *Sell*.
+2. **Step 2: Category & Property Type** — Choose Apartment, House, Villa, Commercial Shop, Office, Plot, Warehouse, or PG/Hostel.
+3. **Step 3: Location Details** — Enter City, Locality, and Landmark.
+4. **Step 4: Specifications** — Dynamic specs based on property type (BHK, bathrooms, floor, frontage for shops, cabins for offices, dimensions for plots).
+5. **Step 5: Pricing & Financials** — Monthly Rent / Price, Security Deposit, Maintenance.
+6. **Step 6: Photos & Gallery** — Upload multiple photos via drag & drop or file picker, select sample presets, and set cover image.
+7. **Step 7: Description & Highlights** — Use the **Smart Description Generator** to synthesize structured listing copy from your chosen specs.
+8. **Step 8: Contact Information** — Automatically pre-filled with your verified name and mobile number.
+9. **Step 9: Review & Instant Publish** — Inspect summary and click **"🚀 Publish Property Listing"** (protected by double-click lock).
+   - Newly created listings are assigned `status: PUBLISHED` and are immediately searchable and visible in your Owner Dashboard (`/dashboard/properties`).
 
 ---
 
-## 5. Cross-Device Synchronization
+## 5. Cross-Device Synchronization & Gating
 
-### How Mobile & Laptop Sync Works:
-When you post a property from your mobile phone:
-1. The property is saved to the **Cloud Backend Database** on Render (`POST /api/v1/properties/`).
-2. The property status is set to `PUBLISHED` automatically.
-3. When you or any other user open the website on a **laptop, desktop, or tablet**, the search page (`/search`) and homepage (`/`) automatically fetch the latest properties from the cloud API.
-4. Your mobile-uploaded property will appear at the top of the search and buy listings on your laptop!
-
----
-
-## 6. Admin Portal Guide
-
-### Accessing the Admin Dashboard:
-1. Navigate to `/admin/login`.
-2. Login with your Admin credentials (`user_type: admin`).
-3. If a non-admin attempts to access `/admin/*`, the system automatically blocks access and displays the **Access Restricted (RBAC)** security screen.
-
-### Admin Features:
-- **📊 Analytics Dashboard (`/admin/dashboard` & `/admin/analytics`)**: View total properties, active users, total inquiries, and monthly subscription revenue.
-- **🏠 Properties Moderation (`/admin/properties`)**: View all submitted listings, approve pending entries, reject non-compliant posts, or toggle **Featured** badges.
-- **👥 Users Management (`/admin/users`)**: View registered buyers, owners, and agents. Activate, suspend, or update user permissions.
-- **💳 Payments & Subscriptions (`/admin/payments` & `/admin/subscriptions`)**: Audit transactions, credit purchases, and active subscription plans.
-- **📍 Locations & Categories (`/admin/locations`, `/admin/categories`)**: Manage supported cities (Bhopal, Indore, etc.) and property categories.
-- **🔔 Notifications (`/admin/notifications`)**: Broadcast announcements and system alerts.
+- **Owner View Recognition:**
+  - When viewing your own property on `/properties/[id]`, the system recognizes your active session and displays `👤 This is your property listing (Owner View)` with full unmasked phone and email, without requiring contact credits.
+- **Buyer View Gating:**
+  - Buyers view masked details (`+91 98930 XXXXX`, `sa***@gmail.com`) until unlocked via credit.
+- **Atomic Session Switch:**
+  - Logging in with another account flushes cached identity keys cleanly, allowing seamless multi-user switching on shared devices.
 
 ---
 
-## 7. Search & Max Budget Guide
+## 6. Admin Portal Guide (Management & Moderation)
 
-The Search Engine provides real-time client & server filtering:
+### Accessing the Admin Portal:
+1. Navigate to `/admin/login` (or `/account/profile` when logged in as admin).
+2. The super admin account (`admin@aurahomes.in`) is automatically seeded upon backend startup.
 
-```
-Search Input  ───►  Purpose Normalization (Buy/Sell/Rent)
-              ───►  Max Budget Filter (Presets: ₹50L, ₹1Cr, ₹2Cr, Any Budget)
-              ───►  BHK Filter (1, 2, 3, 4+ BHK)
-              ───►  Locality & Keyword Matching
-              ───►  Sorted Results (Your Listings first ──► Newest)
-```
+### Admin Operations Suite:
 
-- **Buy Range**: Scales from ₹5 Lakhs up to ₹5 Crores with instant preview chips.
-- **Rent Range**: Scales from ₹5,000 up to ₹2,00,000 / month.
-- **Any Budget / No Limit**: Disables the upper ceiling to display all luxury and affordable spaces.
+| Module | URL Path | Primary Actions |
+| :--- | :--- | :--- |
+| **Executive Dashboard** | `/admin/dashboard` | High-level metrics: Active listings, Pending queue, Users, Revenue. |
+| **Property Moderation**| `/admin/properties`| Filter by status; **Approve**, **Reject**, **Verify**, **Feature**, or **Delete** listings. |
+| **User Directory** | `/admin/users` | View users; **Block**, **Suspend**, **Activate**, or **Grant Bonus Credits**. |
+| **Featured Listings** | `/admin/featured` | Manage priority promoted listings on the homepage. |
+| **Locations & Cities** | `/admin/locations` | Configure supported Indian cities and localities. |
+| **Categories & Types** | `/admin/categories` | Manage taxonomy for residential and commercial categories. |
+| **Subscription Plans** | `/admin/subscriptions`| Configure contact credit packages and pricing. |
+| **Payment Ledger** | `/admin/payments` | Audit transaction logs and gateway order IDs. |
+| **Content Reports** | `/admin/reports` | Resolve user-flagged fake listings or content disputes. |
+| **Notifications** | `/admin/notifications`| Dispatch platform-wide broadcast alerts. |
+| **Analytics** | `/admin/analytics` | View city distribution and listing growth charts. |
+
+---
+
+## 7. Search & Budget Filtering Guide
+
+- **Dynamic Indian Price Formatting:**
+  - Rent `< ₹1 Lakh`: Formats as `₹10,000 / Month` or `₹10,000` (eliminating confusing `₹0 Lakh` displays).
+  - Buy `>= ₹1 Lakh`: Formats as `₹25.00 Lakh`.
+  - Buy `>= ₹1 Crore`: Formats as `₹1.50 Cr`.
+- **Responsive Mobile Specs:**
+  - Quick specs grid uses `minmax(0, 1fr)` columns to prevent right-edge clipping on narrow mobile screens.
 
 ---
 
 ## 8. Form Validations & Security Rules
 
-All client inputs are strictly validated before submission:
-
-| Field | Rule / Regex | Example Valid Value |
-| :--- | :--- | :--- |
-| **Email** | Valid standard email format | `sanjeev@example.com` |
-| **Mobile Number** | 10 Indian digits (optional `+91`) | `9893024190`, `+919893024190` |
-| **Pincode** | Exactly 6 numeric digits | `462016`, `452010` |
-| **Password** | Min 8 characters with letters & digits | `Password123!` |
-| **OTP** | Exactly 6 numeric digits | `123456` |
-| **Price** | Positive numeric value | `22000`, `8500000` |
-| **Admin Access** | Requires valid JWT token & `user_type === 'admin'` | Enforced in middleware & API |
+- **Email:** Standard RFC 5322 regex validation.
+- **Mobile Number:** 10-digit Indian numeric format with optional `+91` prefix.
+- **PIN Code:** Exactly 6 numeric digits.
+- **Password:** Minimum 8 characters with numbers and letters.
+- **Duplicate Protection:** Button disables immediately upon submission (`isPublishing = true`). Backend deduplicates matching listings submitted within the same session.
 
 ---
 
-## 9. Developer Guide
+## 9. Developer Guide (Running & Testing Locally)
 
-### Running Frontend Locally:
+### Prerequisites
+- Node.js 20+
+- Python 3.12+
+
+### Running Frontend:
 ```bash
 cd frontend
 npm install
 npm run dev
-# App opens at http://localhost:3000
+# Starts on http://localhost:3000
 ```
 
-### Running Backend Locally:
+### Running Backend:
 ```bash
 cd backend
 python -m venv venv
 venv\Scripts\activate      # Windows
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
-# API docs at http://localhost:8000/docs
+# OpenAPI Swagger UI: http://localhost:8000/docs
 ```
 
 ### Running Automated Test Suites:
 ```bash
+# Frontend Unit & E2E Validation Tests (25/25 Passing)
 cd frontend
-npm test
-# Executes all 18 Unit, Form Validation, Utility, and E2E Workflow tests
-```
+npm run type-check
+npm run test
 
-### Building for Production:
-```bash
-cd frontend
-npm run build
-# Compiles all 36 routes with 0 errors
+# Backend Pytest Suite
+cd backend
+pytest tests/ -v
 ```
 
 ---
 
-## 10. Updating This Project
+## 10. Known Limitations & Current Integration Status
 
-Whenever you add new features, update database models, or alter UI components:
-1. **Update Code**: Make changes cleanly with TypeScript types and responsive CSS.
-2. **Run Tests**: Ensure `npm test` passes 100%.
-3. **Verify Production Build**: Confirm `npm run build` succeeds with 0 errors.
-4. **Update Documentation**: Keep this file (`docs/USER_AND_ADMIN_GUIDE.md`) updated with any new routes or features.
-5. **Commit & Push**:
-   ```bash
-   git add .
-   git commit -m "Your descriptive commit message"
-   git push origin main
-   ```
+| Component | Status | Implementation Details |
+| :--- | :---: | :--- |
+| **Property Search & Post Wizard** | **LIVE** | 100% functional with async database backing. |
+| **Contact Unlocking & Gating** | **LIVE** | 1 credit deduction with permanent unlock persistence. |
+| **WhatsApp Direct Chat** | **LIVE** | Universal Click-to-Chat protocol (`https://wa.me/...`). |
+| **Payment Gateway** | **SANDBOX**| Razorpay SDK supported; simulated sandbox verification active. |
+| **SMS OTP Gateway** | **MOCK** | Logs OTPs to application output (`SMS_PROVIDER=mock`). |
+| **Cloud Storage** | **HYBRID** | Cloudinary/Supabase supported; Base64 Data URI fallback guarantees zero broken images. |
 
 ---
-*Created and maintained for AuraHomes Real Estate Portal.*
+
+*AuraHomes Property Marketplace Portal Documentation.*
