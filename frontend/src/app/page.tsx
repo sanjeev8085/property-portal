@@ -41,16 +41,31 @@ export default function Home() {
         return true;
       });
 
-      const formatted = unique.map(p => ({
-        id: p.id,
-        title: p.title,
-        price: p.price,
-        location: p.location || p.locality || p.city || "Bhopal",
-        specs: p.specs || `${p.bhk || 2} BHK | ${p.area_sqft || p.size || "1200"} sqft`,
-        image: p.image || (p.photos && p.photos[0]) || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80",
-        tag: "⭐ Verified",
-        isFeatured: true,
-      }));
+      const formatted = unique.map(p => {
+        let priceStr = p.price;
+        if (typeof p.price === "number" || (typeof p.price === "string" && !p.price.includes("₹"))) {
+          const num = Number(p.price) || 0;
+          if (p.purpose === "rent") {
+            priceStr = `₹${num.toLocaleString("en-IN")} / Mo`;
+          } else if (num >= 10000000) {
+            priceStr = `₹${(num / 10000000).toFixed(2)} Cr`;
+          } else if (num >= 100000) {
+            priceStr = `₹${(num / 100000).toFixed(2)} Lakh`;
+          } else {
+            priceStr = `₹${num.toLocaleString("en-IN")}`;
+          }
+        }
+        return {
+          id: p.id,
+          title: p.title,
+          price: priceStr,
+          location: p.location || p.locality || p.city || "Bhopal",
+          specs: p.specs || `${p.bhk || 2} BHK | ${p.area_sqft || p.size || "1200"} sqft`,
+          image: p.image || (p.photos && p.photos[0]) || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80",
+          tag: "⭐ Verified",
+          isFeatured: true,
+        };
+      });
 
       setFeaturedProperties(formatted);
     };

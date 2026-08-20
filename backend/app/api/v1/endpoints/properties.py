@@ -67,6 +67,19 @@ async def create_property(
             await db.flush()
         location_id = loc_obj.id
 
+    # Deduplicate rapid multi-taps (return existing property if posted within same session)
+    target_phone = payload.contact_phone or (current_user.mobile if current_user else "9893024190")
+    dup_check = await db.execute(
+        select(Property).where(
+            Property.title == payload.title,
+            Property.price == payload.price,
+            Property.contact_phone == target_phone
+        )
+    )
+    existing_prop = dup_check.scalars().first()
+    if existing_prop:
+        return {"id": str(existing_prop.id), "title": existing_prop.title, "status": existing_prop.status}
+
     prop = Property(
         owner_id=owner_id,
         location_id=location_id,

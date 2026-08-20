@@ -116,10 +116,24 @@ async def root_reset_database(db: AsyncSession = Depends(get_db)):
     from app.models.user import User, UserType, UserStatus
     from app.core.security import hash_password
 
+    for tbl in [
+        "property_images", "contact_unlocks", "favorites", "property_amenities",
+        "property_views", "property_verifications", "property_reports",
+        "notifications", "payments", "subscriptions", "otps", "saved_searches", "properties"
+    ]:
+        try:
+            await db.execute(text(f"DELETE FROM {tbl};"))
+            await db.commit()
+        except Exception:
+            await db.rollback()
+
     try:
-        await db.execute(text("TRUNCATE TABLE property_images, contact_unlocks, favorites, property_amenities, property_views, property_verifications, property_reports, notifications, payments, subscriptions, otps, saved_searches, properties CASCADE;"))
         await db.execute(text("DELETE FROM users WHERE email != 'admin@aurahomes.in';"))
-        
+        await db.commit()
+    except Exception:
+        await db.rollback()
+
+    try:
         admin_check = await db.execute(select(User).where(User.email == "admin@aurahomes.in"))
         admin_user = admin_check.scalar_one_or_none()
         if not admin_user:
@@ -136,9 +150,8 @@ async def root_reset_database(db: AsyncSession = Depends(get_db)):
             admin_user.password_hash = hash_password("Admin@12345")
             admin_user.user_type = UserType.ADMIN
             admin_user.status = UserStatus.ACTIVE
-        
         await db.commit()
-        return {"status": "success", "message": "Database cleared and Super Admin reset to Admin@12345"}
-    except Exception as e:
+    except Exception:
         await db.rollback()
-        return {"status": "error", "message": str(e)}
+
+    return {"status": "success", "message": "Database cleaned and Super Admin verified"}

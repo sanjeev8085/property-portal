@@ -84,6 +84,7 @@ export default function NewPropertyWizard() {
   // Step 8: Contact
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
+  const [isPublishing, setIsPublishing] = useState(false);
 
   const stepsList = [
     "Purpose",
@@ -214,13 +215,18 @@ export default function NewPropertyWizard() {
   };
 
   const handlePublish = async () => {
+    if (isPublishing) return;
+    setIsPublishing(true);
+
     const propertyId = Date.now();
     const finalPriceNum = parseFloat(price) || (purpose === "rent" ? 25000 : 8500000);
     const finalPriceStr = purpose === "rent" 
       ? `₹${finalPriceNum.toLocaleString("en-IN")} / Month`
       : (finalPriceNum >= 10000000 
           ? `₹${(finalPriceNum / 10000000).toFixed(2)} Cr` 
-          : `₹${(finalPriceNum / 100000).toFixed(0)} Lakh`);
+          : (finalPriceNum >= 100000 
+              ? `₹${(finalPriceNum / 100000).toFixed(2)} Lakh` 
+              : `₹${finalPriceNum.toLocaleString("en-IN")}`));
 
     let specsSummary = "";
     if (propertyType === "Shop") {
@@ -893,8 +899,14 @@ export default function NewPropertyWizard() {
           </button>
           
           {step === 9 ? (
-            <button type="button" className="btn-primary" onClick={handlePublish}>
-              Publish Property Listing
+            <button 
+              type="button" 
+              className="btn-primary" 
+              onClick={handlePublish}
+              disabled={isPublishing}
+              style={{ opacity: isPublishing ? 0.7 : 1, cursor: isPublishing ? "not-allowed" : "pointer" }}
+            >
+              {isPublishing ? "Publishing Listing..." : "Publish Property Listing"}
             </button>
           ) : (
             <button type="button" className="btn-primary" onClick={handleNext}>

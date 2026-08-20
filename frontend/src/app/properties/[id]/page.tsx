@@ -48,9 +48,11 @@ export default function PropertyDetailsPage() {
             title: remote.title,
             price: remote.purpose === "rent"
               ? `₹${Number(remote.price).toLocaleString("en-IN")} / Month`
-              : (remote.price >= 10000000 
-                  ? `₹${(remote.price / 10000000).toFixed(2)} Cr` 
-                  : `₹${(remote.price / 100000).toFixed(0)} Lakh`),
+              : (Number(remote.price) >= 10000000 
+                  ? `₹${(Number(remote.price) / 10000000).toFixed(2)} Cr` 
+                  : (Number(remote.price) >= 100000 
+                      ? `₹${(Number(remote.price) / 100000).toFixed(2)} Lakh` 
+                      : `₹${Number(remote.price).toLocaleString("en-IN")}`)),
             priceNum: Number(remote.price) || 0,
             location: remote.locality ? `${remote.locality}, ${remote.city || "Bhopal"}` : (remote.city || "Bhopal"),
             specs: `${remote.bhk || 2} Beds | ${remote.bathrooms || 2} Baths | ${remote.area_sqft || 1200} sqft`,
