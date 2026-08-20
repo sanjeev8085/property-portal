@@ -96,41 +96,57 @@ async def search_properties(
     properties = result.scalars().all()
 
     results_data = []
-    for prop in properties:
-        # Load cover photo from loaded relationship or fallback
-        img_url = "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80"
-        if prop.images and len(prop.images) > 0:
-            img_url = prop.images[0].image_url or img_url
+    try:
+        for prop in properties:
+            img_url = "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80"
+            if prop.images and len(prop.images) > 0:
+                img_url = prop.images[0].image_url or img_url
 
-        loc_str = f"{prop.location.locality}, {prop.location.city}" if prop.location else "Bhopal"
+            loc_str = "Bhopal"
+            if prop.location:
+                loc_str = f"{prop.location.locality}, {prop.location.city}"
 
-        results_data.append({
-            "id": str(prop.id),
-            "title": prop.title,
-            "purpose": prop.purpose,
-            "property_type": prop.property_type,
-            "price": prop.price,
-            "bhk": prop.bhk,
-            "area_sqft": prop.area_sqft,
-            "bathrooms": prop.bathrooms,
-            "location": loc_str,
-            "image": img_url,
-            "images": [img.image_url for img in prop.images] if prop.images else [img_url],
-            "description": prop.description,
-            "is_featured": prop.is_featured,
-            "views_count": prop.views_count,
-            "created_at": prop.created_at.isoformat() if prop.created_at else None,
-        })
+            purpose_val = prop.purpose.value if hasattr(prop.purpose, "value") else str(prop.purpose)
+            status_val = prop.status.value if hasattr(prop.status, "value") else str(prop.status)
 
-    return {
-        "results": results_data,
-        "total": total,
-        "page": page,
-        "per_page": per_page,
-        "filters_applied": {
-            "purpose": purpose, "city": city, "bhk": bhk, "sort_by": sort_by,
-        },
-    }
+            results_data.append({
+                "id": str(prop.id),
+                "title": prop.title,
+                "purpose": purpose_val,
+                "property_type": prop.property_type,
+                "price": prop.price,
+                "bhk": prop.bhk,
+                "area_sqft": prop.area_sqft,
+                "bathrooms": prop.bathrooms,
+                "location": loc_str,
+                "image": img_url,
+                "images": [img.image_url for img in prop.images] if prop.images else [img_url],
+                "description": prop.description,
+                "is_featured": prop.is_featured,
+                "status": status_val,
+                "views_count": prop.views_count,
+                "created_at": prop.created_at.isoformat() if prop.created_at else None,
+            })
+
+        return {
+            "results": results_data,
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "filters_applied": {
+                "purpose": purpose, "city": city, "bhk": bhk, "sort_by": sort_by,
+            },
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {
+            "results": [],
+            "total": 0,
+            "page": 1,
+            "per_page": per_page,
+            "error": str(e)
+        }
 
 
 @router.get("/locations/autocomplete")
