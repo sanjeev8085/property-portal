@@ -3,70 +3,56 @@
 import React, { useState, useEffect } from "react";
 import { generatePropertySlug } from "@/lib/slug";
 import { getPublishedProperties, getDeactivatedPropertyIds, StoredProperty } from "@/lib/propertyStore";
+import { api } from "@/lib/api";
 
-const DEFAULT_FEATURED = [
-  {
-    id: 1,
-    title: "Sleek 3 BHK Luxury Penthouse",
-    price: "₹45,000 / Mo",
-    location: "Arera Colony, Bhopal",
-    specs: "3 Beds | 3 Baths | 1800 sqft",
-    image: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80",
-    tag: "Verified",
-    isFeatured: true,
-  },
-  {
-    id: 2,
-    title: "Premium Semi-Furnished Villa",
-    price: "₹1.2 Cr",
-    location: "Vijay Nagar, Indore",
-    specs: "4 Beds | 4 Baths | 3200 sqft",
-    image: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=600&q=80",
-    tag: "Verified Owner",
-    isFeatured: true,
-  },
-  {
-    id: 3,
-    title: "Modern Fully Furnished 2 BHK",
-    price: "₹22,000 / Mo",
-    location: "Kolar Road, Bhopal",
-    specs: "2 Beds | 2 Baths | 1200 sqft",
-    image: "https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=600&q=80",
-    tag: "New",
-    isFeatured: false,
-  }
-];
+const DEFAULT_FEATURED: any[] = [];
 
 export default function Home() {
   const [purpose, setPurpose] = useState<"buy" | "rent" | "commercial">("buy");
   const [location, setLocation] = useState("");
   const [propertyType, setPropertyType] = useState("all");
   const [budget, setBudget] = useState("");
-  const [featuredProperties, setFeaturedProperties] = useState<any[]>(DEFAULT_FEATURED);
+  const [featuredProperties, setFeaturedProperties] = useState<any[]>([]);
 
   useEffect(() => {
-    const loadProps = () => {
+    const loadProps = async () => {
       const published = getPublishedProperties();
       const deactSet = new Set(getDeactivatedPropertyIds());
-      const activePublished = published.filter(p => !deactSet.has(p.id.toString()) && p.status !== "Deactivated" && p.status !== "inactive");
-
-      if (activePublished.length > 0) {
-        const formatted = activePublished.map(p => ({
-          id: p.id,
-          title: p.title,
-          price: p.price,
-          location: p.location,
-          specs: p.specs || `${p.bhk || 2} BHK | ${p.size || "1200"} sqft`,
-          image: p.image || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80",
-          tag: "⭐ Just Listed",
-          isFeatured: true,
-        }));
-        const publishedIds = new Set(formatted.map(p => p.id));
-        const filteredDefaults = DEFAULT_FEATURED.filter(p => !publishedIds.has(p.id) && !deactSet.has(p.id.toString()));
-        setFeaturedProperties([...formatted, ...filteredDefaults]);
-      } else {
-        setFeaturedProperties(DEFAULT_FEATURED.filter(p => !deactSet.has(p.id.toString())));
+      
+      let cloudProps: any[] = [];
+      try {
+        const res = await api.getProperties();
+        if (Array.isArray(res)) {
+          cloudProps = res;
+        }
+      } catch {
+        // Fallback to local
       }
+
+      const merged = [...published, ...cloudProps];
+      const seenIds = new Set();
+      const unique = merged.filter(p => {
+        if (!p || !p.id) return false;
+        const idStr = p.id.toString();
+        if (seenIds.has(idStr) || deactSet.has(idStr) || p.status === "Deactivated" || p.status === "inactive") {
+          return false;
+        }
+        seenIds.add(idStr);
+        return true;
+      });
+
+      const formatted = unique.map(p => ({
+        id: p.id,
+        title: p.title,
+        price: p.price,
+        location: p.location || p.locality || p.city || "Bhopal",
+        specs: p.specs || `${p.bhk || 2} BHK | ${p.area_sqft || p.size || "1200"} sqft`,
+        image: p.image || (p.photos && p.photos[0]) || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80",
+        tag: "⭐ Verified",
+        isFeatured: true,
+      }));
+
+      setFeaturedProperties(formatted);
     };
 
     loadProps();
@@ -170,27 +156,40 @@ export default function Home() {
           <a href="/search" className="link-view-all">View All Properties →</a>
         </div>
 
-        <div className="properties-grid">
-          {featuredProperties.map((prop) => (
-            <div key={prop.id} className="premium-card property-card">
-              <div className="card-image-container">
-                <img src={prop.image} alt={prop.title} />
-                <span className="badge-tag">{prop.tag}</span>
-                <button type="button" className="like-btn">❤️</button>
-              </div>
-              <div className="card-info">
-                <span className="card-price">{prop.price}</span>
-                <h3 className="card-title">{prop.title}</h3>
-                <span className="card-location">📍 {prop.location}</span>
-                <div className="card-divider"></div>
-                <div className="card-footer">
-                  <span className="card-specs">{prop.specs}</span>
-                  <a href={`/properties/${generatePropertySlug(prop.title, prop.location, prop.id)}`} className="btn-view-details">Details</a>
+        {featuredProperties.length > 0 ? (
+          <div className="properties-grid">
+            {featuredProperties.map((prop) => (
+              <div key={prop.id} className="premium-card property-card">
+                <div className="card-image-container">
+                  <img src={prop.image} alt={prop.title} />
+                  <span className="badge-tag">{prop.tag}</span>
+                  <button type="button" className="like-btn">❤️</button>
+                </div>
+                <div className="card-info">
+                  <span className="card-price">{prop.price}</span>
+                  <h3 className="card-title">{prop.title}</h3>
+                  <span className="card-location">📍 {prop.location}</span>
+                  <div className="card-divider"></div>
+                  <div className="card-footer">
+                    <span className="card-specs">{prop.specs}</span>
+                    <a href={`/properties/${generatePropertySlug(prop.title, prop.location, prop.id)}`} className="btn-view-details">Details</a>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="premium-card" style={{ padding: "48px 24px", textAlign: "center", maxWidth: "600px", margin: "0 auto", borderRadius: "16px" }}>
+            <div style={{ fontSize: "48px", marginBottom: "16px" }}>🏡</div>
+            <h3 style={{ fontSize: "20px", fontWeight: "700", marginBottom: "8px" }}>No properties listed yet</h3>
+            <p style={{ color: "var(--text-secondary)", marginBottom: "24px", fontSize: "14px" }}>
+              Be the first to list your property and connect with buyers & tenants across India!
+            </p>
+            <a href="/dashboard/properties/new" className="btn-primary" style={{ display: "inline-flex", padding: "12px 28px", textDecoration: "none", borderRadius: "8px", fontWeight: "700" }}>
+              ➕ Post Free Property
+            </a>
+          </div>
+        )}
       </section>
 
       {/* ─── How it Works ─── */}

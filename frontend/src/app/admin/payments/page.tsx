@@ -2,13 +2,7 @@
 import React, { useState, useMemo } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
 
-const PAYMENTS = [
-  { id: "pay1", user: "Rahul Sharma",  plan: "Standard Bundle",  amount: 199,  credits: 15, date: "2026-08-16", status: "success" },
-  { id: "pay2", user: "Neha Joshi",    plan: "Premium Plan",     amount: 499,  credits: 50, date: "2026-08-15", status: "success" },
-  { id: "pay3", user: "Vikram Rao",    plan: "Standard Bundle",  amount: 199,  credits: 15, date: "2026-08-14", status: "failed"  },
-  { id: "pay4", user: "Priya Singh",   plan: "Standard Bundle",  amount: 199,  credits: 15, date: "2026-08-12", status: "success" },
-  { id: "pay5", user: "Amit Verma",    plan: "Premium Plan",     amount: 499,  credits: 50, date: "2026-08-10", status: "refunded" },
-];
+const PAYMENTS: any[] = [];
 
 export default function AdminPaymentsPage() {
   const [search, setSearch] = useState("");
@@ -59,11 +53,15 @@ export default function AdminPaymentsPage() {
                 <td style={{ padding: "14px 18px", fontSize: "13px" }}>{p.credits} credits</td>
                 <td style={{ padding: "14px 18px", fontSize: "12px", color: "var(--text-muted)" }}>{p.date}</td>
                 <td style={{ padding: "14px 18px" }}>
-                  <span style={{ fontSize: "11px", fontWeight: 700, padding: "3px 10px", borderRadius: "99px", background: STATUS_COLOR[p.status] + "18", color: STATUS_COLOR[p.status], border: `1px solid ${STATUS_COLOR[p.status]}44`, textTransform: "capitalize" }}>{p.status}</span>
+                  <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: "99px", fontSize: "11px", fontWeight: 700, textTransform: "capitalize", background: `${STATUS_COLOR[p.status]}20`, color: STATUS_COLOR[p.status] }}>
+                    {p.status}
+                  </span>
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && <tr><td colSpan={7} style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)" }}>No records found</td></tr>}
+            {filtered.length === 0 && (
+              <tr><td colSpan={7} style={{ textAlign: "center", padding: "40px", color: "var(--text-muted)" }}>No payment records yet</td></tr>
+            )}
           </tbody>
         </table>
       </div>

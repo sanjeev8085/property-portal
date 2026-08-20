@@ -1,19 +1,13 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import Button from "@/components/ui/Button";
 import Avatar from "@/components/ui/Avatar";
 import { useToast } from "@/lib/useToast";
+import { api } from "@/lib/api";
 
-const INITIAL_USERS = [
-  { id: "1", name: "Rahul Sharma",  email: "rahul@test.com",  mobile: "9876543210", city: "Bhopal",  type: "owner",  status: "active",    listings: 4,  joined: "Jan 2026" },
-  { id: "2", name: "Priya Singh",   email: "priya@test.com",  mobile: "9823456789", city: "Bhopal",  type: "buyer",  status: "active",    listings: 0,  joined: "Feb 2026" },
-  { id: "3", name: "Amit Verma",    email: "amit@agent.com",  mobile: "9112233445", city: "Indore",  type: "agent",  status: "suspended", listings: 12, joined: "Mar 2026" },
-  { id: "4", name: "Sagar Gupta",   email: "sagar@spam.com",  mobile: "9000000000", city: "Gwalior", type: "buyer",  status: "blocked",   listings: 0,  joined: "Apr 2026" },
-  { id: "5", name: "Neha Joshi",    email: "neha@test.com",   mobile: "9988776655", city: "Pune",    type: "owner",  status: "active",    listings: 2,  joined: "May 2026" },
-  { id: "6", name: "Vikram Rao",    email: "vikram@prop.com", mobile: "9871234560", city: "Hyderabad", type: "agent", status: "active",   listings: 8,  joined: "Jun 2026" },
-];
+const INITIAL_USERS: any[] = [];
 
 const STATUS_COLORS: Record<string, string> = {
   active: "#10b981", suspended: "#f59e0b", blocked: "#ef4444",
@@ -23,18 +17,28 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState(INITIAL_USERS);
+  const [users, setUsers] = useState<any[]>(INITIAL_USERS);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterType, setFilterType] = useState("all");
   const { success, info } = useToast();
 
+  useEffect(() => {
+    api.getUsers()
+      .then((res: any) => {
+        if (Array.isArray(res)) {
+          setUsers(res);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const filtered = useMemo(() => {
     return users.filter((u) => {
       const q = search.toLowerCase();
-      const matchSearch = !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || u.city.toLowerCase().includes(q);
+      const matchSearch = !q || (u.name && u.name.toLowerCase().includes(q)) || (u.email && u.email.toLowerCase().includes(q)) || (u.city && u.city.toLowerCase().includes(q));
       const matchStatus = filterStatus === "all" || u.status === filterStatus;
-      const matchType   = filterType   === "all" || u.type   === filterType;
+      const matchType   = filterType   === "all" || u.type   === filterType || u.user_type === filterType;
       return matchSearch && matchStatus && matchType;
     });
   }, [users, search, filterStatus, filterType]);

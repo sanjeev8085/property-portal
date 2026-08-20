@@ -1,19 +1,54 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import Button from "@/components/ui/Button";
 import { useToast } from "@/lib/useToast";
+import { getPublishedProperties } from "@/lib/propertyStore";
+import { api } from "@/lib/api";
 
-const FEATURED = [
-  { id: "1", title: "Luxury Penthouse Arera Colony", owner: "Rahul Sharma", location: "Bhopal", price: "₹1.4 Cr",  expiry: "2026-09-01", is_featured: true },
-  { id: "2", title: "Furnished Studio MP Nagar",     owner: "Neha Joshi",   location: "Bhopal", price: "₹15k/Mo", expiry: "2026-08-25", is_featured: true },
-  { id: "3", title: "4 BHK Villa Vijay Nagar",       owner: "Priya Singh",  location: "Indore", price: "₹2.2 Cr", expiry: null,         is_featured: false },
-];
+const FEATURED: any[] = [];
 
 export default function AdminFeaturedPage() {
-  const [items, setItems] = useState(FEATURED);
+  const [items, setItems] = useState<any[]>(FEATURED);
   const [newExpiry, setNewExpiry] = useState<Record<string, string>>({});
   const { success, info } = useToast();
+
+  useEffect(() => {
+    const loadProps = async () => {
+      const published = getPublishedProperties();
+      let cloudProps: any[] = [];
+      try {
+        const cloudData = await api.getProperties();
+        if (Array.isArray(cloudData)) {
+          cloudProps = cloudData;
+        }
+      } catch {
+        // Fallback
+      }
+
+      const merged = [...published, ...cloudProps];
+      const seen = new Set();
+      const unique = merged.filter(p => {
+        if (!p || !p.id) return false;
+        const idStr = p.id.toString();
+        if (seen.has(idStr)) return false;
+        seen.add(idStr);
+        return true;
+      });
+
+      setItems(unique.map(p => ({
+        id: p.id.toString(),
+        title: p.title,
+        owner: p.contactName || p.ownerEmail || p.owner?.name || "Verified Owner",
+        location: p.location || p.locality || p.city || "Bhopal",
+        price: p.price,
+        expiry: "2026-12-31",
+        is_featured: true,
+      })));
+    };
+
+    loadProps();
+  }, []);
 
   const toggle = (id: string) => {
     setItems((p) => p.map((x) => x.id === id ? { ...x, is_featured: !x.is_featured, expiry: x.is_featured ? null : (newExpiry[id] || "2026-12-31") } : x));
@@ -47,6 +82,13 @@ export default function AdminFeaturedPage() {
             </div>
           </div>
         ))}
+        {items.length === 0 && (
+          <div style={{ textAlign: "center", padding: "48px 24px", background: "white", borderRadius: "12px", border: "1px solid var(--border)" }}>
+            <div style={{ fontSize: "36px", marginBottom: "12px" }}>⭐</div>
+            <h3 style={{ fontSize: "16px", fontWeight: "700", marginBottom: "4px" }}>No featured listings yet</h3>
+            <p style={{ color: "var(--text-secondary)", fontSize: "13px" }}>Properties promoted for homepage and search spotlights will appear here.</p>
+          </div>
+        )}
       </div>
     </AdminLayout>
   );

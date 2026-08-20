@@ -143,5 +143,32 @@ export const api = {
     return apiFetch(`/admin/properties/${propertyId}/verify`, {
       method: "POST",
     });
+  },
+
+  async getUsers() {
+    try {
+      const data = await apiFetch("/admin/users");
+      return data || [];
+    } catch {
+      return [];
+    }
+  },
+
+  async getPayments() {
+    try {
+      const data = await apiFetch("/admin/payments");
+      return data || [];
+    } catch {
+      return [];
+    }
+  },
+
+  async getReports() {
+    try {
+      const data = await apiFetch("/admin/reports");
+      return data || [];
+    } catch {
+      return [];
+    }
   }
 };

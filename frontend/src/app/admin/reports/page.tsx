@@ -4,15 +4,10 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import Button from "@/components/ui/Button";
 import { useToast } from "@/lib/useToast";
 
-const REPORTS = [
-  { id: "r1", property: "Luxury Penthouse Arera Colony", reporter: "Priya Singh", reason: "Duplicate listing — same photos as another post", date: "2026-08-16", status: "pending" },
-  { id: "r2", property: "Furnished Studio MP Nagar",    reporter: "Amit Verma",  reason: "Incorrect pricing / misleading information",   date: "2026-08-15", status: "pending" },
-  { id: "r3", property: "2 BHK Kolar Road",             reporter: "Sagar Gupta", reason: "Spam / fake listing",                          date: "2026-08-14", status: "resolved" },
-  { id: "r4", property: "Commercial Shop MP Nagar",     reporter: "Neha Joshi",  reason: "Prohibited content in description",             date: "2026-08-13", status: "dismissed" },
-];
+const REPORTS: any[] = [];
 
 export default function AdminReportsPage() {
-  const [reports, setReports] = useState(REPORTS);
+  const [reports, setReports] = useState<any[]>(REPORTS);
   const [filter, setFilter] = useState("all");
   const { success, info } = useToast();
 
@@ -51,12 +46,18 @@ export default function AdminReportsPage() {
             {r.status === "pending" && (
               <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
                 <Button size="sm" variant="outline" onClick={() => act(r.id, "dismissed")}>Dismiss</Button>
-                <Button size="sm" variant="primary" onClick={() => act(r.id, "resolved")} style={{ background: "var(--error)" }}>Resolve & Remove</Button>
+                <Button size="sm" variant="primary" onClick={() => act(r.id, "resolved")} style={{ background: "var(--error)", borderColor: "var(--error)" }}>Remove Listing</Button>
               </div>
             )}
           </div>
         ))}
-        {filtered.length === 0 && <div style={{ textAlign: "center", padding: "60px", color: "var(--text-muted)" }}>No reports in this category</div>}
+        {filtered.length === 0 && (
+          <div style={{ textAlign: "center", padding: "48px 24px", background: "white", borderRadius: "12px", border: "1px solid var(--border)" }}>
+            <div style={{ fontSize: "36px", marginBottom: "12px" }}>🎉</div>
+            <h3 style={{ fontSize: "16px", fontWeight: "700", marginBottom: "4px" }}>No reports filed</h3>
+            <p style={{ color: "var(--text-secondary)", fontSize: "13px" }}>All listings are in good standing.</p>
+          </div>
+        )}
       </div>
     </AdminLayout>
   );

@@ -22,13 +22,7 @@ interface AdminProp {
   posted: string;
 }
 
-const INITIAL: AdminProp[] = [
-  { id: "1", title: "Luxury Penthouse Arera Colony", price: "₹1.4 Cr", location: "Arera Colony, Bhopal", purpose: "sell", status: "Pending Approval", is_verified: false, is_featured: false, owner: "Rahul Sharma", posted: "2h ago" },
-  { id: "2", title: "Furnished Studio near MP Nagar", price: "₹15,000 / Mo", location: "MP Nagar, Bhopal", purpose: "rent", status: "Published", is_verified: true, is_featured: true, owner: "Neha Joshi", posted: "1d ago" },
-  { id: "3", title: "2 BHK Spacious Apartment Kolar", price: "₹12,000 / Mo", location: "Kolar Road, Bhopal", purpose: "rent", status: "Pending Approval", is_verified: false, is_featured: false, owner: "Vikram Rao", posted: "3h ago" },
-  { id: "4", title: "4 BHK Villa Vijay Nagar Indore", price: "₹2.2 Cr", location: "Vijay Nagar, Indore", purpose: "sell", status: "Published", is_verified: true, is_featured: false, owner: "Priya Singh", posted: "5d ago" },
-  { id: "5", title: "Commercial Shop MP Nagar", price: "₹45,000 / Mo", location: "MP Nagar, Bhopal", purpose: "rent", status: "Rejected", is_verified: false, is_featured: false, owner: "Sagar Gupta", posted: "7d ago" },
-];
+const INITIAL: AdminProp[] = [];
 
 const STATUS_COLOR: Record<string, string> = {
   "Pending Approval": "#f59e0b",
@@ -48,24 +42,56 @@ export default function AdminPropertiesPage() {
   const { success, error: showError } = useToast();
 
   useEffect(() => {
-    const published = getPublishedProperties();
-    if (published.length > 0) {
+    const loadAllProps = async () => {
+      const published = getPublishedProperties();
+      let cloudProps: any[] = [];
+      try {
+        const cloudData = await api.getProperties();
+        if (Array.isArray(cloudData)) {
+          cloudProps = cloudData;
+        }
+      } catch {
+        // Fallback to local
+      }
+
       const mappedPublished: AdminProp[] = published.map(p => ({
         id: p.id.toString(),
         title: p.title,
         price: p.price,
         location: p.location,
         purpose: p.purpose,
-        status: (p.status === "Deactivated" ? "Rejected" : "Published") as PropStatus,
+        status: (p.status === "Deactivated" ? "Rejected" : (p.status || "Published")) as PropStatus,
         is_verified: true,
         is_featured: false,
         owner: p.contactName || p.ownerEmail || "Verified Owner",
         posted: "Recently Listed"
       }));
-      const pubIds = new Set(mappedPublished.map(p => p.id));
-      const filteredInit = INITIAL.filter(p => !pubIds.has(p.id));
-      setProps([...mappedPublished, ...filteredInit]);
-    }
+
+      const mappedCloud: AdminProp[] = cloudProps.map(p => ({
+        id: p.id.toString(),
+        title: p.title,
+        price: p.purpose === "rent" ? `₹${Number(p.price).toLocaleString("en-IN")} / Mo` : `₹${Number(p.price).toLocaleString("en-IN")}`,
+        location: p.locality || p.city || "Bhopal",
+        purpose: p.purpose || "sell",
+        status: (p.status === "pending_approval" ? "Pending Approval" : "Published") as PropStatus,
+        is_verified: true,
+        is_featured: false,
+        owner: p.owner?.name || "Verified Owner",
+        posted: "Cloud Listed"
+      }));
+
+      const merged = [...mappedPublished, ...mappedCloud];
+      const seenIds = new Set();
+      const unique = merged.filter(p => {
+        if (seenIds.has(p.id)) return false;
+        seenIds.add(p.id);
+        return true;
+      });
+
+      setProps(unique);
+    };
+
+    loadAllProps();
   }, []);
 
   const filtered = useMemo(() => {

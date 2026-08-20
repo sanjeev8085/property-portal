@@ -111,13 +111,13 @@ export default function PropertyDetailsPage() {
       { name: "Vastu Compliant", icon: "🧭" }
     ],
     owner: {
-      name: customProp?.contactName || "Rahul Sharma",
+      name: customProp?.contactName || "Verified Owner",
       status: "Verified Owner",
       memberSince: "Member since 2026",
-      phone: "+91 98930 XXXXX",
-      unlockedPhone: customProp?.contactPhone ? `+91 ${customProp.contactPhone}` : "+91 98930 24190",
-      rawPhone: customProp?.contactPhone || "9893024190",
-      email: "owner@aurahomes.in",
+      phone: "+91 XXXXX XXXXX",
+      unlockedPhone: customProp?.contactPhone ? `+91 ${customProp.contactPhone}` : "+91 Contact Verified",
+      rawPhone: customProp?.contactPhone || "",
+      email: customProp?.ownerEmail || "owner@aurahomes.in",
     }
   };
 
