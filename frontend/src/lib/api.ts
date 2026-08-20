@@ -81,6 +81,27 @@ export const api = {
     return apiFetch("/users/me");
   },
 
+  async updateProfile(payload: { name?: string; email?: string; mobile?: string; city?: string }) {
+    return apiFetch("/users/me", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async changePassword(payload: { old_password: string; new_password: string }) {
+    return apiFetch("/users/me/change-password", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async resetPassword(payload: { mobile_or_email: string; new_password: string }) {
+    return apiFetch("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
   // Properties API
   async getProperties(filters: string = "") {
     try {

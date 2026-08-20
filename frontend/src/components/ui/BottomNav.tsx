@@ -15,7 +15,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/search", icon: "🔍", label: "Search" },
   { href: "/dashboard/properties/new", icon: "+", label: "", exact: true },
   { href: "/plans", icon: "💎", label: "Plans" },
-  { href: "/dashboard", icon: "👤", label: "Account" },
+  { href: "/account/profile", icon: "👤", label: "Account" },
 ];
 
 interface BottomNavProps {

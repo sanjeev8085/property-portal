@@ -200,3 +200,27 @@ async def google_login(payload: GoogleAuthRequest, db: AsyncSession = Depends(ge
         user_type=user.user_type
     )
 
+
+from pydantic import BaseModel
+
+class ResetPasswordPayload(BaseModel):
+    mobile_or_email: str
+    new_password: str
+
+@router.post("/reset-password")
+async def reset_password(payload: ResetPasswordPayload, db: AsyncSession = Depends(get_db)):
+    """Reset user password using email or mobile number."""
+    target = payload.mobile_or_email.strip()
+    result = await db.execute(select(User).where((User.email.ilike(target)) | (User.mobile == target)))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="No registered account found with this email or mobile.")
+
+    if len(payload.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long.")
+
+    user.password_hash = hash_password(payload.new_password)
+    db.add(user)
+    await db.commit()
+    return {"message": "Password has been successfully updated. You can now log in."}
+

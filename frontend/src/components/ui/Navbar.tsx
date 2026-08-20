@@ -153,6 +153,7 @@ export default function Navbar() {
 
             {isLoggedIn ? (
               <>
+                <a href="/account/profile" className="btn-login">👤 Profile</a>
                 <a href="/dashboard" className="btn-login">Dashboard</a>
                 <button type="button" className="btn-login" onClick={handleLogout}>
                   Logout
@@ -252,6 +253,9 @@ export default function Navbar() {
               <div className="mobile-drawer-group-title">ACCOUNT & DASHBOARD</div>
               {isLoggedIn ? (
                 <>
+                  <a href="/account/profile" className="mobile-drawer-link" onClick={() => setMobileMenuOpen(false)}>
+                    <span>👤</span> My Profile & Password
+                  </a>
                   <a href="/dashboard" className="mobile-drawer-link" onClick={() => setMobileMenuOpen(false)}>
                     <span>📊</span> My Dashboard
                   </a>
