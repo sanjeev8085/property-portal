@@ -2,8 +2,9 @@ from fastapi import APIRouter, Query, Depends
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 from app.core.database import get_db
-from app.models.property import Property, PropertyStatus, PropertyPurpose, FurnishedStatus
+from app.models.property import Property, PropertyStatus, PropertyPurpose, FurnishedStatus, PropertyImage
 from app.models.location import Location
 
 router = APIRouter()
@@ -26,7 +27,11 @@ async def search_properties(
 ):
     """Search and filter properties."""
     # Query properties that are active/published and not deactivated
-    query = select(Property).where(Property.status.in_([PropertyStatus.PUBLISHED, PropertyStatus.PENDING_APPROVAL]))
+    query = (
+        select(Property)
+        .options(selectinload(Property.location), selectinload(Property.images))
+        .where(Property.status.in_([PropertyStatus.PUBLISHED, PropertyStatus.PENDING_APPROVAL]))
+    )
 
     # Join with locations if filtering by city
     if city:
@@ -69,7 +74,7 @@ async def search_properties(
             query = query.where((Property.parking == 0) | (Property.parking.is_(None)))
 
     # Count total matching results
-    count_query = select(func.count()).select_from(query.subquery())
+    count_query = select(func.count(Property.id)).select_from(Property).where(Property.status.in_([PropertyStatus.PUBLISHED, PropertyStatus.PENDING_APPROVAL]))
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
 
@@ -92,11 +97,12 @@ async def search_properties(
 
     results_data = []
     for prop in properties:
-        # Load cover photo
-        img_res = await db.execute(select(PropertyImage.image_url).where(PropertyImage.property_id == prop.id).order_by(PropertyImage.sort_order).limit(1))
-        img_url = img_res.scalar_one_or_none() or "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80"
+        # Load cover photo from loaded relationship or fallback
+        img_url = "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80"
+        if prop.images and len(prop.images) > 0:
+            img_url = prop.images[0].image_url or img_url
 
-        loc_str = f"{prop.location.locality}, {prop.location.city}" if prop.location else (prop.locality or prop.city or "Bhopal")
+        loc_str = f"{prop.location.locality}, {prop.location.city}" if prop.location else "Bhopal"
 
         results_data.append({
             "id": str(prop.id),
@@ -109,10 +115,11 @@ async def search_properties(
             "bathrooms": prop.bathrooms,
             "location": loc_str,
             "image": img_url,
+            "images": [img.image_url for img in prop.images] if prop.images else [img_url],
             "description": prop.description,
             "is_featured": prop.is_featured,
             "views_count": prop.views_count,
-            "created_at": prop.created_at,
+            "created_at": prop.created_at.isoformat() if prop.created_at else None,
         })
 
     return {
