@@ -64,8 +64,10 @@ export default function PropertyDetailsPage() {
             bathrooms: remote.bathrooms || 2,
             size: `${remote.area_sqft || 1200}`,
             description: remote.description,
-            contactName: remote.owner?.name || "Verified Owner",
-            contactPhone: remote.owner?.mobile || "9893024190"
+            contactName: remote.owner?.name || remote.contact_name || "Verified Owner",
+            contactPhone: remote.owner?.mobile || remote.contact_phone || "9893024190",
+            ownerEmail: remote.owner?.email || remote.contact_email || "",
+            ownerId: remote.owner_id || "",
           });
         }
       } catch {
@@ -79,6 +81,26 @@ export default function PropertyDetailsPage() {
   const rawPhotos = (customProp?.photos && customProp.photos.length > 0)
     ? customProp.photos
     : (customProp?.image ? [customProp.image, ...DEFAULT_GALLERY_IMAGES.slice(1)] : DEFAULT_GALLERY_IMAGES);
+
+  const loggedInEmail = typeof window !== "undefined" ? localStorage.getItem("user_email") || "" : "";
+  const loggedInPhone = typeof window !== "undefined" ? localStorage.getItem("user_mobile") || "" : "";
+  const loggedInName = typeof window !== "undefined" ? localStorage.getItem("user_name") || "" : "";
+  const loggedInUserId = typeof window !== "undefined" ? localStorage.getItem("user_id") || "" : "";
+
+  const isOwner = Boolean(
+    (customProp?.ownerId && loggedInUserId && customProp.ownerId === loggedInUserId) ||
+    (customProp?.ownerEmail && loggedInEmail && customProp.ownerEmail.toLowerCase() === loggedInEmail.toLowerCase()) ||
+    (customProp?.contactPhone && loggedInPhone && customProp.contactPhone.replace(/\D/g, "") === loggedInPhone.replace(/\D/g, "")) ||
+    (customProp?.contactName && loggedInName && customProp.contactName.trim().toLowerCase() === loggedInName.trim().toLowerCase())
+  );
+
+  const resolvedOwnerName = customProp?.contactName || "Verified Owner";
+  const resolvedOwnerEmail = customProp?.ownerEmail || (customProp?.contactName ? `${customProp.contactName.toLowerCase().replace(/\s+/g, '')}@gmail.com` : "contact.owner@aurahomes.in");
+  const resolvedPhone = customProp?.contactPhone ? `+91 ${customProp.contactPhone}` : "+91 9893024190";
+  const maskedPhone = customProp?.contactPhone ? `+91 ${customProp.contactPhone.slice(0, 5)} XXXXX` : "+91 98930 XXXXX";
+  const maskedEmail = resolvedOwnerEmail.includes("@") 
+    ? `${resolvedOwnerEmail.slice(0, 3)}***@${resolvedOwnerEmail.split("@")[1]}` 
+    : "owner***@aurahomes.in";
 
   const propertyDetails = {
     id: customProp?.id || propertyId || "12345",
@@ -113,13 +135,14 @@ export default function PropertyDetailsPage() {
       { name: "Vastu Compliant", icon: "🧭" }
     ],
     owner: {
-      name: customProp?.contactName || "Verified Owner",
-      status: "Verified Owner",
+      name: resolvedOwnerName,
+      status: isOwner ? "Your Listing" : "Verified Owner",
       memberSince: "Member since 2026",
-      phone: "+91 XXXXX XXXXX",
-      unlockedPhone: customProp?.contactPhone ? `+91 ${customProp.contactPhone}` : "+91 Contact Verified",
-      rawPhone: customProp?.contactPhone || "",
-      email: customProp?.ownerEmail || "owner@aurahomes.in",
+      phone: maskedPhone,
+      unlockedPhone: resolvedPhone,
+      rawPhone: customProp?.contactPhone || "9893024190",
+      email: resolvedOwnerEmail,
+      maskedEmail: maskedEmail,
     }
   };
 
@@ -358,23 +381,47 @@ export default function PropertyDetailsPage() {
                   <h3>{propertyDetails.owner.name}</h3>
                   <span className="verified-check">✓</span>
                 </div>
-                <span className="owner-badge">Verified Owner • Fast Responder</span>
+                <span className="owner-badge">
+                  {isOwner ? "Your Property Listing" : "Verified Owner • Fast Responder"}
+                </span>
               </div>
             </div>
 
             <div className="divider" style={{ margin: "16px 0" }}></div>
 
-            {isUnlocked || (typeof window !== "undefined" && localStorage.getItem("access_token")) ? (
+            {isOwner ? (
               <div className="unlocked-contact-box fade-in">
+                <div style={{ background: "rgba(99, 102, 241, 0.1)", color: "var(--primary)", padding: "8px 14px", borderRadius: "8px", fontWeight: 700, marginBottom: "14px", fontSize: "13px" }}>
+                  👤 This is your property listing (Owner View)
+                </div>
                 <div className="contact-info-grid">
                   <div className="contact-item">
-                    <span className="contact-item-label">📞 Phone Number:</span>
+                    <span className="contact-item-label">📞 Your Contact Number:</span>
+                    <span className="contact-item-val">{propertyDetails.owner.unlockedPhone}</span>
+                  </div>
+                  <div className="contact-item">
+                    <span className="contact-item-label">✉️ Your Contact Email:</span>
+                    <span className="contact-item-val">{propertyDetails.owner.email}</span>
+                  </div>
+                </div>
+                <a href="/dashboard/properties" className="btn-call-direct" style={{ textDecoration: "none" }}>
+                  📁 Manage Listing in Dashboard →
+                </a>
+              </div>
+            ) : isUnlocked ? (
+              <div className="unlocked-contact-box fade-in">
+                <div style={{ background: "rgba(16, 185, 129, 0.1)", color: "#10b981", padding: "8px 14px", borderRadius: "8px", fontWeight: 700, marginBottom: "14px", fontSize: "13px" }}>
+                  ✓ Owner Contact Unlocked (Verified Direct Lead)
+                </div>
+                <div className="contact-info-grid">
+                  <div className="contact-item">
+                    <span className="contact-item-label">📞 Direct Phone:</span>
                     <a href={`tel:${propertyDetails.owner.unlockedPhone}`} className="contact-item-val link-phone">
                       {propertyDetails.owner.unlockedPhone}
                     </a>
                   </div>
                   <div className="contact-item">
-                    <span className="contact-item-label">✉️ Email Address:</span>
+                    <span className="contact-item-label">✉️ Owner Email:</span>
                     <span className="contact-item-val">{propertyDetails.owner.email}</span>
                   </div>
                 </div>
@@ -390,16 +437,30 @@ export default function PropertyDetailsPage() {
               </div>
             ) : (
               <div className="locked-contact-box">
-                <p style={{ fontSize: "14px", color: "var(--text-secondary)", marginBottom: "14px" }}>
-                  Log in or unlock with 1 credit to view direct phone number and chat on WhatsApp with the owner.
+                <div className="contact-info-grid">
+                  <div className="contact-item">
+                    <span className="contact-item-label">📞 Owner Phone:</span>
+                    <span className="contact-item-val" style={{ letterSpacing: "1px", color: "var(--text-muted)" }}>
+                      {propertyDetails.owner.phone}
+                    </span>
+                  </div>
+                  <div className="contact-item">
+                    <span className="contact-item-label">✉️ Owner Email:</span>
+                    <span className="contact-item-val" style={{ color: "var(--text-muted)" }}>
+                      {propertyDetails.owner.maskedEmail}
+                    </span>
+                  </div>
+                </div>
+                <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginBottom: "14px" }}>
+                  🔒 Unlock direct verified owner phone number and WhatsApp chat with 1 credit.
                 </p>
                 <div className="contact-action-buttons-row">
                   <button type="button" className="btn-call-direct" onClick={handleContactOwner}>
-                    🔓 Unlock Phone & Contact Details
+                    🔓 Unlock Owner Contact (1 Credit)
                   </button>
-                  <a href={whatsappUrl} target="_blank" rel="noreferrer" className="btn-whatsapp-direct">
-                    💬 WhatsApp Chat
-                  </a>
+                  <button type="button" className="btn-whatsapp-direct" onClick={handleContactOwner}>
+                    💬 Unlock WhatsApp Chat
+                  </button>
                 </div>
               </div>
             )}
@@ -433,7 +494,26 @@ export default function PropertyDetailsPage() {
               <span className="credit-badge">{credits} Credits</span>
             </div>
 
-            {isUnlocked || (typeof window !== "undefined" && localStorage.getItem("access_token")) ? (
+            {isOwner ? (
+              <div className="unlocked-contact-info fade-in">
+                <p className="unlock-success-msg" style={{ background: "rgba(99, 102, 241, 0.1)", color: "var(--primary)" }}>
+                  👤 Your Property Listing
+                </p>
+                <div className="contact-details">
+                  <div className="contact-row">
+                    <span className="label">Phone:</span>
+                    <span className="value">{propertyDetails.owner.unlockedPhone}</span>
+                  </div>
+                  <div className="contact-row">
+                    <span className="label">Email:</span>
+                    <span className="value">{propertyDetails.owner.email}</span>
+                  </div>
+                </div>
+                <a href="/dashboard/properties" className="btn-primary full-width-btn" style={{ textAlign: "center", textDecoration: "none" }}>
+                  Manage Listing →
+                </a>
+              </div>
+            ) : isUnlocked ? (
               <div className="unlocked-contact-info fade-in">
                 <p className="unlock-success-msg">✓ Owner Contact Unlocked</p>
                 <div className="contact-details">
@@ -762,18 +842,23 @@ export default function PropertyDetailsPage() {
         /* Quick Specs Grid */
         .quick-specs-grid {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 14px;
           margin-bottom: 32px;
+          width: 100%;
+          box-sizing: border-box;
         }
         .spec-card {
-          padding: 16px 14px;
+          padding: 14px 12px;
           background: var(--surface);
           border: 1px solid var(--border);
           border-radius: var(--radius-lg, 16px);
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
+          min-width: 0;
+          width: 100%;
+          box-sizing: border-box;
           transition: transform 0.15s ease;
         }
         .spec-card:hover {
@@ -781,11 +866,11 @@ export default function PropertyDetailsPage() {
           border-color: var(--primary-light);
         }
         .spec-icon {
-          font-size: 24px;
+          font-size: 22px;
           background: var(--surface-hover, #f8fafc);
-          width: 44px;
-          height: 44px;
-          border-radius: 12px;
+          width: 40px;
+          height: 40px;
+          border-radius: 10px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -795,22 +880,26 @@ export default function PropertyDetailsPage() {
           display: flex;
           flex-direction: column;
           min-width: 0;
+          flex: 1;
         }
         .spec-label {
           font-size: 11px;
           color: var(--text-muted);
           text-transform: uppercase;
           font-weight: 700;
-          letter-spacing: 0.5px;
+          letter-spacing: 0.4px;
           margin-bottom: 2px;
-        }
-        .spec-value {
-          font-size: 14.5px;
-          font-weight: 800;
-          color: var(--text-primary);
+          white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          white-space: nowrap;
+        }
+        .spec-value {
+          font-size: 14px;
+          font-weight: 800;
+          color: var(--text-primary);
+          white-space: normal;
+          word-break: break-word;
+          line-height: 1.3;
         }
 
         /* Cards */
@@ -904,12 +993,15 @@ export default function PropertyDetailsPage() {
         .credit-display {
           display: flex;
           justify-content: space-between;
-          font-size: 13px;
+          font-size: 13.5px;
           color: var(--text-secondary);
         }
         .credit-badge {
+          background: var(--primary-light);
           color: var(--primary);
           font-weight: 800;
+          padding: 2px 8px;
+          border-radius: 6px;
         }
         .locked-phone-display {
           display: flex;
@@ -922,37 +1014,46 @@ export default function PropertyDetailsPage() {
           margin-bottom: 12px;
           font-weight: 800;
           font-size: 16px;
+          letter-spacing: 1px;
+          color: var(--text-muted);
         }
         .full-width-btn {
           width: 100%;
           justify-content: center;
           padding: 14px;
+          border-radius: var(--radius-md);
+          font-size: 14.5px;
           font-weight: 800;
         }
         .gating-disclosure {
           margin-top: 8px;
-          font-size: 11px;
+          font-size: 11.5px;
           color: var(--text-muted);
           text-align: center;
+          line-height: 1.4;
         }
 
         .unlocked-contact-info {
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 14px;
         }
         .unlock-success-msg {
-          color: var(--success);
+          background: rgba(16, 185, 129, 0.12);
+          color: #10b981;
           font-weight: 800;
-          font-size: 14px;
+          font-size: 13px;
+          padding: 8px 12px;
+          border-radius: 8px;
+          text-align: center;
         }
         .contact-details {
-          padding: 16px;
-          background: var(--primary-light);
+          padding: 14px;
+          background: var(--surface-hover);
           border-radius: var(--radius-md);
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 10px;
         }
         .contact-row {
           display: flex;
@@ -1171,7 +1272,8 @@ export default function PropertyDetailsPage() {
             gap: 24px;
           }
           .quick-specs-grid {
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 10px;
           }
         }
 
@@ -1182,6 +1284,17 @@ export default function PropertyDetailsPage() {
 
           .detail-page-container {
             padding: 0 0 120px 0;
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+            box-sizing: border-box;
+          }
+
+          .detail-layout, .info-column {
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
           }
 
           /* Mobile Top Bar */
@@ -1215,11 +1328,14 @@ export default function PropertyDetailsPage() {
           /* Hero Gallery on Mobile */
           .gallery-wrapper {
             margin-bottom: 18px;
+            width: 100%;
+            box-sizing: border-box;
           }
           .image-gallery-card {
             border-radius: 0;
             aspect-ratio: 4 / 3;
             max-height: 340px;
+            width: 100%;
           }
           .thumbnail-strip {
             padding: 0 16px;
@@ -1232,10 +1348,12 @@ export default function PropertyDetailsPage() {
 
           /* Content spacing on mobile */
           .property-main-header,
-          .quick-specs-grid,
           .details-card {
             padding-left: 16px;
             padding-right: 16px;
+            box-sizing: border-box;
+            width: 100%;
+            max-width: 100%;
           }
 
           .detail-title {
@@ -1252,29 +1370,44 @@ export default function PropertyDetailsPage() {
           }
 
           .quick-specs-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
-            margin-bottom: 20px;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 10px !important;
+            margin-bottom: 20px !important;
+            padding: 0 16px !important;
+            box-sizing: border-box !important;
+            width: 100% !important;
+            max-width: 100% !important;
           }
           .spec-card {
-            padding: 10px 8px;
-            border-radius: 12px;
-            gap: 8px;
+            padding: 10px 10px !important;
+            border-radius: 12px !important;
+            gap: 8px !important;
+            min-width: 0 !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
           }
           .spec-icon {
-            width: 32px;
-            height: 32px;
-            font-size: 16px;
-            border-radius: 8px;
+            width: 32px !important;
+            height: 32px !important;
+            font-size: 16px !important;
+            border-radius: 8px !important;
+            flex-shrink: 0 !important;
+          }
+          .spec-text {
+            min-width: 0 !important;
+            flex: 1 !important;
           }
           .spec-label {
-            font-size: 9.5px;
+            font-size: 9.5px !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
           }
           .spec-value {
-            font-size: 12.5px;
-            white-space: normal;
-            word-break: break-word;
-            line-height: 1.2;
+            font-size: 12.5px !important;
+            white-space: normal !important;
+            word-break: break-word !important;
+            line-height: 1.25 !important;
           }
 
           .details-card {
@@ -1287,12 +1420,17 @@ export default function PropertyDetailsPage() {
             font-size: 17px;
           }
           .amenities-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 8px !important;
+            padding: 0;
+            width: 100%;
+            box-sizing: border-box;
           }
           .amenity-chip {
-            padding: 10px 12px;
-            font-size: 12.5px;
+            padding: 10px 10px !important;
+            font-size: 12px !important;
+            min-width: 0 !important;
+            box-sizing: border-box;
           }
 
           /* Floating Mobile Action Bar (Positioned above bottom nav) */
