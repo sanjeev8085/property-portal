@@ -34,7 +34,23 @@ export function getPublishedProperties(): StoredProperty[] {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+
+    // Deduplicate by id and title+price
+    const seenIds = new Set<string>();
+    const seenKeys = new Set<string>();
+    return parsed.filter(p => {
+      if (!p || !p.id) return false;
+      const idStr = p.id.toString();
+      const priceVal = Number(p.priceNum || p.price) || 0;
+      const contentKey = `${(p.title || "").toLowerCase().trim()}_${priceVal}`;
+      if (seenIds.has(idStr) || seenKeys.has(contentKey)) {
+        return false;
+      }
+      seenIds.add(idStr);
+      seenKeys.add(contentKey);
+      return true;
+    });
   } catch {
     return [];
   }
@@ -56,8 +72,15 @@ export function savePublishedProperty(prop: StoredProperty): void {
   if (typeof window === "undefined") return;
   try {
     const existing = getPublishedProperties();
-    // Filter out if already exists with same id
-    const filtered = existing.filter(p => p.id !== prop.id);
+    const propPriceVal = Number(prop.priceNum || prop.price) || 0;
+    const propKey = `${(prop.title || "").toLowerCase().trim()}_${propPriceVal}`;
+
+    // Filter out if already exists with same id or same title+price
+    const filtered = existing.filter(p => {
+      const pPriceVal = Number(p.priceNum || p.price) || 0;
+      const pKey = `${(p.title || "").toLowerCase().trim()}_${pPriceVal}`;
+      return p.id !== prop.id && pKey !== propKey;
+    });
     const updated = [prop, ...filtered];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 

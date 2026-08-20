@@ -116,12 +116,25 @@ function SearchContent() {
       }
 
       if (!isMounted) return;
-      const seenIds = new Set();
+      const seenIds = new Set<string>();
+      const seenKeys = new Set<string>();
       const allMerged = [...published, ...backendProps].filter(p => {
         if (!p || !p.id) return false;
         const idStr = p.id.toString();
-        if (seenIds.has(idStr)) return false;
+        const priceVal = Number(p.priceNum || p.price) || 0;
+        const contentKey = `${(p.title || "").toLowerCase().trim()}_${priceVal}`;
+
+        if (
+          seenIds.has(idStr) ||
+          seenKeys.has(contentKey) ||
+          deactSet.has(idStr) ||
+          p.status === "Deactivated" ||
+          p.status === "inactive"
+        ) {
+          return false;
+        }
         seenIds.add(idStr);
+        seenKeys.add(contentKey);
         return true;
       });
       setAllProperties(allMerged as Property[]);

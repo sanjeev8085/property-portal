@@ -288,12 +288,9 @@ export default function NewPropertyWizard() {
       status: "published",
     };
 
-    // Save to persistent client store so it appears in Search, Buy, Rent, and Dashboard
-    savePublishedProperty(newPropertyObj);
-
     // Send full payload including images and location to cloud database
     try {
-      await api.createProperty({
+      const cloudRes = await api.createProperty({
         title: newPropertyObj.title,
         price: finalPriceNum,
         purpose: purpose,
@@ -310,9 +307,16 @@ export default function NewPropertyWizard() {
         contact_name: contactName || "Property Owner",
         contact_phone: contactPhone || "9893024190",
       });
+
+      if (cloudRes && cloudRes.id) {
+        newPropertyObj.id = cloudRes.id;
+      }
     } catch (err) {
       console.warn("Cloud database sync note:", err);
     }
+
+    // Save to persistent client store with synced ID
+    savePublishedProperty(newPropertyObj);
 
     success("🎉 Property published successfully! It is now live in the search & buy listings.");
     setTimeout(() => {

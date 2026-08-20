@@ -93,7 +93,7 @@ async def search_properties(
     query = query.offset(offset).limit(per_page)
 
     result = await db.execute(query)
-    properties = result.scalars().all()
+    properties = result.scalars().unique().all()
 
     results_data = []
     try:
