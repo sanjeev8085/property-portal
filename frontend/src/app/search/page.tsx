@@ -93,16 +93,18 @@ function SearchContent() {
           backendProps = cloudData.map((p: any) => ({
             id: p.id,
             title: p.title,
-            price: p.purpose === "rent" 
-              ? `₹${Number(p.price).toLocaleString("en-IN")} / Mo` 
-              : (p.price >= 10000000 
-                  ? `₹${(p.price / 10000000).toFixed(2)} Cr` 
-                  : `₹${(p.price / 100000).toFixed(0)} Lakh`),
+            price: typeof p.price === "string" && p.price.includes("₹")
+              ? p.price
+              : (p.purpose === "rent" 
+                  ? `₹${Number(p.price).toLocaleString("en-IN")} / Mo` 
+                  : (Number(p.price) >= 10000000 
+                      ? `₹${(Number(p.price) / 10000000).toFixed(2)} Cr` 
+                      : `₹${(Number(p.price) / 100000).toFixed(0)} Lakh`)),
             priceNum: Number(p.price) || 0,
-            location: p.locality ? `${p.locality}, ${p.city || "Bhopal"}` : (p.city || "Bhopal"),
-            specs: `${p.bhk || 2} Beds | ${p.bathrooms || 2} Baths | ${p.area_sqft || 1200} sqft`,
+            location: typeof p.location === "string" && p.location ? p.location : (p.locality ? `${p.locality}, ${p.city || "Bhopal"}` : (p.city || "Bhopal")),
+            specs: p.specs || `${p.bhk || 2} Beds | ${p.bathrooms || 2} Baths | ${p.area_sqft || 1200} sqft`,
             image: p.images?.[0] || p.image || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80",
-            type: p.property_type || "Apartment",
+            type: p.property_type || p.type || "Apartment",
             purpose: p.purpose === "rent" ? "rent" : "sell",
             bhk: p.bhk || 2,
             featured: true,
@@ -114,10 +116,15 @@ function SearchContent() {
       }
 
       if (!isMounted) return;
-      const allMerged = [...published, ...backendProps];
-      const mergedIds = new Set(allMerged.map(p => p.id));
-      const filteredDefaults = ALL_PROPERTIES.filter(p => !mergedIds.has(p.id));
-      setAllProperties([...(allMerged as Property[]), ...filteredDefaults]);
+      const seenIds = new Set();
+      const allMerged = [...published, ...backendProps].filter(p => {
+        if (!p || !p.id) return false;
+        const idStr = p.id.toString();
+        if (seenIds.has(idStr)) return false;
+        seenIds.add(idStr);
+        return true;
+      });
+      setAllProperties(allMerged as Property[]);
     };
 
     loadProps();
