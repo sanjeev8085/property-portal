@@ -43,6 +43,11 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     user_type: UserType
+    user_id: Optional[str] = None
+    name: Optional[str] = None
+    email: Optional[str] = None
+    mobile: Optional[str] = None
+    city: Optional[str] = None
 
 
 class GoogleAuthRequest(BaseModel):

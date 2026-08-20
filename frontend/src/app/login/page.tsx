@@ -9,6 +9,16 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
+
+  React.useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    const name = localStorage.getItem("user_name");
+    const userEmail = localStorage.getItem("user_email");
+    if (token && (name || userEmail)) {
+      setCurrentUser({ name: name || "User", email: userEmail || "" });
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +42,28 @@ export default function LoginPage() {
           <h2>Welcome Back</h2>
           <p>Login to search, post properties, and manage unlocked contact leads.</p>
         </div>
+
+        {currentUser && (
+          <div style={{
+            background: "rgba(99, 102, 241, 0.08)",
+            border: "1px solid rgba(99, 102, 241, 0.25)",
+            borderRadius: "12px",
+            padding: "14px 16px",
+            marginBottom: "20px",
+            fontSize: "13px"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+              <span style={{ color: "#10b981", fontWeight: 700 }}>🟢 Currently Signed In:</span>
+              <a href="/dashboard" style={{ color: "var(--primary)", fontWeight: 700, textDecoration: "none" }}>
+                Open Dashboard →
+              </a>
+            </div>
+            <div style={{ fontWeight: 800, color: "var(--text-primary)" }}>{currentUser.name} ({currentUser.email})</div>
+            <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "4px" }}>
+              Logging in below will seamlessly switch to another account.
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">

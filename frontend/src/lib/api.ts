@@ -32,6 +32,7 @@ async function apiFetch(endpoint: string, options: RequestInit = {}) {
 export const api = {
   // Auth API
   async register(payload: any) {
+    api.logout();
     const data = await apiFetch("/auth/register", {
       method: "POST",
       body: JSON.stringify(payload),
@@ -40,11 +41,18 @@ export const api = {
       localStorage.setItem("access_token", data.access_token);
       localStorage.setItem("refresh_token", data.refresh_token);
       localStorage.setItem("user_type", data.user_type);
+      if (data.name) localStorage.setItem("user_name", data.name);
+      if (data.email) localStorage.setItem("user_email", data.email);
+      if (data.mobile) localStorage.setItem("user_mobile", data.mobile);
+      if (data.city) localStorage.setItem("user_city", data.city);
+      if (data.user_id) localStorage.setItem("user_id", data.user_id);
     }
     return data;
   },
 
   async login(payload: any) {
+    // Clear previous user identity so switching accounts is 100% clean
+    api.logout();
     const data = await apiFetch("/auth/login", {
       method: "POST",
       body: JSON.stringify(payload),
@@ -53,14 +61,26 @@ export const api = {
       localStorage.setItem("access_token", data.access_token);
       localStorage.setItem("refresh_token", data.refresh_token);
       localStorage.setItem("user_type", data.user_type);
+      if (data.name) localStorage.setItem("user_name", data.name);
+      if (data.email) localStorage.setItem("user_email", data.email);
+      if (data.mobile) localStorage.setItem("user_mobile", data.mobile);
+      if (data.city) localStorage.setItem("user_city", data.city);
+      if (data.user_id) localStorage.setItem("user_id", data.user_id);
     }
     return data;
   },
 
   logout() {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    localStorage.removeItem("user_type");
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+      localStorage.removeItem("user_type");
+      localStorage.removeItem("user_name");
+      localStorage.removeItem("user_email");
+      localStorage.removeItem("user_mobile");
+      localStorage.removeItem("user_city");
+      localStorage.removeItem("user_id");
+    }
   },
 
   async sendOtp(mobile: string) {

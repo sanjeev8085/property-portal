@@ -76,13 +76,22 @@ async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db))
 
     access_token = create_access_token({"sub": str(user.id), "role": user.user_type})
     refresh_token = create_refresh_token({"sub": str(user.id)})
-    return TokenResponse(access_token=access_token, refresh_token=refresh_token, user_type=user.user_type)
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user_type=user.user_type,
+        user_id=str(user.id),
+        name=user.name,
+        email=user.email,
+        mobile=user.mobile,
+        city=user.city,
+    )
 
 
 @router.post("/login", response_model=TokenResponse)
 async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
     """Login with email + password."""
-    result = await db.execute(select(User).where(User.email == payload.email))
+    result = await db.execute(select(User).where(User.email.ilike(payload.email.strip())))
     user: Optional[User] = result.scalar_one_or_none()
 
     if not user or not user.password_hash or not verify_password(payload.password, user.password_hash):
@@ -96,7 +105,16 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
 
     access_token = create_access_token({"sub": str(user.id), "role": user.user_type})
     refresh_token = create_refresh_token({"sub": str(user.id)})
-    return TokenResponse(access_token=access_token, refresh_token=refresh_token, user_type=user.user_type)
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user_type=user.user_type,
+        user_id=str(user.id),
+        name=user.name,
+        email=user.email,
+        mobile=user.mobile,
+        city=user.city,
+    )
 
 
 @router.post("/send-otp")
