@@ -2,6 +2,9 @@
 
 A modern, full-stack property listing platform for Rent and Sale listings in India.
 
+> 📖 **Comprehensive System Manual & Architecture Guide:** [`docs/SYSTEM_DOCUMENTATION.md`](file:///d:/sanjeev_tyagi/property-portal/docs/SYSTEM_DOCUMENTATION.md)  
+> 👥 **User & Admin Operations Guide:** [`docs/USER_AND_ADMIN_GUIDE.md`](file:///d:/sanjeev_tyagi/property-portal/docs/USER_AND_ADMIN_GUIDE.md)
+
 ## Tech Stack
 
 | Layer | Technology |
