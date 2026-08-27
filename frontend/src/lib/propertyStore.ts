@@ -14,6 +14,18 @@ export interface StoredProperty {
   bathrooms?: number;
   furnished?: string;
   size?: string;
+  facing?: string;
+  dimensions?: string;
+  boundaryWall?: string;
+  cornerPlot?: string;
+  frontage?: string;
+  shopFloor?: string;
+  shopWashroom?: string;
+  cabins?: string;
+  workstations?: string;
+  pgFor?: string;
+  roomType?: string;
+  foodIncluded?: string;
   description?: string;
   contactName?: string;
   contactPhone?: string;

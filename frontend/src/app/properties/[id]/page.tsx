@@ -102,38 +102,97 @@ export default function PropertyDetailsPage() {
     ? `${resolvedOwnerEmail.slice(0, 3)}***@${resolvedOwnerEmail.split("@")[1]}` 
     : "owner***@aurahomes.in";
 
+  const propType = customProp?.type || (customProp?.title?.toLowerCase().includes("plot") ? "Plot / Land" : (customProp?.title?.toLowerCase().includes("shop") ? "Shop" : (customProp?.title?.toLowerCase().includes("office") ? "Office Space" : (customProp?.title?.toLowerCase().includes("warehouse") ? "Warehouse" : (customProp?.title?.toLowerCase().includes("pg") ? "PG / Hostel" : "Apartment")))));
+  const isPlot = propType === "Plot / Land" || (customProp?.title?.toLowerCase().includes("plot") ?? false) || (customProp?.title?.toLowerCase().includes("land") ?? false);
+  const isShop = propType === "Shop" || (customProp?.title?.toLowerCase().includes("shop") ?? false);
+  const isOffice = propType === "Office Space" || (customProp?.title?.toLowerCase().includes("office") ?? false);
+  const isWarehouse = propType === "Warehouse" || (customProp?.title?.toLowerCase().includes("warehouse") ?? false);
+  const isPG = propType === "PG / Hostel" || (customProp?.title?.toLowerCase().includes("pg") ?? false) || (customProp?.title?.toLowerCase().includes("hostel") ?? false);
+
+  const defaultAmenities = isPlot ? [
+    { name: "Boundary Wall", icon: "🧱" },
+    { name: "30ft Wide Road", icon: "🛣️" },
+    { name: "Electricity Connection", icon: "⚡" },
+    { name: "Water Supply Line", icon: "🚰" },
+    { name: "Gated Layout", icon: "🛡️" },
+    { name: "Street Lights", icon: "💡" },
+    { name: "Clear Title / Registry", icon: "📜" },
+    { name: "Vastu Compliant", icon: "🧭" }
+  ] : isShop ? [
+    { name: "Main Road Frontage", icon: "🏪" },
+    { name: "High Footfall Zone", icon: "👥" },
+    { name: "Power Backup", icon: "⚡" },
+    { name: "CCTV Surveillance", icon: "📹" },
+    { name: "Private Washroom", icon: "🚻" },
+    { name: "Water Supply", icon: "🚰" },
+    { name: "Fire Safety Equipment", icon: "🧯" },
+    { name: "Customer Parking", icon: "🚗" }
+  ] : isOffice ? [
+    { name: "High Speed Elevators", icon: "🛗" },
+    { name: "100% Power Backup", icon: "⚡" },
+    { name: "Central Air Conditioning", icon: "❄️" },
+    { name: "24x7 Security & CCTV", icon: "🛡️" },
+    { name: "Conference Room Setup", icon: "📽️" },
+    { name: "Pantry & Cafeteria", icon: "☕" },
+    { name: "Reserved Staff Parking", icon: "🚗" },
+    { name: "Fire Safety Certified", icon: "🧯" }
+  ] : isWarehouse ? [
+    { name: "24ft Clear Ceiling Height", icon: "🏗️" },
+    { name: "Dedicated Loading Bays", icon: "🚛" },
+    { name: "40ft Container Access", icon: "🛣️" },
+    { name: "Heavy Industrial Flooring", icon: "🧱" },
+    { name: "3-Phase Industrial Power", icon: "⚡" },
+    { name: "Gated & Guarded Compound", icon: "🛡️" },
+    { name: "Fire Hydrant System", icon: "🧯" },
+    { name: "Office / Staff Quarters", icon: "🏢" }
+  ] : [
+    { name: "Covered Parking", icon: "🚗" },
+    { name: "24x7 Security", icon: "🛡️" },
+    { name: "Full Power Backup", icon: "⚡" },
+    { name: "High-Speed Lift", icon: "🛗" },
+    { name: "CCTV Surveillance", icon: "📹" },
+    { name: "Fitness Center / Gym", icon: "🏋️" },
+    { name: "Children Play Area", icon: "🛝" },
+    { name: "Vastu Compliant", icon: "🧭" }
+  ];
+
   const propertyDetails = {
     id: customProp?.id || propertyId || "12345",
     title: customProp?.title || "Sleek 2 BHK Modern Apartment in Arera Colony",
     price: customProp?.price || "₹22,000 / Month",
     rawPrice: customProp?.priceNum || 22000,
     purpose: customProp?.purpose || "rent",
-    propertyType: customProp?.type || "Apartment",
+    propertyType: propType,
     currency: "INR",
     deposit: customProp?.purpose === "rent" ? "₹50,000" : "₹1,00,000",
-    maintenance: "₹1,500 / mo",
+    maintenance: isPlot ? "₹0 / mo" : (customProp?.purpose === "rent" ? "₹1,500 / mo" : "₹2,500 / mo"),
     location: customProp?.location || "Arera Colony, Bhopal",
     city: "Bhopal",
     state: "Madhya Pradesh",
     postalCode: "462016",
-    size: customProp?.size ? `${customProp.size} Sq Ft` : "1200 Sq Ft",
-    furnished: customProp?.furnished || "Fully Furnished",
-    bathrooms: customProp?.bathrooms || 2,
-    bedrooms: customProp?.bhk || 2,
-    parking: customProp?.parking || "1 Covered Car Parking",
+    size: customProp?.size ? `${customProp.size} Sq Ft` : (isPlot ? "1500 Sq Ft" : "1200 Sq Ft"),
+    facing: customProp?.facing || "East Facing",
+    dimensions: customProp?.dimensions || "30 × 50 ft",
+    boundaryWall: customProp?.boundaryWall || "Yes (Constructed)",
+    cornerPlot: customProp?.cornerPlot || "Corner Plot",
+    frontage: customProp?.frontage || "15 ft Frontage",
+    shopFloor: customProp?.shopFloor || "Ground Floor",
+    shopWashroom: customProp?.shopWashroom || "Private Washroom",
+    cabins: customProp?.cabins || "2 Cabins",
+    workstations: customProp?.workstations || "15-25 Workstations",
+    pgFor: customProp?.pgFor || "Any (Boys / Girls / Working)",
+    roomType: customProp?.roomType || "Single & Double Sharing",
+    foodIncluded: customProp?.foodIncluded || "Breakfast & Dinner Included",
+    furnished: isPlot ? "" : (customProp?.furnished || "Fully Furnished"),
+    bathrooms: isPlot ? 0 : (customProp?.bathrooms || 2),
+    bedrooms: isPlot || isShop || isOffice || isWarehouse ? 0 : (customProp?.bhk || 2),
+    parking: isPlot ? "" : (customProp?.parking || "1 Covered Car Parking"),
     posted: "Just Listed",
-    description: customProp?.description || "Located in the heart of Arera Colony, this stunning property features double balconies, premium Italian marble flooring, complete teak-wood woodwork, fully integrated modular kitchen with branded chimneys, and independent secure covered parking. Perfect for buyers or tenants looking for high-quality spaces.",
+    description: customProp?.description || (isPlot 
+      ? "Clear title, RERA approved plot ready for immediate registry and construction in a prime locality with road access and electricity."
+      : "Located in a prime locality, this property features excellent construction, high-quality finishes, 24x7 security, and convenient access to key city hubs."),
     photos: rawPhotos,
-    amenities: [
-      { name: "Covered Parking", icon: "🚗" },
-      { name: "24x7 Security", icon: "🛡️" },
-      { name: "Full Power Backup", icon: "⚡" },
-      { name: "High-Speed Lift", icon: "🛗" },
-      { name: "CCTV Surveillance", icon: "📹" },
-      { name: "Fitness Center / Gym", icon: "🏋️" },
-      { name: "Children Play Area", icon: "🛝" },
-      { name: "Vastu Compliant", icon: "🧭" }
-    ],
+    amenities: defaultAmenities,
     owner: {
       name: resolvedOwnerName,
       status: isOwner ? "Your Listing" : "Verified Owner",
@@ -309,48 +368,277 @@ export default function PropertyDetailsPage() {
 
           {/* Key Specifications Grid */}
           <div className="quick-specs-grid">
-            <div className="spec-card">
-              <span className="spec-icon">📐</span>
-              <div className="spec-text">
-                <span className="spec-label">Carpet Area</span>
-                <span className="spec-value">{propertyDetails.size}</span>
-              </div>
-            </div>
-            <div className="spec-card">
-              <span className="spec-icon">🛏️</span>
-              <div className="spec-text">
-                <span className="spec-label">Configuration</span>
-                <span className="spec-value">{propertyDetails.bedrooms} BHK</span>
-              </div>
-            </div>
-            <div className="spec-card">
-              <span className="spec-icon">🚿</span>
-              <div className="spec-text">
-                <span className="spec-label">Bathrooms</span>
-                <span className="spec-value">{propertyDetails.bathrooms} Baths</span>
-              </div>
-            </div>
-            <div className="spec-card">
-              <span className="spec-icon">🛋️</span>
-              <div className="spec-text">
-                <span className="spec-label">Furnishing</span>
-                <span className="spec-value">{propertyDetails.furnished}</span>
-              </div>
-            </div>
-            <div className="spec-card">
-              <span className="spec-icon">🚗</span>
-              <div className="spec-text">
-                <span className="spec-label">Parking</span>
-                <span className="spec-value">{propertyDetails.parking}</span>
-              </div>
-            </div>
-            <div className="spec-card">
-              <span className="spec-icon">⚡</span>
-              <div className="spec-text">
-                <span className="spec-label">Maintenance</span>
-                <span className="spec-value">{propertyDetails.maintenance}</span>
-              </div>
-            </div>
+            {isPlot ? (
+              <>
+                <div className="spec-card">
+                  <span className="spec-icon">📐</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Plot Area</span>
+                    <span className="spec-value">{propertyDetails.size}</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">🧭</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Facing</span>
+                    <span className="spec-value">{propertyDetails.facing}</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">📏</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Dimensions</span>
+                    <span className="spec-value">{propertyDetails.dimensions}</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">🧱</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Boundary Wall</span>
+                    <span className="spec-value">{propertyDetails.boundaryWall}</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">🛣️</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Corner Plot</span>
+                    <span className="spec-value">{propertyDetails.cornerPlot}</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">📜</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Ownership</span>
+                    <span className="spec-value">Freehold / Verified</span>
+                  </div>
+                </div>
+              </>
+            ) : isShop ? (
+              <>
+                <div className="spec-card">
+                  <span className="spec-icon">📐</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Carpet Area</span>
+                    <span className="spec-value">{propertyDetails.size}</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">🏪</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Frontage</span>
+                    <span className="spec-value">{propertyDetails.frontage}</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">🏢</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Floor</span>
+                    <span className="spec-value">{propertyDetails.shopFloor}</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">🚻</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Washroom</span>
+                    <span className="spec-value">{propertyDetails.shopWashroom}</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">🚗</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Parking</span>
+                    <span className="spec-value">{propertyDetails.parking || "Roadside Parking"}</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">⚡</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Power Backup</span>
+                    <span className="spec-value">Available</span>
+                  </div>
+                </div>
+              </>
+            ) : isOffice ? (
+              <>
+                <div className="spec-card">
+                  <span className="spec-icon">📐</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Carpet Area</span>
+                    <span className="spec-value">{propertyDetails.size}</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">🚪</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Cabins</span>
+                    <span className="spec-value">{propertyDetails.cabins}</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">💻</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Workstations</span>
+                    <span className="spec-value">{propertyDetails.workstations}</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">⚡</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Power Backup</span>
+                    <span className="spec-value">100% Full Backup</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">🚗</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Parking</span>
+                    <span className="spec-value">{propertyDetails.parking || "Reserved Parking"}</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">☕</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Pantry</span>
+                    <span className="spec-value">Dry Pantry</span>
+                  </div>
+                </div>
+              </>
+            ) : isWarehouse ? (
+              <>
+                <div className="spec-card">
+                  <span className="spec-icon">📐</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Covered Area</span>
+                    <span className="spec-value">{propertyDetails.size}</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">🏗️</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Clear Height</span>
+                    <span className="spec-value">24 ft</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">🚛</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Loading Bays</span>
+                    <span className="spec-value">2 Loading Docks</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">🛣️</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Container Access</span>
+                    <span className="spec-value">40ft Direct</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">⚡</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Power Load</span>
+                    <span className="spec-value">Industrial 3-Phase</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">🛡️</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Security</span>
+                    <span className="spec-value">24x7 Guarded</span>
+                  </div>
+                </div>
+              </>
+            ) : isPG ? (
+              <>
+                <div className="spec-card">
+                  <span className="spec-icon">👥</span>
+                  <div className="spec-text">
+                    <span className="spec-label">PG For</span>
+                    <span className="spec-value">{propertyDetails.pgFor}</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">🛏️</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Room Type</span>
+                    <span className="spec-value">{propertyDetails.roomType}</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">🍲</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Food Status</span>
+                    <span className="spec-value">{propertyDetails.foodIncluded}</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">🛋️</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Furnishing</span>
+                    <span className="spec-value">Fully Furnished</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">🚿</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Bathrooms</span>
+                    <span className="spec-value">Attached</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">📶</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Wi-Fi</span>
+                    <span className="spec-value">High-Speed Free</span>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="spec-card">
+                  <span className="spec-icon">📐</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Carpet Area</span>
+                    <span className="spec-value">{propertyDetails.size}</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">🛏️</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Configuration</span>
+                    <span className="spec-value">{propertyDetails.bedrooms} BHK</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">🚿</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Bathrooms</span>
+                    <span className="spec-value">{propertyDetails.bathrooms} Baths</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">🛋️</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Furnishing</span>
+                    <span className="spec-value">{propertyDetails.furnished}</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">🚗</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Parking</span>
+                    <span className="spec-value">{propertyDetails.parking}</span>
+                  </div>
+                </div>
+                <div className="spec-card">
+                  <span className="spec-icon">⚡</span>
+                  <div className="spec-text">
+                    <span className="spec-label">Maintenance</span>
+                    <span className="spec-value">{propertyDetails.maintenance}</span>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Description Section */}

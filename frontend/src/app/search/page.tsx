@@ -102,7 +102,17 @@ function SearchContent() {
                       : `₹${(Number(p.price) / 100000).toFixed(0)} Lakh`)),
             priceNum: Number(p.price) || 0,
             location: typeof p.location === "string" && p.location ? p.location : (p.locality ? `${p.locality}, ${p.city || "Bhopal"}` : (p.city || "Bhopal")),
-            specs: p.specs || `${p.bhk || 2} Beds | ${p.bathrooms || 2} Baths | ${p.area_sqft || 1200} sqft`,
+            specs: p.specs || (
+              (p.property_type === "Plot / Land" || (p.title || "").toLowerCase().includes("plot"))
+                ? `${p.area_sqft || p.size || 1500} sqft Plot Area`
+                : (p.property_type === "Shop" || (p.title || "").toLowerCase().includes("shop"))
+                  ? `${p.area_sqft || p.size || 650} sqft Retail Shop`
+                  : (p.property_type === "Office Space" || (p.title || "").toLowerCase().includes("office"))
+                    ? `${p.area_sqft || p.size || 1500} sqft Office`
+                    : (p.property_type === "Warehouse" || (p.title || "").toLowerCase().includes("warehouse"))
+                      ? `${p.area_sqft || p.size || 5000} sqft Warehouse`
+                      : `${p.bhk || 2} Beds | ${p.bathrooms || 2} Baths | ${p.area_sqft || 1200} sqft`
+            ),
             image: p.images?.[0] || p.image || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80",
             type: p.property_type || p.type || "Apartment",
             purpose: p.purpose === "rent" ? "rent" : "sell",

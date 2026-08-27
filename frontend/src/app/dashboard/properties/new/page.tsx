@@ -271,10 +271,22 @@ export default function NewPropertyWizard() {
       purpose: purpose,
       type: propertyType,
       bhk: ["Apartment", "Villa / House", "Independent Floor"].includes(propertyType) ? bhk : 0,
-      bathrooms: bathrooms,
-      furnished: furnished,
-      parking: parking,
-      size: size || (purpose === "rent" ? "1200" : "1500"),
+      bathrooms: ["Apartment", "Villa / House", "Independent Floor", "PG / Hostel"].includes(propertyType) ? bathrooms : 0,
+      furnished: ["Apartment", "Villa / House", "Independent Floor", "PG / Hostel"].includes(propertyType) ? furnished : "",
+      parking: propertyType === "Plot / Land" ? "" : parking,
+      size: size || (propertyType === "Plot / Land" ? "1500" : (purpose === "rent" ? "1200" : "1500")),
+      facing: propertyType === "Plot / Land" ? facing : "",
+      dimensions: propertyType === "Plot / Land" ? dimensions : "",
+      boundaryWall: propertyType === "Plot / Land" ? boundaryWall : "",
+      cornerPlot: propertyType === "Plot / Land" ? cornerPlot : "",
+      frontage: propertyType === "Shop" ? frontage : "",
+      shopFloor: propertyType === "Shop" ? shopFloor : "",
+      shopWashroom: propertyType === "Shop" ? shopWashroom : "",
+      cabins: propertyType === "Office Space" ? cabins : "",
+      workstations: propertyType === "Office Space" ? workstations : "",
+      pgFor: propertyType === "PG / Hostel" ? pgFor : "",
+      roomType: propertyType === "PG / Hostel" ? roomType : "",
+      foodIncluded: propertyType === "PG / Hostel" ? foodIncluded : "",
       location: `${locality ? locality + ", " : ""}${area || "Arera Colony"}, ${city}`,
       specs: specsSummary,
       image: photos[0] || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80",
@@ -904,18 +916,99 @@ export default function NewPropertyWizard() {
               <h3 style={{ marginTop: "16px", fontSize: "18px", fontWeight: 700 }}>{getPreviewTitle()}</h3>
               
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", margin: "12px 0" }}>
-                <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
-                  📐 {size || "1200"} Sq.Ft
-                </span>
-                <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
-                  🛋️ {furnished}
-                </span>
-                <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
-                  🚿 {bathrooms} Baths
-                </span>
-                <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
-                  🚗 {parking}
-                </span>
+                {propertyType === "Plot / Land" ? (
+                  <>
+                    <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                      📐 {size || "1500"} Sq.Ft Plot
+                    </span>
+                    <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                      🧭 {facing}
+                    </span>
+                    <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                      📏 {dimensions}
+                    </span>
+                    <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                      🧱 {boundaryWall}
+                    </span>
+                    <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                      🛣️ {cornerPlot}
+                    </span>
+                  </>
+                ) : propertyType === "Shop" ? (
+                  <>
+                    <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                      📐 {size || "650"} Sq.Ft Shop
+                    </span>
+                    <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                      🏪 {frontage} Frontage
+                    </span>
+                    <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                      🏢 {shopFloor}
+                    </span>
+                    <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                      🚻 {shopWashroom}
+                    </span>
+                  </>
+                ) : propertyType === "Office Space" ? (
+                  <>
+                    <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                      📐 {size || "1500"} Sq.Ft Office
+                    </span>
+                    <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                      🚪 {cabins}
+                    </span>
+                    <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                      💻 {workstations}
+                    </span>
+                    <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                      ⚡ {powerBackup}
+                    </span>
+                  </>
+                ) : propertyType === "Warehouse" ? (
+                  <>
+                    <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                      📐 {size || "5000"} Sq.Ft Covered
+                    </span>
+                    <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                      🏗️ {ceilingHeight} Height
+                    </span>
+                    <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                      🚛 {loadingDocks}
+                    </span>
+                  </>
+                ) : propertyType === "PG / Hostel" ? (
+                  <>
+                    <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                      👥 {pgFor}
+                    </span>
+                    <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                      🛏️ {roomType}
+                    </span>
+                    <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                      🍲 {foodIncluded}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                      📐 {size || "1200"} Sq.Ft
+                    </span>
+                    <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                      🛏️ {bhk} BHK
+                    </span>
+                    <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                      🚿 {bathrooms} Baths
+                    </span>
+                    <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                      🛋️ {furnished}
+                    </span>
+                    {parking && (
+                      <span style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "99px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)" }}>
+                        🚗 {parking}
+                      </span>
+                    )}
+                  </>
+                )}
               </div>
 
               <p className="preview-price">

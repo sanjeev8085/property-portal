@@ -71,7 +71,15 @@ export default function Home() {
           title: p.title,
           price: priceStr,
           location: p.location || p.locality || p.city || "Bhopal",
-          specs: p.specs || `${p.bhk || 2} BHK | ${p.area_sqft || p.size || "1200"} sqft`,
+          specs: p.specs || (
+            (p.type === "Plot / Land" || (p.title || "").toLowerCase().includes("plot"))
+              ? `${p.area_sqft || p.size || "1500"} sqft Plot Area`
+              : (p.type === "Shop" || (p.title || "").toLowerCase().includes("shop"))
+                ? `${p.area_sqft || p.size || "650"} sqft Retail Shop`
+                : (p.type === "Office Space" || (p.title || "").toLowerCase().includes("office"))
+                  ? `${p.area_sqft || p.size || "1500"} sqft Office`
+                  : `${p.bhk || 2} BHK | ${p.area_sqft || p.size || "1200"} sqft`
+          ),
           image: p.image || (p.photos && p.photos[0]) || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80",
           tag: "⭐ Verified",
           isFeatured: true,
