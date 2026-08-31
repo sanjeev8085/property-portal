@@ -16,6 +16,11 @@ from sqlalchemy.pool import StaticPool
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
+from app.core.config import settings
+settings.RAZORPAY_KEY_ID = ""
+settings.RAZORPAY_KEY_SECRET = ""
+settings.RAZORPAY_WEBHOOK_SECRET = ""
+
 
 @pytest.fixture(scope="session")
 def event_loop():

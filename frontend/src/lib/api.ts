@@ -173,6 +173,20 @@ export const api = {
     return apiFetch("/payments/plans");
   },
 
+  async createOrder(planId: string) {
+    return apiFetch("/payments/create-order", {
+      method: "POST",
+      body: JSON.stringify({ plan_id: planId }),
+    });
+  },
+
+  async verifyPayment(payload: any) {
+    return apiFetch("/payments/verify", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
   // Admin APIs
   async getAdminDashboard() {
     return apiFetch("/admin/dashboard");

@@ -39,12 +39,101 @@ export default function CheckoutPage({ params }: { params: Promise<{ plan_id: st
     setPaymentLoading(true);
     setErrorMsg("");
     try {
-      // Simulate payment processing flow
-      await new Promise(r => setTimeout(r, 1200));
-      window.location.href = `/payment/success?credits=${plan?.contact_limit || 15}&plan=${encodeURIComponent(plan?.name || "Package")}`;
+      // 1. Resolve plan to a real DB plan UUID if possible
+      let targetPlanId = plan?.id;
+      if (!targetPlanId || typeof targetPlanId !== "string" || targetPlanId.length < 20) {
+        const plans = await api.listPlans();
+        const found = plans.find((p: any) => 
+          p.name.toLowerCase().includes(planId.toLowerCase()) || 
+          p.price === plan?.price
+        );
+        if (found) {
+          targetPlanId = found.id;
+        } else if (plans.length > 0) {
+          targetPlanId = plans[0].id;
+        }
+      }
+
+      if (!targetPlanId) {
+        throw new Error("Could not resolve payment subscription plan.");
+      }
+
+      // 2. Create the payment order on backend
+      const order = await api.createOrder(targetPlanId);
+      const gatewayOrderId = order.gateway_order_id;
+
+      if (order.demo_mode) {
+        // ── Demo / Sandbox Bypass Flow ──
+        await new Promise(r => setTimeout(r, 1200));
+
+        // Call backend verification with mock signature
+        const verifyRes = await api.verifyPayment({
+          razorpay_order_id: gatewayOrderId,
+          razorpay_payment_id: `pay_demo_${Math.random().toString(36).substring(7)}`,
+          razorpay_signature: `sig_demo_${Math.random().toString(36).substring(7)}`
+        });
+
+        const addedCredits = verifyRes.credits_added || plan?.contact_limit || 15;
+        const currentCredits = parseInt(localStorage.getItem("user_credits") || "0");
+        localStorage.setItem("user_credits", String(currentCredits + addedCredits));
+
+        window.location.href = `/payment/success?credits=${addedCredits}&plan=${encodeURIComponent(plan?.name || "Package")}`;
+      } else {
+        // ── Real Razorpay Checkout Flow ──
+        const options = {
+          key: order.key_id,
+          amount: order.amount_paise,
+          currency: order.currency,
+          name: "AuraHomes",
+          description: `Purchase ${plan?.name || "Subscription"}`,
+          order_id: gatewayOrderId,
+          handler: async function (response: any) {
+            try {
+              setPaymentLoading(true);
+              const verifyRes = await api.verifyPayment({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              });
+              const addedCredits = verifyRes.credits_added || plan?.contact_limit || 15;
+              const currentCredits = parseInt(localStorage.getItem("user_credits") || "0");
+              localStorage.setItem("user_credits", String(currentCredits + addedCredits));
+              
+              window.location.href = `/payment/success?credits=${addedCredits}&plan=${encodeURIComponent(plan?.name || "Package")}`;
+            } catch (err: any) {
+              setErrorMsg(err.message || "Payment verification failed.");
+              setPaymentLoading(false);
+            }
+          },
+          prefill: {
+            name: localStorage.getItem("user_name") || "",
+            email: localStorage.getItem("user_email") || "",
+            contact: localStorage.getItem("user_mobile") || "",
+          },
+          theme: {
+            color: "#6c5ce7",
+          },
+        };
+
+        if (!(window as any).Razorpay) {
+          const script = document.createElement("script");
+          script.src = "https://checkout.razorpay.com/v1/checkout.js";
+          script.async = true;
+          document.body.appendChild(script);
+          await new Promise(r => {
+            script.onload = r;
+          });
+        }
+
+        const rzp = new (window as any).Razorpay(options);
+        rzp.on("payment.failed", function (response: any) {
+          setErrorMsg(response.error.description || "Payment failed.");
+        });
+        rzp.open();
+        setPaymentLoading(false);
+      }
     } catch (err: any) {
       setErrorMsg(err.message || "Payment initiation failed. Please try again.");
-    } finally {
       setPaymentLoading(false);
     }
   };
