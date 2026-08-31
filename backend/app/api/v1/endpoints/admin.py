@@ -449,14 +449,14 @@ async def broadcast_announcement(
 
 
 @router.post("/reset-database")
-@router.get("/reset-database")
 async def reset_database(
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserType.ADMIN))
 ):
-    """Purge all test properties, images, contacts, and reset database to clean fresh state."""
+    """Purge all test properties, images, contacts, and reset database to clean fresh state (Admin only)."""
     from sqlalchemy import text
     from app.models.user import User, UserType, UserStatus
-    from app.core.security import get_password_hash
+    from app.core.security import hash_password
 
     try:
         # Delete test property data
@@ -476,6 +476,8 @@ async def reset_database(
         await db.execute(text("DELETE FROM users WHERE email != 'admin@aurahomes.in';"))
         
         # Ensure Super Admin exists
+        import os
+        admin_password = os.getenv("ADMIN_INITIAL_PASSWORD", "Admin@12345")
         admin_check = await db.execute(select(User).where(User.email == "admin@aurahomes.in"))
         admin_user = admin_check.scalar_one_or_none()
         if not admin_user:
@@ -483,7 +485,7 @@ async def reset_database(
                 name="Super Admin",
                 email="admin@aurahomes.in",
                 mobile="9893000000",
-                hashed_password=get_password_hash("Admin@12345"),
+                password_hash=hash_password(admin_password),
                 user_type=UserType.ADMIN,
                 status=UserStatus.ACTIVE,
             )

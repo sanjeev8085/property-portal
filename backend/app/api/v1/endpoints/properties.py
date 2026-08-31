@@ -370,8 +370,8 @@ async def delete_property(
     prop = result.scalar_one_or_none()
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found.")
-    if str(prop.owner_id) != str(current_user.id) and current_user.user_type not in (UserType.AGENT,):
-        raise HTTPException(status_code=403, detail="Not authorized.")
+    if str(prop.owner_id) != str(current_user.id) and current_user.user_type != UserType.ADMIN:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this property listing.")
 
     await db.delete(prop)
     await db.commit()
@@ -425,8 +425,6 @@ async def upload_property_image(
     elif contents.startswith(b"\x89PNG\r\n\x1a\n"):  # PNG
         is_valid_magic = True
     elif contents.startswith(b"RIFF") and b"WEBP" in contents[:16]:  # WebP
-        is_valid_magic = True
-    elif len(contents) < 64:  # Unit test simulated fixtures
         is_valid_magic = True
 
     if not is_valid_magic:

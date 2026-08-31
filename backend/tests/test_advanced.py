@@ -30,8 +30,10 @@ async def test_advanced_security_and_metadata(client: AsyncClient, owner_auth_he
     resp_view = await client.post(f"/api/v1/properties/{prop_id}/view")
     assert resp_view.status_code == 201
 
-    # 4. Upload listing image (simulate multipart upload)
-    file_data = {"file": ("test.jpg", io.BytesIO(b"dummy image bytes"), "image/jpeg")}
+    # 4. Upload listing image — use a minimal JPEG with valid magic bytes (SOI marker)
+    # b"\xff\xd8\xff\xe0" = JPEG SOI + APP0 marker (standard JFIF header start)
+    minimal_jpeg = b"\xff\xd8\xff\xe0" + b"\x00" * 100
+    file_data = {"file": ("test.jpg", io.BytesIO(minimal_jpeg), "image/jpeg")}
     resp_img = await client.post(
         f"/api/v1/properties/{prop_id}/images",
         files=file_data,

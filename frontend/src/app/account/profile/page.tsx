@@ -132,7 +132,7 @@ export default function ProfilePage() {
     setIsChangingPass(true);
     try {
       await api.changePassword({
-        old_password: oldPassword || "Admin@12345",
+        old_password: oldPassword,
         new_password: newPassword,
       });
       success("🔒 Password changed successfully! Please use your new password next time you log in.");
@@ -140,19 +140,7 @@ export default function ProfilePage() {
       setNewPassword("");
       setConfirmPassword("");
     } catch (err: any) {
-      // Direct reset fallback if old password verification differs
-      try {
-        await api.resetPassword({
-          mobile_or_email: email || phone,
-          new_password: newPassword,
-        });
-        success("🔒 Password successfully reset and updated!");
-        setOldPassword("");
-        setNewPassword("");
-        setConfirmPassword("");
-      } catch (fallbackErr: any) {
-        error(err?.message || "Could not change password. Please check your old password.");
-      }
+      error(err?.message || "Could not change password. Please check your old password and try again.");
     } finally {
       setIsChangingPass(false);
     }

@@ -73,8 +73,49 @@ async def search_properties(
         else:
             query = query.where((Property.parking == 0) | (Property.parking.is_(None)))
 
-    # Count total matching results
-    count_query = select(func.count(Property.id)).select_from(Property).where(Property.status.in_([PropertyStatus.PUBLISHED, PropertyStatus.PENDING_APPROVAL]))
+    # Build matching count query with identical filters applied
+    count_query = select(func.count(Property.id.distinct())).select_from(Property)
+    if city:
+        count_query = count_query.join(Location, Property.location_id == Location.id).where(
+            Location.city.ilike(f"%{city}%")
+        )
+    else:
+        count_query = count_query.join(Location, Property.location_id == Location.id, isouter=True)
+
+    count_query = count_query.where(Property.status.in_([PropertyStatus.PUBLISHED, PropertyStatus.PENDING_APPROVAL]))
+
+    if purpose:
+        try:
+            purpose_enum = PropertyPurpose(purpose.lower())
+            count_query = count_query.where(Property.purpose == purpose_enum)
+        except ValueError:
+            pass
+
+    if property_type:
+        count_query = count_query.where(Property.property_type.ilike(f"%{property_type}%"))
+
+    if min_price is not None:
+        count_query = count_query.where(Property.price >= min_price)
+
+    if max_price is not None:
+        count_query = count_query.where(Property.price <= max_price)
+
+    if bhk is not None:
+        count_query = count_query.where(Property.bhk == bhk)
+
+    if furnished_status:
+        try:
+            furn_enum = FurnishedStatus(furnished_status.lower())
+            count_query = count_query.where(Property.furnished_status == furn_enum)
+        except ValueError:
+            pass
+
+    if parking is not None:
+        if parking:
+            count_query = count_query.where(Property.parking > 0)
+        else:
+            count_query = count_query.where((Property.parking == 0) | (Property.parking.is_(None)))
+
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
 
@@ -138,14 +179,13 @@ async def search_properties(
             },
         }
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        import logging
+        logging.getLogger(__name__).error(f"Search endpoint error: {e}", exc_info=True)
         return {
             "results": [],
             "total": 0,
             "page": 1,
             "per_page": per_page,
-            "error": str(e)
         }
 
 

@@ -15,19 +15,7 @@ export default function AdminLoginPage() {
     setErrorMsg("");
     setLoading(true);
     try {
-      let data: any;
-      try {
-        data = await api.login({ email: email.trim(), password });
-      } catch (backendErr: any) {
-        if (email.trim().toLowerCase() === "admin@aurahomes.in" && password === "Admin@12345") {
-          data = { access_token: "admin-token-aurahomes", user_type: "admin" };
-          localStorage.setItem("access_token", data.access_token);
-          localStorage.setItem("user_type", "admin");
-          localStorage.setItem("user_email", "admin@aurahomes.in");
-        } else {
-          throw backendErr;
-        }
-      }
+      const data = await api.login({ email: email.trim(), password });
 
       if (data.user_type !== "admin" && data.user_type !== "ADMIN") {
         api.logout();
@@ -35,7 +23,7 @@ export default function AdminLoginPage() {
       } else {
         // Set cookies for middleware guard (30-day expiry)
         const maxAge = 60 * 60 * 24 * 30;
-        const token = localStorage.getItem("access_token") || data.access_token || "admin-token-aurahomes";
+        const token = localStorage.getItem("access_token") || data.access_token;
         document.cookie = `admin_token=${token}; max-age=${maxAge}; path=/; SameSite=Lax`;
         document.cookie = `user_type=admin; max-age=${maxAge}; path=/; SameSite=Lax`;
         window.location.href = "/admin/dashboard";

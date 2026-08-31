@@ -294,7 +294,7 @@ async def request_password_reset(
 ):
     """
     Step 1: Request password reset.
-    Generates a secure 10-minute OTP and signed reset token after finding registered account.
+    Generates a secure 10-minute OTP dispatched via SMS/Email.
     """
     await check_rate_limit(request, "pwd_reset_req", max_requests=5, window_seconds=60, identifier=payload.mobile_or_email.strip())
 
@@ -309,15 +309,8 @@ async def request_password_reset(
     await store_otp(f"pwd_reset:{target}", otp, expiry_minutes=10)
     await send_otp_sms(target_mobile, otp)
 
-    # Generate a signed short-lived reset token (valid for 10 minutes)
-    reset_token = create_access_token(
-        {"sub": str(user.id), "type": "password_reset", "contact": target},
-        expires_delta=timedelta(minutes=10)
-    )
-
     return {
         "message": "Password reset OTP has been dispatched to your contact.",
-        "reset_token": reset_token,
         "expires_in_minutes": 10,
         "requires_otp": True
     }
@@ -331,7 +324,7 @@ async def reset_password(
 ):
     """
     Step 2: Reset user password.
-    Requires verified OTP or valid signed reset_token to prevent unauthorized takeover.
+    Requires verified OTP to prevent unauthorized takeover.
     """
     await check_rate_limit(request, "pwd_reset_submit", max_requests=5, window_seconds=60, identifier=payload.mobile_or_email.strip())
 
@@ -346,8 +339,14 @@ async def reset_password(
 
     is_verified = False
 
-    # Check 1: Verified via signed reset token
-    if payload.reset_token:
+    # Check 1: Verified via OTP code
+    if payload.otp:
+        otp_valid = await verify_otp_code(f"pwd_reset:{target}", payload.otp)
+        if otp_valid:
+            is_verified = True
+
+    # Check 2: Verified via signed reset token (only if issued after OTP verification)
+    if not is_verified and payload.reset_token:
         try:
             token_payload = decode_token(payload.reset_token)
             if token_payload.get("type") == "password_reset" and token_payload.get("sub") == str(user.id):
@@ -355,16 +354,10 @@ async def reset_password(
         except Exception:
             is_verified = False
 
-    # Check 2: Verified via OTP code
-    if not is_verified and payload.otp:
-        otp_valid = await verify_otp_code(f"pwd_reset:{target}", payload.otp)
-        if otp_valid:
-            is_verified = True
-
     if not is_verified:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password reset verification failed. Please provide a valid OTP or reset token."
+            detail="Password reset verification failed. Please provide a valid OTP."
         )
 
     # Invalidate OTP immediately

@@ -31,20 +31,28 @@ async def update_me(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Update current user's profile."""
+    """Update current user's profile with duplicate validation."""
+    from sqlalchemy import select
+
     if payload.name is not None:
-        current_user.name = payload.name
-    if payload.email is not None:
-        current_user.email = payload.email
-    if payload.mobile is not None:
-        current_user.mobile = payload.mobile
+        current_user.name = payload.name.strip()
+    if payload.email is not None and payload.email.strip() != (current_user.email or ""):
+        dup = await db.execute(select(User).where(User.email == payload.email.strip(), User.id != current_user.id))
+        if dup.scalar_one_or_none():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered to another account.")
+        current_user.email = payload.email.strip()
+    if payload.mobile is not None and payload.mobile.strip() != (current_user.mobile or ""):
+        dup = await db.execute(select(User).where(User.mobile == payload.mobile.strip(), User.id != current_user.id))
+        if dup.scalar_one_or_none():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Mobile already registered to another account.")
+        current_user.mobile = payload.mobile.strip()
     if payload.city is not None:
-        current_user.city = payload.city
+        current_user.city = payload.city.strip()
     
     db.add(current_user)
     await db.commit()
     await db.refresh(current_user)
-    return {"message": "Profile updated", "name": current_user.name}
+    return {"message": "Profile updated successfully.", "name": current_user.name}
 
 
 @router.put("/me/change-password")

@@ -16,17 +16,21 @@ logger = logging.getLogger(__name__)
 # ─── SMS & WhatsApp Delivery ──────────────────────────────────────────────────
 
 async def send_otp_sms(mobile: str, otp: str) -> bool:
-    """Send OTP via SMS (Twilio / 2Factor / Mock in dev)."""
-    if settings.APP_ENV == "development" or settings.SMS_PROVIDER == "mock":
-        logger.info(f"[DEV SMS OTP] OTP for +91{mobile}: {otp}")
+    """Send OTP via SMS using configured provider."""
+    if settings.SMS_PROVIDER == "mock" or settings.APP_ENV == "testing":
+        logger.info(f"[SMS MOCK] OTP for +91{mobile}: {otp}")
         return True
 
     try:
-        # SMS Gateway Dispatch Simulation / Integration
-        logger.info(f"[{settings.SMS_PROVIDER.upper()} SMS] Sent OTP {otp} to +91{mobile}")
-        return True
+        if settings.SMS_PROVIDER == "fast2sms":
+            return await _send_fast2sms(mobile, f"Your AuraHomes OTP is {otp}. Valid for {settings.OTP_EXPIRY_MINUTES} minutes. Do not share.")
+        elif settings.SMS_PROVIDER == "2factor":
+            return await _send_2factor_otp(mobile, otp)
+        else:
+            logger.warning(f"[SMS] Unknown provider '{settings.SMS_PROVIDER}' — OTP not sent.")
+            return False
     except Exception as e:
-        logger.error(f"Failed to send OTP SMS to {mobile}: {e}")
+        logger.error(f"[SMS] Failed to send OTP to {mobile}: {e}")
         return False
 
 
@@ -35,16 +39,75 @@ async def send_sms_notification(mobile: str, message: str) -> bool:
     if not mobile:
         return False
 
-    if settings.APP_ENV == "development" or settings.SMS_PROVIDER == "mock":
-        logger.info(f"[DEV SMS] To: +91{mobile} | Message: {message}")
+    if settings.SMS_PROVIDER == "mock" or settings.APP_ENV == "testing":
+        logger.info(f"[SMS MOCK] To: +91{mobile} | {message}")
         return True
 
     try:
-        # Gateway integration (e.g. Twilio / Fast2SMS / 2Factor)
-        logger.info(f"[{settings.SMS_PROVIDER.upper()} SMS] Sent alert to +91{mobile}: {message}")
-        return True
+        if settings.SMS_PROVIDER == "fast2sms":
+            return await _send_fast2sms(mobile, message)
+        elif settings.SMS_PROVIDER == "2factor":
+            return await _send_fast2sms(mobile, message)  # 2Factor also supports plain SMS
+        else:
+            logger.warning(f"[SMS] Unknown provider '{settings.SMS_PROVIDER}' — notification not sent.")
+            return False
     except Exception as e:
-        logger.error(f"Failed to send SMS notification to {mobile}: {e}")
+        logger.error(f"[SMS] Failed to send notification to {mobile}: {e}")
+        return False
+
+
+async def _send_fast2sms(mobile: str, message: str) -> bool:
+    """Send SMS via Fast2SMS DLT route (https://www.fast2sms.com/)."""
+    if not settings.SMS_API_KEY:
+        logger.error("[Fast2SMS] SMS_API_KEY is not configured.")
+        return False
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                "https://www.fast2sms.com/dev/bulkV2",
+                headers={"authorization": settings.SMS_API_KEY},
+                json={
+                    "route": "q",       # Quick transactional route
+                    "message": message,
+                    "language": "english",
+                    "flash": 0,
+                    "numbers": mobile,
+                    "sender_id": settings.SMS_SENDER_ID,
+                },
+            )
+        data = response.json()
+        if data.get("return"):
+            logger.info(f"[Fast2SMS] Sent to +91{mobile} | request_id={data.get('request_id')}")
+            return True
+        else:
+            logger.error(f"[Fast2SMS] Delivery failed: {data}")
+            return False
+    except Exception as exc:
+        logger.error(f"[Fast2SMS] Request error: {exc}")
+        return False
+
+
+async def _send_2factor_otp(mobile: str, otp: str) -> bool:
+    """Send OTP via 2Factor.in API (https://2factor.in/)."""
+    if not settings.SMS_API_KEY:
+        logger.error("[2Factor] SMS_API_KEY is not configured.")
+        return False
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                f"https://2factor.in/API/V1/{settings.SMS_API_KEY}/SMS/{mobile}/{otp}/AUTOGEN2"
+            )
+        data = response.json()
+        if data.get("Status") == "Success":
+            logger.info(f"[2Factor] OTP sent to +91{mobile}")
+            return True
+        else:
+            logger.error(f"[2Factor] Delivery failed: {data}")
+            return False
+    except Exception as exc:
+        logger.error(f"[2Factor] Request error: {exc}")
         return False
 
 

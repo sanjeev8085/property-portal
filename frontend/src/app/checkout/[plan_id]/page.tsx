@@ -39,25 +39,11 @@ export default function CheckoutPage({ params }: { params: Promise<{ plan_id: st
     setPaymentLoading(true);
     setErrorMsg("");
     try {
-      // Simulate create order and verify order
-      const order = await api.createProperty({
-        title: `Plan purchase: ${plan?.name}`,
-        price: plan?.price,
-        purpose: "sell",
-        category: "residential",
-        property_type: "Apartment",
-        bhk: 1,
-        area_sqft: 100,
-        bathrooms: 1,
-        description: "Standard Plan subscription payment"
-      }); // Using properties call as test validator fallback, or raw verify
-      
-      // Simulate successful payment verification signature
-      await new Promise(r => setTimeout(r, 1500));
-      window.location.href = `/payment/success?credits=${plan?.contact_limit}`;
+      // Simulate payment processing flow
+      await new Promise(r => setTimeout(r, 1200));
+      window.location.href = `/payment/success?credits=${plan?.contact_limit || 15}&plan=${encodeURIComponent(plan?.name || "Package")}`;
     } catch (err: any) {
-      // Simulate fallback success for visual walkthrough
-      window.location.href = `/payment/success?credits=${plan?.contact_limit || 15}`;
+      setErrorMsg(err.message || "Payment initiation failed. Please try again.");
     } finally {
       setPaymentLoading(false);
     }
