@@ -100,7 +100,7 @@ export default function ResetPasswordPage() {
               <label>Registered Email or 10-digit Mobile Number</label>
               <input
                 type="text"
-                placeholder="e.g. 9893024190 or user@example.com"
+                placeholder="e.g. 9876543210 or user@example.com"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 required

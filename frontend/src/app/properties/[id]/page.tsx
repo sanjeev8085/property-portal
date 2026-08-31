@@ -65,7 +65,7 @@ export default function PropertyDetailsPage() {
             size: `${remote.area_sqft || 1200}`,
             description: remote.description,
             contactName: remote.owner?.name || remote.contact_name || "Verified Owner",
-            contactPhone: remote.owner?.mobile || remote.contact_phone || "9893024190",
+            contactPhone: remote.owner?.mobile || remote.contact_phone || "",
             ownerEmail: remote.owner?.email || remote.contact_email || "",
             ownerId: remote.owner_id || "",
           });
@@ -96,8 +96,8 @@ export default function PropertyDetailsPage() {
 
   const resolvedOwnerName = customProp?.contactName || "Verified Owner";
   const resolvedOwnerEmail = customProp?.ownerEmail || (customProp?.contactName ? `${customProp.contactName.toLowerCase().replace(/\s+/g, '')}@gmail.com` : "contact.owner@aurahomes.in");
-  const resolvedPhone = customProp?.contactPhone ? `+91 ${customProp.contactPhone}` : "+91 9893024190";
-  const maskedPhone = customProp?.contactPhone ? `+91 ${customProp.contactPhone.slice(0, 5)} XXXXX` : "+91 98930 XXXXX";
+  const resolvedPhone = customProp?.contactPhone ? `+91 ${customProp.contactPhone}` : "";
+  const maskedPhone = customProp?.contactPhone ? `+91 ${customProp.contactPhone.slice(0, 5)} XXXXX` : "+91 XXXXX XXXXX";
   const maskedEmail = resolvedOwnerEmail.includes("@") 
     ? `${resolvedOwnerEmail.slice(0, 3)}***@${resolvedOwnerEmail.split("@")[1]}` 
     : "owner***@aurahomes.in";
@@ -199,7 +199,7 @@ export default function PropertyDetailsPage() {
       memberSince: "Member since 2026",
       phone: maskedPhone,
       unlockedPhone: resolvedPhone,
-      rawPhone: customProp?.contactPhone || "9893024190",
+      rawPhone: customProp?.contactPhone || "",
       email: resolvedOwnerEmail,
       maskedEmail: maskedEmail,
     }

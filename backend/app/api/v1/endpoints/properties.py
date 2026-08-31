@@ -71,7 +71,7 @@ async def create_property(
         location_id = loc_obj.id
 
     # 5. Deduplicate rapid multi-taps & identical listings
-    target_phone = payload.contact_phone or current_user.mobile or "9893024190"
+    target_phone = payload.contact_phone or current_user.mobile or ""
     dup_check = await db.execute(
         select(Property).where(
             Property.owner_id == owner_id,
@@ -215,7 +215,7 @@ async def get_property(
             if unlock_check.scalar_one_or_none():
                 is_unlocked = True
 
-    raw_phone = prop.contact_phone or "9893024190"
+    raw_phone = prop.contact_phone or ""
     if is_unlocked:
         exposed_phone = raw_phone
         exposed_whatsapp = prop.contact_whatsapp or raw_phone

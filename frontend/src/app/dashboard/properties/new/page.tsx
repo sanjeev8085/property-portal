@@ -293,7 +293,7 @@ export default function NewPropertyWizard() {
       photos: photos,
       description: description || "Verified listing posted by owner on AuraHomes portal.",
       contactName: contactName || "Property Owner",
-      contactPhone: contactPhone || "9893024190",
+      contactPhone: contactPhone || "",
       created_at: new Date().toISOString(),
       views: 1,
       leads: 0,
@@ -317,7 +317,7 @@ export default function NewPropertyWizard() {
         city: city,
         locality: locality || area,
         contact_name: contactName || "Property Owner",
-        contact_phone: contactPhone || "9893024190",
+        contact_phone: contactPhone || "",
       });
 
       if (cloudRes && cloudRes.id) {
@@ -888,7 +888,7 @@ export default function NewPropertyWizard() {
               </div>
               <div className="form-group">
                 <label>Mobile Number (For direct calls & WhatsApp)</label>
-                <input type="tel" placeholder="e.g. 9893024190" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
+                <input type="tel" placeholder="e.g. 9876543210" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
               </div>
             </div>
           </div>

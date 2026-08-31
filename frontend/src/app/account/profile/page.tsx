@@ -34,11 +34,11 @@ export default function ProfilePage() {
       setIsLoadingUser(true);
       
       // Load from LocalStorage first for instant rendering
-      const storedName = localStorage.getItem("user_name") || "Sanjeev Tyagi";
-      const storedEmail = localStorage.getItem("user_email") || "sanjeevtyagi8085@gmail.com";
-      const storedPhone = localStorage.getItem("user_mobile") || "9893024190";
-      const storedType = localStorage.getItem("user_type") || "owner";
-      const storedCity = localStorage.getItem("user_city") || "Bhopal";
+      const storedName = localStorage.getItem("user_name") || "";
+      const storedEmail = localStorage.getItem("user_email") || "";
+      const storedPhone = localStorage.getItem("user_mobile") || "";
+      const storedType = localStorage.getItem("user_type") || "buyer";
+      const storedCity = localStorage.getItem("user_city") || "";
 
       setFullName(storedName);
       setEmail(storedEmail);
@@ -271,7 +271,7 @@ export default function ProfilePage() {
                     <input
                       type="tel"
                       value={phone}
-                      placeholder="e.g. 9893024190"
+                      placeholder="e.g. 9876543210"
                       onChange={(e) => setPhone(e.target.value)}
                       required
                     />
@@ -401,7 +401,7 @@ export default function ProfilePage() {
                   <div className="sec-icon">📱</div>
                   <div className="sec-info">
                     <h4>Mobile Authentication</h4>
-                    <p>+91 {phone || "9893024190"} (Verified for SMS notifications & WhatsApp inquiries)</p>
+                     <p>+91 {phone} (Verified for SMS notifications & WhatsApp inquiries)</p>
                   </div>
                   <span className="sec-status-pill green">✓ Active</span>
                 </div>
@@ -483,12 +483,12 @@ export default function ProfilePage() {
               Have questions about your listings, subscriptions, or account settings?
             </p>
             <a 
-              href="https://wa.me/919893024190?text=Hi%20AuraHomes%20Support,%20I%20need%20help%20with%20my%20account."
+              href="https://wa.me/910000000000?text=Hi%20AuraHomes%20Support,%20I%20need%20help%20with%20my%20account."
               target="_blank"
               rel="noreferrer"
               className="btn-whatsapp-help"
             >
-              💬 WhatsApp Support (9893024190)
+              💬 WhatsApp Support
             </a>
           </div>
         </aside>
