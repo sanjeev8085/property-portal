@@ -143,6 +143,10 @@ export const api = {
     return apiFetch(`/properties/${id}`);
   },
 
+  async getDashboardStats() {
+    return apiFetch("/properties/me/dashboard-stats");
+  },
+
   async getMyProperties() {
     try {
       return await apiFetch("/properties/me/listings");

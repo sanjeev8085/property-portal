@@ -132,6 +132,89 @@ async def create_property(
         "title": prop.title,
         "status": prop.status.value if hasattr(prop.status, "value") else str(prop.status)
     }
+@router.get("/me/dashboard-stats")
+async def get_my_dashboard_stats(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Fetch seller dashboard statistics and lead unlocks."""
+    from sqlalchemy import func
+    from app.models.monetization import ContactUnlock
+    from app.models.user import User as DBUser
+
+    # 1. Active Listings
+    active_count_res = await db.execute(
+        select(func.count(Property.id))
+        .where(Property.owner_id == current_user.id, Property.status == PropertyStatus.PUBLISHED)
+    )
+    active_count = active_count_res.scalar() or 0
+
+    # 2. Total properties
+    total_count_res = await db.execute(
+        select(func.count(Property.id))
+        .where(Property.owner_id == current_user.id)
+    )
+    total_count = total_count_res.scalar() or 0
+
+    # 3. Total Views
+    total_views_res = await db.execute(
+        select(func.sum(Property.views_count))
+        .where(Property.owner_id == current_user.id)
+    )
+    total_views = total_views_res.scalar() or 0
+
+    # 4. Contact Unlocks (Leads count)
+    total_unlocks_res = await db.execute(
+        select(func.sum(Property.contacts_count))
+        .where(Property.owner_id == current_user.id)
+    )
+    total_unlocks = total_unlocks_res.scalar() or 0
+
+    actual_unlocks_res = await db.execute(
+        select(func.count(ContactUnlock.id))
+        .where(ContactUnlock.owner_id == current_user.id)
+    )
+    actual_unlocks = actual_unlocks_res.scalar() or 0
+    leads_count = max(total_unlocks, actual_unlocks)
+
+    # 5. Conversion Rate
+    conv_rate = 0.0
+    if total_views > 0:
+        conv_rate = round((leads_count / total_views) * 100, 1)
+
+    # 6. Fetch recent leads (buyers who unlocked)
+    leads_query = (
+        select(ContactUnlock, Property.title, DBUser.name, DBUser.email)
+        .join(Property, Property.id == ContactUnlock.property_id)
+        .join(DBUser, DBUser.id == ContactUnlock.user_id)
+        .where(ContactUnlock.owner_id == current_user.id)
+        .order_by(ContactUnlock.unlocked_at.desc())
+        .limit(10)
+    )
+    leads_result = await db.execute(leads_query)
+    raw_leads = leads_result.all()
+
+    recent_leads = []
+    for row in raw_leads:
+        unlock_rec, prop_title, buyer_name, buyer_email = row
+        recent_leads.append({
+            "buyer_name": buyer_name,
+            "buyer_email": buyer_email,
+            "property_title": prop_title,
+            "unlocked_at": unlock_rec.unlocked_at.isoformat() if unlock_rec.unlocked_at else None,
+            "credit_used": unlock_rec.credit_used,
+        })
+
+    return {
+        "stats": {
+            "active_listings": active_count,
+            "total_listings": total_count,
+            "total_views": total_views,
+            "contact_unlocks": leads_count,
+            "conversion_rate": f"{conv_rate}%",
+        },
+        "recent_leads": recent_leads
+    }
 
 
 @router.get("/me/listings")
