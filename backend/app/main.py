@@ -91,8 +91,36 @@ async def lifespan(app: FastAPI):
                 logger.info("Super Admin user created: admin@aurahomes.in")
             else:
                 logger.info("Super Admin user verified: admin@aurahomes.in")
+
+            # Ensure default subscription plans exist in database
+            import uuid
+            from app.models.monetization import SubscriptionPlan
+            
+            default_plans = [
+                {"name": "Basic Bundle", "price": 99.0, "contact_limit": 5, "validity_days": 30, "description": "Unlock 5 owner contacts. Perfect for quick exploration."},
+                {"name": "Standard Package", "price": 199.0, "contact_limit": 15, "validity_days": 30, "description": "Unlock 15 owner contacts. Our most popular choice."},
+                {"name": "Premium Package", "price": 399.0, "contact_limit": 50, "validity_days": 60, "description": "Unlock 50 owner contacts. Best value for active searchers."},
+            ]
+            
+            for plan_preset in default_plans:
+                plan_check = await db.execute(select(SubscriptionPlan).where(SubscriptionPlan.name == plan_preset["name"]))
+                existing_plan = plan_check.scalar_one_or_none()
+                if not existing_plan:
+                    new_plan = SubscriptionPlan(
+                        id=uuid.uuid4(),
+                        name=plan_preset["name"],
+                        description=plan_preset["description"],
+                        price=plan_preset["price"],
+                        contact_limit=plan_preset["contact_limit"],
+                        validity_days=plan_preset["validity_days"],
+                        is_active=True,
+                    )
+                    db.add(new_plan)
+                    logger.info(f"Seeded default subscription plan: {plan_preset['name']}")
+            
+            await db.commit()
     except Exception as e:
-        logger.warning(f"Super Admin auto-seed note: {e}")
+        logger.warning(f"Super Admin / Plan auto-seed note: {e}")
 
     # 5. Spawn subscription expiry checker background task scheduler
     import asyncio
