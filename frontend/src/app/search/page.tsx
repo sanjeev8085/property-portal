@@ -227,7 +227,18 @@ function SearchContent() {
     const propPurpose = (prop.purpose as string) === "buy" ? "sell" : prop.purpose;
     const currentPurpose = purpose === "buy" ? "sell" : purpose;
     if (currentPurpose !== "all" && propPurpose !== currentPurpose) return false;
-    if (type !== "all" && prop.type.toLowerCase() !== type.toLowerCase()) return false;
+    const typeMatch = (filterType: string, propType: string) => {
+      if (filterType === "all") return true;
+      const f = filterType.toLowerCase();
+      const p = propType.toLowerCase();
+      if (f === p) return true;
+      if (f === "pg" && p.includes("pg")) return true;
+      if (f === "villa" && p.includes("villa")) return true;
+      if (f === "plot" && p.includes("plot")) return true;
+      if (f === "commercial" && (p.includes("office") || p.includes("shop") || p.includes("warehouse") || p.includes("commercial"))) return true;
+      return p.includes(f) || f.includes(p);
+    };
+    if (!typeMatch(type, prop.type)) return false;
     if (bhk.length > 0 && !bhk.includes(prop.bhk)) return false;
     
     // Only apply maxPrice filter if not set to unlimited
