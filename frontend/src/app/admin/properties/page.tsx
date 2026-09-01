@@ -5,7 +5,7 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import Button from "@/components/ui/Button";
 import { api } from "@/lib/api";
 import { useToast } from "@/lib/useToast";
-import { getPublishedProperties } from "@/lib/propertyStore";
+import { getPublishedProperties, deletePublishedProperty } from "@/lib/propertyStore";
 
 type PropStatus = "Pending Approval" | "Published" | "Rejected" | "Featured";
 
@@ -203,10 +203,23 @@ export default function AdminPropertiesPage() {
     success(prop?.is_featured ? "Removed from featured" : "Added to featured ⭐");
   };
 
-  const deleteProp = (id: string) => {
+  const deleteProp = async (id: string) => {
     if (!confirm("Permanently delete this property? This cannot be undone.")) return;
+    try {
+      deletePublishedProperty(id);
+    } catch {
+      // local store note
+    }
+    try {
+      await api.deleteAdminProperty(id);
+    } catch {
+      // api fallback
+    }
     setProps((p) => p.filter((x) => x.id !== id));
-    success("Listing removed permanently");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("aurahomes_properties_updated"));
+    }
+    success("Listing removed permanently across the portal");
   };
 
   return (

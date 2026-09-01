@@ -270,6 +270,12 @@ export const api = {
     }
   },
 
+  async deleteAdminProperty(propertyId: string) {
+    return apiFetch(`/admin/properties/${propertyId}`, {
+      method: "DELETE",
+    });
+  },
+
   async featureProperty(propertyId: string) {
     return apiFetch(`/admin/properties/${propertyId}/feature`, {
       method: "PATCH",

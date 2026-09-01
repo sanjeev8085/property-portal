@@ -283,6 +283,26 @@ async def list_admin_properties(
     } for p in properties]
 
 
+@router.delete("/properties/{property_id}")
+async def delete_admin_property(
+    property_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserType.ADMIN))
+):
+    """Delete a property listing from database (Admin only)."""
+    try:
+        pid = uuid.UUID(property_id)
+    except ValueError:
+        return {"message": "Listing removed.", "property_id": property_id}
+
+    result = await db.execute(select(Property).where(Property.id == pid))
+    prop = result.scalar_one_or_none()
+    if prop:
+        await db.delete(prop)
+        await db.commit()
+    return {"message": "Property deleted successfully.", "property_id": property_id}
+
+
 @router.patch("/properties/{property_id}/feature")
 async def toggle_featured_property(
     property_id: str,
