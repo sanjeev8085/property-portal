@@ -31,12 +31,16 @@ yarn-error.log*
 .env.local
 .env.*.local
 
-# ─── IDE ─────────────────────────────────────────────────────────────────────
+# ─── IDE / AI Agents ─────────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
 .DS_Store
+frontend/AGENTS.md
+frontend/CLAUDE.md
+AGENTS.md
+CLAUDE.md
 
 # ─── Docker ──────────────────────────────────────────────────────────────────
 docker-compose.override.yml
@@ -47,7 +51,26 @@ docker-compose.override.yml
 pgdata/
 minio_data/
 redis_data/
+test.db
 
 # ─── Media / Uploads ─────────────────────────────────────────────────────────
 uploads/
 media/
+
+# ─── Playwright / Test Output ────────────────────────────────────────────────
+playwright-report/
+test-results/
+automation/screenshots/
+QA_REPORT.md
+
+# ─── Scratch / Temp / Dev-only scripts ───────────────────────────────────────
+automation/test-project.ps1
+automation/test-project.sh
+automation/find-user-property.mjs
+scripts/setup-dev.ps1
+doc/test.md
+doc/test2.md
+task/
+
+# ─── Internal Docs (not for public repo) ────────────────────────────────────
+# doc/ folder - keep only if needed
