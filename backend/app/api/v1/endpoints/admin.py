@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.api.deps import require_role
 from app.models.user import User, UserType
 from app.models.property import Property, PropertyStatus
+from app.models.location import Location
 from app.models.monetization import Payment, ContactUnlock
 
 router = APIRouter()
@@ -464,9 +465,10 @@ async def get_admin_analytics(
 
     # ── Top cities by published listing count ──────────────────────────────────
     cities_res = await db.execute(
-        select(Property.city, func.count(Property.id).label("cnt"))
-        .where(Property.status == PropertyStatus.PUBLISHED, Property.city.isnot(None))
-        .group_by(Property.city)
+        select(Location.city, func.count(Property.id).label("cnt"))
+        .join(Property, Property.location_id == Location.id)
+        .where(Property.status == PropertyStatus.PUBLISHED, Location.city.isnot(None))
+        .group_by(Location.city)
         .order_by(func.count(Property.id).desc())
         .limit(5)
     )
@@ -474,7 +476,7 @@ async def get_admin_analytics(
     max_city_count = cities_rows[0][1] if cities_rows else 1
     top_cities = [
         {
-            "city": row[0],
+            "city": str(row[0].value if hasattr(row[0], "value") else row[0]),
             "count": row[1],
             "pct": round((row[1] / max_city_count) * 100) if max_city_count else 0,
         }
@@ -492,7 +494,7 @@ async def get_admin_analytics(
     total_typed = sum(r[1] for r in types_rows) or 1
     property_types = [
         {
-            "type": row[0],
+            "type": str(row[0].value if hasattr(row[0], "value") else row[0]),
             "count": row[1],
             "pct": round((row[1] / total_typed) * 100),
         }

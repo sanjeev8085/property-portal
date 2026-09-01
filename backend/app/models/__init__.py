@@ -4,6 +4,7 @@ from app.models.location import Location
 from app.models.property import (
     Property, PropertyImage, PropertyAmenity,
     PropertyView, PropertyVerification, PropertyReport,
+    DeactivatedProperty,
     PropertyStatus, PropertyPurpose, FurnishedStatus,
     PropertyCategory, ReportReason, ReportStatus
 )
@@ -20,6 +21,7 @@ __all__ = [
     "Location",
     "Property", "PropertyImage", "PropertyAmenity",
     "PropertyView", "PropertyVerification", "PropertyReport",
+    "DeactivatedProperty",
     "PropertyStatus", "PropertyPurpose", "FurnishedStatus",
     "PropertyCategory", "ReportReason", "ReportStatus",
     "SubscriptionPlan", "Subscription", "ContactCredit",
