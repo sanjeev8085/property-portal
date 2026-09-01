@@ -22,44 +22,7 @@ interface AdminProp {
   posted: string;
 }
 
-const DEFAULT_ADMIN_PROPS: AdminProp[] = [
-  {
-    id: "premium-pg-coliving-space-triple-dormitory-sharing-in-gandhi-nagar-bhopal-gandhi-nagar-gandhi-nagar-bhopal-1788182184833",
-    title: "Premium PG / Coliving Space (Triple / Dormitory Sharing) in gandhi nagar , Bhopal",
-    price: "₹1.80 Lakh",
-    location: "gandhi nagar , gandhi nagar , Bhopal",
-    purpose: "rent",
-    status: "Published",
-    is_verified: true,
-    is_featured: true,
-    owner: "Verified Owner",
-    posted: "Portal Listing"
-  },
-  {
-    id: "1500-sqft-commercial-office-space-in-arera-colony-bhopal",
-    title: "1500 sqft Commercial Office Space in Arera Colony, Bhopal",
-    price: "₹85.00 Lakh",
-    location: "Arera Colony, Bhopal",
-    purpose: "sell",
-    status: "Published",
-    is_verified: true,
-    is_featured: true,
-    owner: "Verified Owner",
-    posted: "Portal Listing"
-  },
-  {
-    id: "3-bhk-luxury-apartment-in-mp-nagar-bhopal",
-    title: "3 BHK Luxury Apartment in MP Nagar, Bhopal",
-    price: "₹45,000 / Mo",
-    location: "MP Nagar, Bhopal",
-    purpose: "rent",
-    status: "Published",
-    is_verified: true,
-    is_featured: false,
-    owner: "Verified Owner",
-    posted: "Portal Listing"
-  }
-];
+const DEFAULT_ADMIN_PROPS: AdminProp[] = [];
 
 const STATUS_COLOR: Record<string, string> = {
   "Pending Approval": "#f59e0b",

@@ -18,11 +18,18 @@ router = APIRouter()
 async def get_deactivated_properties(db: AsyncSession = Depends(get_db)):
     """Return all deactivated property IDs for cross-device & cross-browser synchronization."""
     from app.models.property import DeactivatedProperty
+    sample_deact = [
+        "premium-pg-coliving-space-triple-dormitory-sharing-in-gandhi-nagar-bhopal-gandhi-nagar-gandhi-nagar-bhopal-1788182184833",
+        "1500-sqft-commercial-office-space-in-arera-colony-bhopal",
+        "3-bhk-luxury-apartment-in-mp-nagar-bhopal",
+        "1500-sqft-east-facing-plot-land-in-kolar-road-bhopal",
+    ]
     try:
         res = await db.execute(select(DeactivatedProperty.id))
-        return res.scalars().all()
+        db_ids = res.scalars().all()
+        return list(set(sample_deact + list(db_ids)))
     except Exception:
-        return []
+        return sample_deact
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)

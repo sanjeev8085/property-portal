@@ -17,7 +17,15 @@ export default function Home() {
   useEffect(() => {
     const loadProps = async () => {
       const published = getPublishedProperties();
-      const deactSet = new Set(getDeactivatedPropertyIds());
+      
+      let remoteDeactIds: string[] = [];
+      try {
+        remoteDeactIds = await api.getDeactivatedIds();
+      } catch {
+        // Fallback
+      }
+
+      const deactSet = new Set([...getDeactivatedPropertyIds(), ...remoteDeactIds]);
       
       let cloudProps: any[] = [];
       try {
