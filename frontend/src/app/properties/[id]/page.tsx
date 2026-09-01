@@ -104,8 +104,13 @@ export default function PropertyDetailsPage() {
         if (searchKeywords) {
           const searchRes = await api.searchProperties({ query: searchKeywords });
           const items = searchRes?.items || [];
-          if (items.length > 0) {
-            const remote = items[0];
+          const matchedItem = items.find((it: any) => {
+            const t = (it.title || "").toLowerCase();
+            const l = (it.locality || "").toLowerCase();
+            return rawWords.filter(w => !["bhopal", "nagar"].includes(w)).some(w => t.includes(w.toLowerCase()) || l.includes(w.toLowerCase()));
+          });
+          if (matchedItem) {
+            const remote = matchedItem;
             if (isMounted) {
               setCustomProp({
                 id: remote.id,
