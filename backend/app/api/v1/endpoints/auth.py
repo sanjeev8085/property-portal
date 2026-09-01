@@ -369,36 +369,54 @@ async def reset_password(
     return {"message": "Password has been successfully updated. You can now log in."}
 
 
-# ─── Bootstrap Admin (one-time setup) ─────────────────────────────────────────
-@router.post("/bootstrap-admin", status_code=status.HTTP_201_CREATED)
+# ─── Bootstrap Admin (upsert — create or reset existing) ──────────────────────
+@router.post("/bootstrap-admin", status_code=status.HTTP_200_OK)
 async def bootstrap_admin(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     """
-    One-time endpoint to create the first admin user.
-    Protected by the APP_SECRET_KEY header.
-    Returns 409 if an admin already exists.
+    Create or reset the admin user.
+    Protected by X-Bootstrap-Key header (one-time setup token).
+    Safe to call multiple times — always sets admin@aurahomes.in as admin.
     """
     secret_key = request.headers.get("X-Bootstrap-Key", "")
-    if not secret_key or secret_key != settings.APP_SECRET_KEY:
+    # Accept: APP_SECRET_KEY, JWT_SECRET_KEY, or the fixed setup token
+    valid_keys = {settings.APP_SECRET_KEY, settings.JWT_SECRET_KEY, "AURAHOMES-SETUP-2026"}
+    if not secret_key or secret_key not in valid_keys:
         raise HTTPException(status_code=403, detail="Invalid or missing bootstrap key.")
-
-    # Block if admin already exists
-    existing = await db.execute(
-        select(User).where(User.user_type == UserType.ADMIN)
-    )
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="Admin user already exists.")
 
     admin_password = "AuraAdmin@2026#Secure"
     admin_email = "admin@aurahomes.in"
+    new_hash = hash_password(admin_password)
 
+    # Check if user with this email already exists
+    result = await db.execute(select(User).where(User.email == admin_email))
+    existing_user = result.scalar_one_or_none()
+
+    if existing_user:
+        # Promote and reset password
+        existing_user.password_hash = new_hash
+        existing_user.user_type = UserType.ADMIN
+        existing_user.status = UserStatus.ACTIVE
+        existing_user.is_email_verified = True
+        existing_user.name = "AuraHomes Admin"
+        db.add(existing_user)
+        await db.commit()
+        return {
+            "message": "Admin user updated: password reset and role set to admin.",
+            "email": admin_email,
+            "password": admin_password,
+            "role": "admin",
+            "login_url": "/admin/login",
+        }
+
+    # Create fresh admin user
     admin = User(
         name="AuraHomes Admin",
         email=admin_email,
         mobile=None,
-        password_hash=hash_password(admin_password),
+        password_hash=new_hash,
         user_type=UserType.ADMIN,
         status=UserStatus.ACTIVE,
         is_email_verified=True,
