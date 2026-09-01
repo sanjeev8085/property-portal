@@ -365,20 +365,21 @@ export default function NewPropertyWizard() {
 
     // Send full payload including images and location to cloud database
     try {
+      const isLandOrComm = ["Plot / Land", "Shop", "Office Space", "Warehouse"].includes(propertyType);
       const cloudRes = await api.createProperty({
         title: newPropertyObj.title,
         price: finalPriceNum,
-        purpose: purpose,
+        purpose: purpose === "sell" ? "sell" : "rent",
         category: ["Shop", "Office Space", "Warehouse"].includes(propertyType) ? "commercial" : "residential",
         property_type: propertyType,
-        bhk: newPropertyObj.bhk,
-        area_sqft: parseFloat(size) || 1200,
-        bathrooms: bathrooms,
+        bhk: isLandOrComm ? null : (Number(bhk) || null),
+        area_sqft: parseFloat(String(size)) || 1200,
+        bathrooms: propertyType === "Plot / Land" ? null : (Number(bathrooms) || null),
         description: newPropertyObj.description,
-        images: photos,
+        images: photos && photos.length > 0 ? photos : [newPropertyObj.image],
         image: photos[0] || newPropertyObj.image,
-        city: city,
-        locality: locality || area,
+        city: city || "Bhopal",
+        locality: locality || area || "Arera Colony",
         contact_name: contactName || "Property Owner",
         contact_phone: contactPhone || "",
         amenities: selectedAmenities,
