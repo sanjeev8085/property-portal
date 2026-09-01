@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { generatePropertySlug } from "@/lib/slug";
+import { generatePropertySlug, normalizeImage, getFallbackImage } from "@/lib/slug";
 import { useToast } from "@/lib/useToast";
 import { getPublishedProperties, getDeactivatedPropertyIds } from "@/lib/propertyStore";
 import { api } from "@/lib/api";
@@ -121,7 +121,7 @@ function SearchContent() {
                       ? `${p.area_sqft || p.size || 5000} sqft Warehouse`
                       : `${p.bhk || 2} Beds | ${p.bathrooms || 2} Baths | ${p.area_sqft || 1200} sqft`
             ),
-            image: p.images?.[0] || p.image || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80",
+            image: normalizeImage(p.images?.[0] || p.image || (p.photos && p.photos[0]), p.property_type || p.title),
             type: p.property_type || p.type || "Apartment",
             purpose: p.purpose === "rent" ? "rent" : "sell",
             bhk: p.bhk || 2,
@@ -515,7 +515,14 @@ function SearchContent() {
                 return (
                   <div key={prop.id} className={`premium-card search-property-card ${isMine ? "is-user-listing" : ""}`}>
                     <div className="prop-img">
-                      <img src={prop.image} alt={prop.title} loading="lazy" />
+                      <img 
+                        src={normalizeImage(prop.image, prop.type || prop.title)} 
+                        alt={prop.title} 
+                        loading="lazy" 
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = getFallbackImage(prop.type || prop.title);
+                        }}
+                      />
                       <span className="badge-tag">
                         {isMine ? "⭐ Your Listed Property" : (prop.purpose === "rent" ? "For Rent" : "For Sale")}
                       </span>

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Avatar from "@/components/ui/Avatar";
 import { useToast } from "@/lib/useToast";
-import { extractIdFromSlug } from "@/lib/slug";
+import { extractIdFromSlug, normalizeImage, getFallbackImage } from "@/lib/slug";
 import { getPublishedProperties, getDeactivatedPropertyIds, StoredProperty } from "@/lib/propertyStore";
 import { api } from "@/lib/api";
 
@@ -141,8 +141,10 @@ export default function PropertyDetailsPage() {
                 priceNum: Number(remote.price) || 0,
                 location: remote.locality ? `${remote.locality}, ${remote.city || "Bhopal"}` : (remote.city || "Bhopal"),
                 specs: `${remote.bhk || 2} Beds | ${remote.bathrooms || 2} Baths | ${remote.area_sqft || 1200} sqft`,
-                image: remote.images?.[0] || remote.image || DEFAULT_GALLERY_IMAGES[0],
-                photos: remote.images && remote.images.length > 0 ? remote.images : (remote.image ? [remote.image] : DEFAULT_GALLERY_IMAGES),
+                image: normalizeImage(remote.images?.[0] || remote.image, remote.property_type || remote.title),
+                photos: (Array.isArray(remote.images) && remote.images.length > 0)
+                  ? remote.images.map((img: any) => normalizeImage(img, remote.property_type || remote.title))
+                  : (remote.image ? [normalizeImage(remote.image, remote.property_type || remote.title)] : DEFAULT_GALLERY_IMAGES),
                 type: remote.property_type || "Apartment",
                 purpose: remote.purpose === "rent" ? "rent" : "sell",
                 bhk: remote.bhk || 2,
@@ -216,8 +218,8 @@ export default function PropertyDetailsPage() {
   }, [propertyId, rawParam]);
 
   const rawPhotos = (customProp?.photos && customProp.photos.length > 0)
-    ? customProp.photos
-    : (customProp?.image ? [customProp.image, ...DEFAULT_GALLERY_IMAGES.slice(1)] : DEFAULT_GALLERY_IMAGES);
+    ? customProp.photos.map((img: any) => normalizeImage(img, customProp?.title))
+    : (customProp?.image ? [normalizeImage(customProp.image, customProp?.title), ...DEFAULT_GALLERY_IMAGES.slice(1)] : DEFAULT_GALLERY_IMAGES);
 
   const loggedInEmail = typeof window !== "undefined" ? localStorage.getItem("user_email") || "" : "";
   const loggedInPhone = typeof window !== "undefined" ? localStorage.getItem("user_mobile") || "" : "";

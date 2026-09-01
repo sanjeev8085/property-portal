@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { generatePropertySlug } from "@/lib/slug";
+import { generatePropertySlug, normalizeImage, getFallbackImage } from "@/lib/slug";
 import { getPublishedProperties, getDeactivatedPropertyIds, StoredProperty } from "@/lib/propertyStore";
 import { api } from "@/lib/api";
 
@@ -88,7 +88,7 @@ export default function Home() {
                   ? `${p.area_sqft || p.size || "1500"} sqft Office`
                   : `${p.bhk || 2} BHK | ${p.area_sqft || p.size || "1200"} sqft`
           ),
-          image: p.image || (p.photos && p.photos[0]) || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80",
+          image: normalizeImage(p.image || (p.photos && p.photos[0]) || (p.images && p.images[0]), p.type || p.title),
           tag: "⭐ Verified",
           isFeatured: true,
         };
@@ -203,7 +203,13 @@ export default function Home() {
             {featuredProperties.map((prop) => (
               <div key={prop.id} className="premium-card property-card">
                 <div className="card-image-container">
-                  <img src={prop.image} alt={prop.title} />
+                  <img 
+                    src={normalizeImage(prop.image, prop.title)} 
+                    alt={prop.title} 
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = getFallbackImage(prop.title);
+                    }}
+                  />
                   <span className="badge-tag">{prop.tag}</span>
                   <button type="button" className="like-btn">❤️</button>
                 </div>
