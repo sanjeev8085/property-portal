@@ -3,12 +3,7 @@ import React, { useState } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import Button from "@/components/ui/Button";
 import { useToast } from "@/lib/useToast";
-
-const INITIAL_PAST_NOTIFICATIONS = [
-  { id: "n1", title: "New verification process",  body: "We updated our property verification process.", target: "all",    date: "2026-08-10", sent: 1420 },
-  { id: "n2", title: "Ramadan special discount",  body: "Get 20% off Standard Plan this weekend.",      target: "buyers", date: "2026-08-05", sent: 820  },
-  { id: "n3", title: "Owner dashboard upgrade",   body: "Your owner dashboard has new analytics.",       target: "owners", date: "2026-08-01", sent: 340  },
-];
+import { api } from "@/lib/api";
 
 const TARGET_OPTIONS = [
   { value: "all",    label: "All Users" },
@@ -17,116 +12,98 @@ const TARGET_OPTIONS = [
   { value: "agents", label: "Agents" },
 ];
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+interface SentNotif { id: string; title: string; body: string; target: string; date: string; sent: number; }
 
 export default function AdminNotificationsPage() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [target, setTarget] = useState("all");
   const [sending, setSending] = useState(false);
-  const [past, setPast] = useState(INITIAL_PAST_NOTIFICATIONS);
+  const [sent, setSent] = useState<SentNotif[]>([]);
   const { success, error: showError } = useToast();
 
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
-    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-    if (!token) {
-      showError("You must be logged in as an administrator.");
+    if (!title.trim() || !body.trim()) {
+      showError("Title and message body are required.");
       return;
     }
-
     setSending(true);
     try {
-      const res = await fetch(`${API_BASE}/api/v1/admin/notifications/broadcast`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ title, body, target }),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || "Failed to broadcast announcement.");
-      }
-
-      const data = await res.json();
-      const sentCount = data.sent_count ?? 1;
-
-      setPast([
-        {
-          id: Date.now().toString(),
-          title,
-          body,
-          target,
-          date: new Date().toISOString().slice(0, 10),
-          sent: sentCount,
-        },
-        ...past,
-      ]);
-
-      success(`Announcement broadcasted successfully to ${sentCount} user(s)!`);
+      const res = await api.broadcastNotification(title.trim(), body.trim(), target);
+      const sentCount = res?.sent_count ?? 0;
+      success(`✅ Broadcast sent to ${sentCount} user${sentCount !== 1 ? "s" : ""}!`);
+      setSent((prev) => [{
+        id: Date.now().toString(),
+        title: title.trim(),
+        body: body.trim(),
+        target,
+        date: new Date().toLocaleDateString("en-IN"),
+        sent: sentCount,
+      }, ...prev]);
       setTitle("");
       setBody("");
-      setTarget("all");
     } catch (err: any) {
-      showError(err.message || "Failed to send announcement.");
+      showError(err?.message || "Failed to send broadcast. Please try again.");
     } finally {
       setSending(false);
     }
   };
 
+  const inputStyle: React.CSSProperties = {
+    width: "100%", padding: "11px 14px", border: "1.5px solid var(--border)",
+    borderRadius: "var(--radius-md)", fontSize: "14px", outline: "none",
+    background: "white", fontFamily: "var(--font-body)", boxSizing: "border-box",
+  };
+
   return (
-    <AdminLayout title="Notifications" subtitle="Send announcements to users across the platform">
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: "24px" }}>
-        {/* Compose */}
-        <div style={{ background: "white", borderRadius: "16px", padding: "28px", boxShadow: "var(--shadow-sm)", border: "1px solid var(--border)" }}>
-          <h3 style={{ fontSize: "16px", fontWeight: 700, marginBottom: "20px" }}>📣 Compose Announcement</h3>
+    <AdminLayout title="Broadcast Notifications" subtitle="Send announcements to users by role or all at once">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+        {/* Compose Form */}
+        <div style={{ background: "white", borderRadius: "14px", padding: "28px", boxShadow: "var(--shadow-sm)", border: "1px solid var(--border)" }}>
+          <h3 style={{ fontWeight: 700, fontSize: "15px", marginBottom: "20px" }}>📣 Compose Announcement</h3>
           <form onSubmit={send} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
             <div>
-              <label style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: "6px" }}>Target Audience</label>
-              <select value={target} onChange={(e) => setTarget(e.target.value)} required
-                style={{ width: "100%", padding: "10px 14px", border: "1.5px solid var(--border)", borderRadius: "var(--radius-md)", fontSize: "14px", fontFamily: "var(--font-body)", background: "white" }}>
-                {TARGET_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              <label style={{ display: "block", fontWeight: 600, fontSize: "12px", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: "6px" }}>Title *</label>
+              <input id="notif-title" style={inputStyle} placeholder="e.g. New Feature Launched" value={title} onChange={(e) => setTitle(e.target.value)} required />
+            </div>
+            <div>
+              <label style={{ display: "block", fontWeight: 600, fontSize: "12px", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: "6px" }}>Message *</label>
+              <textarea id="notif-body" style={{ ...inputStyle, minHeight: "100px", resize: "vertical" }} placeholder="Write your announcement message here…" value={body} onChange={(e) => setBody(e.target.value)} required />
+            </div>
+            <div>
+              <label style={{ display: "block", fontWeight: 600, fontSize: "12px", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: "6px" }}>Target Audience</label>
+              <select id="notif-target" style={inputStyle} value={target} onChange={(e) => setTarget(e.target.value)}>
+                {TARGET_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
-            <div>
-              <label style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: "6px" }}>Notification Title</label>
-              <input required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Important platform update"
-                style={{ width: "100%", padding: "10px 14px", border: "1.5px solid var(--border)", borderRadius: "var(--radius-md)", fontSize: "14px", fontFamily: "var(--font-body)", outline: "none" }} />
-            </div>
-            <div>
-              <label style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: "6px" }}>Message Body</label>
-              <textarea required rows={5} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write your announcement here…"
-                style={{ width: "100%", padding: "10px 14px", border: "1.5px solid var(--border)", borderRadius: "var(--radius-md)", fontSize: "14px", fontFamily: "var(--font-body)", outline: "none", resize: "vertical" }} />
-            </div>
-            <Button type="submit" variant="primary" disabled={sending} fullWidth>
-              {sending ? "Sending…" : "Send Announcement 📣"}
+            <Button type="submit" variant="primary" disabled={sending} style={{ width: "100%", padding: "13px" }}>
+              {sending ? "Sending…" : "🚀 Send Broadcast"}
             </Button>
           </form>
         </div>
 
-        {/* History */}
-        <div>
-          <h3 style={{ fontSize: "16px", fontWeight: 700, marginBottom: "16px" }}>Recent Announcements</h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            {past.map((n) => (
-              <div key={n.id} style={{ background: "white", borderRadius: "12px", padding: "16px 20px", boxShadow: "var(--shadow-sm)", border: "1px solid var(--border)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px", marginBottom: "6px" }}>
-                  <span style={{ fontWeight: 700, fontSize: "14px" }}>{n.title}</span>
-                  <span style={{ fontSize: "11px", fontWeight: 700, padding: "2px 8px", borderRadius: "99px", background: "var(--primary-light)", color: "var(--primary)", border: "1px solid #bfdbfe", whiteSpace: "nowrap", flexShrink: 0 }}>
-                    {TARGET_OPTIONS.find((t) => t.value === n.target)?.label}
-                  </span>
+        {/* Sent History */}
+        <div style={{ background: "white", borderRadius: "14px", padding: "28px", boxShadow: "var(--shadow-sm)", border: "1px solid var(--border)" }}>
+          <h3 style={{ fontWeight: 700, fontSize: "15px", marginBottom: "20px" }}>📋 Sent This Session</h3>
+          {sent.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "40px 0", color: "var(--text-muted)", fontSize: "14px" }}>
+              No broadcasts sent yet this session.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {sent.map((n) => (
+                <div key={n.id} style={{ padding: "14px 16px", borderRadius: "10px", background: "#f8fafc", border: "1px solid var(--border)" }}>
+                  <div style={{ fontWeight: 700, fontSize: "13px", marginBottom: "4px" }}>{n.title}</div>
+                  <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginBottom: "8px" }}>{n.body}</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--text-muted)" }}>
+                    <span>👥 {TARGET_OPTIONS.find((t) => t.value === n.target)?.label} · {n.sent} sent</span>
+                    <span>{n.date}</span>
+                  </div>
                 </div>
-                <p style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "8px", lineHeight: 1.5 }}>{n.body}</p>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--text-muted)" }}>
-                  <span>📅 {n.date}</span>
-                  <span suppressHydrationWarning>✅ Sent to {n.sent.toLocaleString("en-IN")} users</span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </AdminLayout>

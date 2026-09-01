@@ -3,14 +3,15 @@ import React, { useState } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import Button from "@/components/ui/Button";
 import { useToast } from "@/lib/useToast";
+import { api } from "@/lib/api";
 
 const INITIAL_CITIES = [
-  { id: "1", city: "Bhopal",     state: "Madhya Pradesh", listings: 142, active: true },
-  { id: "2", city: "Indore",     state: "Madhya Pradesh", listings: 98,  active: true },
-  { id: "3", city: "Jaipur",     state: "Rajasthan",      listings: 61,  active: true },
-  { id: "4", city: "Pune",       state: "Maharashtra",    listings: 76,  active: true },
-  { id: "5", city: "Bengaluru",  state: "Karnataka",      listings: 44,  active: true },
-  { id: "6", city: "Hyderabad",  state: "Telangana",      listings: 38,  active: false },
+  { id: "1", city: "Bhopal",     state: "Madhya Pradesh", listings: 0, active: true },
+  { id: "2", city: "Indore",     state: "Madhya Pradesh", listings: 0,  active: true },
+  { id: "3", city: "Jaipur",     state: "Rajasthan",      listings: 0,  active: true },
+  { id: "4", city: "Pune",       state: "Maharashtra",    listings: 0,  active: true },
+  { id: "5", city: "Bengaluru",  state: "Karnataka",      listings: 0,  active: true },
+  { id: "6", city: "Hyderabad",  state: "Telangana",      listings: 0, active: true },
 ];
 
 export default function AdminLocationsPage() {
@@ -19,6 +20,26 @@ export default function AdminLocationsPage() {
   const [adding, setAdding] = useState(false);
   const [newCity, setNewCity] = useState({ city: "", state: "" });
   const { success, info } = useToast();
+
+  React.useEffect(() => {
+    api.getAdminProperties().then((props: any[]) => {
+      if (Array.isArray(props) && props.length > 0) {
+        const counts: Record<string, number> = {};
+        props.forEach(p => {
+          const cityStr = (p.city || p.locality || "").toLowerCase();
+          if (cityStr) counts[cityStr] = (counts[cityStr] || 0) + 1;
+        });
+        setCities(prev => prev.map(c => {
+          const key = c.city.toLowerCase();
+          const matchCount = Object.keys(counts).reduce((acc, k) => {
+            if (k.includes(key)) return acc + counts[k];
+            return acc;
+          }, 0);
+          return { ...c, listings: matchCount };
+        }));
+      }
+    }).catch(() => {});
+  }, []);
 
   const toggleActive = (id: string) => {
     setCities((p) => p.map((c) => c.id === id ? { ...c, active: !c.active } : c));

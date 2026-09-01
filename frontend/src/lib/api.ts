@@ -261,6 +261,42 @@ export const api = {
     });
   },
 
+  async getAdminProperties() {
+    try {
+      const data = await apiFetch("/admin/properties");
+      return data || [];
+    } catch {
+      return [];
+    }
+  },
+
+  async featureProperty(propertyId: string) {
+    return apiFetch(`/admin/properties/${propertyId}/feature`, {
+      method: "PATCH",
+    });
+  },
+
+  async updateUserStatus(userId: string, status: string) {
+    return apiFetch(`/admin/users/${userId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+  },
+
+  async resolveReport(reportId: string, status: string) {
+    return apiFetch(`/admin/reports/${reportId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+  },
+
+  async broadcastNotification(title: string, body: string, target: string) {
+    return apiFetch("/admin/notifications/broadcast", {
+      method: "POST",
+      body: JSON.stringify({ title, body, target }),
+    });
+  },
+
   async getUsers() {
     try {
       const data = await apiFetch("/admin/users");

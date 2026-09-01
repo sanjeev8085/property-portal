@@ -1,88 +1,117 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import Button from "@/components/ui/Button";
 import { useToast } from "@/lib/useToast";
+import { api } from "@/lib/api";
 
-interface Plan { id: string; name: string; price: number; credits: number; validity: number; active: boolean; color: string; }
+interface Plan {
+  id: string;
+  name: string;
+  price: number;
+  contact_limit: number;
+  validity_days: number;
+  is_active: boolean;
+  is_featured: boolean;
+  description: string | null;
+  sort_order: number;
+}
 
-const INITIAL_PLANS: Plan[] = [
-  { id: "free",     name: "Free",     price: 0,   credits: 0,  validity: 0,  active: true,  color: "#94a3b8" },
-  { id: "standard", name: "Standard", price: 199, credits: 15, validity: 30, active: true,  color: "#3b82f6" },
-  { id: "premium",  name: "Premium",  price: 499, credits: 50, validity: 60, active: true,  color: "#8b5cf6" },
-  { id: "elite",    name: "Elite",    price: 999, credits: 120,validity: 90, active: false, color: "#f59e0b" },
-];
+const ACCENT_COLORS = ["#94a3b8", "#3b82f6", "#8b5cf6", "#f59e0b", "#10b981"];
 
 export default function AdminSubscriptionsPage() {
-  const [plans, setPlans] = useState<Plan[]>(INITIAL_PLANS);
-  const [editing, setEditing] = useState<Plan | null>(null);
-  const { success } = useToast();
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { success, error: showError } = useToast();
 
-  const toggleActive = (id: string) => {
-    setPlans((p) => p.map((x) => x.id === id ? { ...x, active: !x.active } : x));
-    const plan = plans.find((p) => p.id === id);
-    success(`${plan?.name} plan ${plan?.active ? "deactivated" : "activated"}`);
-  };
+  useEffect(() => {
+    api.getPlans().then((data: Plan[]) => {
+      setPlans(Array.isArray(data) ? data : []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
 
-  const saveEdit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editing) return;
-    setPlans((p) => p.map((x) => x.id === editing.id ? editing : x));
-    success("Plan updated successfully");
-    setEditing(null);
+  const formatPrice = (price: number) => {
+    if (price === 0) return "Free";
+    return `\u20b9${price.toLocaleString("en-IN")}`;
   };
 
   return (
-    <AdminLayout title="Subscription Plans" subtitle="Configure pricing, credits, and plan availability">
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "20px", marginBottom: "32px" }}>
-        {plans.map((p) => (
-          <div key={p.id} style={{ background: "white", borderRadius: "16px", padding: "28px", boxShadow: "var(--shadow-sm)", border: `2px solid ${p.active ? p.color + "44" : "var(--border)"}`, opacity: p.active ? 1 : 0.65, transition: "all 0.2s" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-              <span style={{ fontSize: "12px", fontWeight: 700, padding: "4px 12px", borderRadius: "99px", background: p.color + "18", color: p.color, border: `1px solid ${p.color}44` }}>{p.active ? "Active" : "Inactive"}</span>
-              <div style={{ display: "flex", gap: "6px" }}>
-                <Button size="sm" variant="outline" onClick={() => setEditing({ ...p })}>Edit</Button>
-                <Button size="sm" variant={p.active ? "ghost" : "primary"} onClick={() => toggleActive(p.id)} style={p.active ? { color: "var(--error)", borderColor: "var(--error)" } : {}}>
-                  {p.active ? "Deactivate" : "Activate"}
-                </Button>
-              </div>
+    <AdminLayout title="Subscription Plans" subtitle="View and manage contact credit plans from the database">
+      <div style={{ marginBottom: "16px", padding: "14px 18px", background: "#eff6ff", borderRadius: 10, border: "1px solid #bfdbfe", fontSize: "13px", color: "#1d4ed8" }}>
+        💡 Plans are managed in the <strong>PostgreSQL database</strong> via the <code>subscription_plans</code> table.
+        To edit prices or credits, update the database directly using Supabase or psql.
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "20px" }}>
+        {loading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} style={{ background: "white", borderRadius: 14, padding: 24, boxShadow: "var(--shadow-sm)", border: "1px solid var(--border)" }}>
+              <div style={{ height: 20, background: "#f1f5f9", borderRadius: 4, marginBottom: 12, width: "60%" }} />
+              <div style={{ height: 36, background: "#f1f5f9", borderRadius: 4, marginBottom: 8 }} />
+              <div style={{ height: 14, background: "#f1f5f9", borderRadius: 4, width: "40%" }} />
             </div>
-            <div style={{ fontSize: "26px", fontWeight: 800, color: p.color, marginBottom: "4px" }}>{p.name}</div>
-            <div style={{ fontSize: "32px", fontWeight: 900, color: "var(--text-primary)" }}>
-              {p.price === 0 ? "Free" : `₹${p.price}`}
+          ))
+        ) : plans.length === 0 ? (
+          <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "60px", color: "var(--text-muted)" }}>
+            No subscription plans found in database. Run the seed script to create default plans.
+          </div>
+        ) : plans.map((plan, idx) => (
+          <div key={plan.id} style={{
+            background: "white", borderRadius: "14px", padding: "24px",
+            boxShadow: "var(--shadow-sm)", border: "1px solid var(--border)",
+            borderTop: `3px solid ${ACCENT_COLORS[idx % ACCENT_COLORS.length]}`,
+            opacity: plan.is_active ? 1 : 0.6,
+            position: "relative",
+          }}>
+            {plan.is_featured && (
+              <span style={{ position: "absolute", top: 14, right: 14, padding: "2px 8px", background: "#fef3c7", color: "#b45309", borderRadius: 99, fontSize: 10, fontWeight: 700 }}>
+                ⭐ FEATURED
+              </span>
+            )}
+            <div style={{ fontSize: "16px", fontWeight: 800, marginBottom: "4px" }}>{plan.name}</div>
+            <div style={{ fontSize: "28px", fontWeight: 900, color: ACCENT_COLORS[idx % ACCENT_COLORS.length], marginBottom: "4px" }}>
+              {formatPrice(plan.price)}
             </div>
-            <div style={{ fontSize: "13px", color: "var(--text-muted)", marginTop: "12px", display: "flex", flexDirection: "column", gap: "6px" }}>
-              <div>✓ {p.credits === 0 ? "No contact credits" : `${p.credits} contact credits`}</div>
-              <div>✓ {p.validity === 0 ? "No expiry" : `Valid for ${p.validity} days`}</div>
+            <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "16px" }}>
+              {plan.price > 0 ? `per purchase` : "No payment required"}
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "20px", fontSize: "13px", color: "var(--text-secondary)" }}>
+              <div>🔑 <strong>{plan.contact_limit}</strong> Contact Credits</div>
+              <div>📅 Valid for <strong>{plan.validity_days > 0 ? `${plan.validity_days} days` : "unlimited"}</strong></div>
+              {plan.description && <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: 4 }}>ℹ️ {plan.description}</div>}
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{
+                padding: "3px 10px", borderRadius: 99, fontSize: 11, fontWeight: 700,
+                background: plan.is_active ? "#dcfce7" : "#f1f5f9",
+                color: plan.is_active ? "#166534" : "#64748b",
+              }}>
+                {plan.is_active ? "✅ Active" : "⏸ Inactive"}
+              </span>
+              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                Sort: #{plan.sort_order}
+              </span>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Edit modal */}
-      {editing && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "24px" }}>
-          <form onSubmit={saveEdit} style={{ background: "white", borderRadius: "16px", padding: "32px", maxWidth: "400px", width: "100%", boxShadow: "var(--shadow-xl)" }}>
-            <h3 style={{ fontSize: "20px", fontWeight: 700, marginBottom: "24px" }}>Edit {editing.name} Plan</h3>
-            {[
-              { label: "Plan Name", key: "name", type: "text" },
-              { label: "Price (₹)", key: "price", type: "number" },
-              { label: "Credits", key: "credits", type: "number" },
-              { label: "Validity (days, 0 = no expiry)", key: "validity", type: "number" },
-            ].map(({ label, key, type }) => (
-              <div key={key} style={{ marginBottom: "16px" }}>
-                <label style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: "6px" }}>{label}</label>
-                <input type={type} value={(editing as unknown as Record<string,unknown>)[key] as string | number}
-                  onChange={(e) => setEditing({ ...editing, [key]: type === "number" ? Number(e.target.value) : e.target.value })}
-                  style={{ width: "100%", padding: "10px 14px", border: "1.5px solid var(--border)", borderRadius: "var(--radius-md)", fontSize: "14px", fontFamily: "var(--font-body)", outline: "none" }} />
-              </div>
-            ))}
-            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "8px" }}>
-              <Button variant="outline" type="button" onClick={() => setEditing(null)}>Cancel</Button>
-              <Button variant="primary" type="submit">Save Changes</Button>
-            </div>
-          </form>
-        </div>
-      )}
+      <div style={{ marginTop: 24, padding: "18px 20px", background: "white", borderRadius: 12, border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)" }}>
+        <h3 style={{ fontWeight: 700, fontSize: "14px", marginBottom: 10 }}>📊 Plan Summary</h3>
+        {!loading && (
+          <div style={{ display: "flex", gap: "24px", fontSize: "13px", flexWrap: "wrap" }}>
+            <div>Total Plans: <strong>{plans.length}</strong></div>
+            <div>Active: <strong>{plans.filter(p => p.is_active).length}</strong></div>
+            <div>Max Credits: <strong>{plans.length > 0 ? Math.max(...plans.map(p => p.contact_limit)) : 0}</strong></div>
+            <div>Price Range: <strong>
+              {plans.length > 0 ? `\u20b9${Math.min(...plans.filter(p => p.price > 0).map(p => p.price))} – \u20b9${Math.max(...plans.map(p => p.price))}` : "—"}
+            </strong></div>
+          </div>
+        )}
+      </div>
     </AdminLayout>
   );
 }

@@ -46,9 +46,12 @@ export default function AdminPropertiesPage() {
       const published = getPublishedProperties();
       let cloudProps: any[] = [];
       try {
-        const cloudData = await api.getProperties();
-        if (Array.isArray(cloudData)) {
+        const cloudData = await api.getAdminProperties();
+        if (Array.isArray(cloudData) && cloudData.length > 0) {
           cloudProps = cloudData;
+        } else {
+          const publicProps = await api.getProperties();
+          if (Array.isArray(publicProps)) cloudProps = publicProps;
         }
       } catch {
         // Fallback to local
@@ -67,20 +70,26 @@ export default function AdminPropertiesPage() {
         posted: "Recently Listed"
       }));
 
+      const statusMap: Record<string, PropStatus> = {
+        pending_approval: "Pending Approval",
+        published: "Published",
+        rejected: "Rejected",
+      };
+
       const mappedCloud: AdminProp[] = cloudProps.map(p => ({
         id: p.id.toString(),
         title: p.title,
-        price: p.purpose === "rent" ? `₹${Number(p.price).toLocaleString("en-IN")} / Mo` : `₹${Number(p.price).toLocaleString("en-IN")}`,
+        price: typeof p.price === "number" ? `₹${p.price.toLocaleString("en-IN")}` : (p.price || "Contact for price"),
         location: p.locality || p.city || "Bhopal",
         purpose: p.purpose || "sell",
-        status: (p.status === "pending_approval" ? "Pending Approval" : "Published") as PropStatus,
-        is_verified: true,
-        is_featured: false,
+        status: statusMap[p.status] || (p.status ? (p.status.charAt(0).toUpperCase() + p.status.slice(1)) as PropStatus : "Published"),
+        is_verified: Boolean(p.is_verified),
+        is_featured: Boolean(p.is_featured),
         owner: p.owner?.name || "Verified Owner",
-        posted: "Cloud Listed"
+        posted: p.created_at ? new Date(p.created_at).toLocaleDateString("en-IN") : "Cloud Listed"
       }));
 
-      const merged = [...mappedPublished, ...mappedCloud];
+      const merged = [...mappedCloud, ...mappedPublished];
       const seenIds = new Set();
       const unique = merged.filter(p => {
         if (seenIds.has(p.id)) return false;
@@ -130,7 +139,8 @@ export default function AdminPropertiesPage() {
     setLoading(null);
   };
 
-  const toggleFeatured = (id: string) => {
+  const toggleFeatured = async (id: string) => {
+    try { await api.featureProperty(id); } catch { /* mock ok */ }
     setProps((p) => p.map((x) => x.id === id ? { ...x, is_featured: !x.is_featured } : x));
     const prop = props.find((x) => x.id === id);
     success(prop?.is_featured ? "Removed from featured" : "Added to featured ⭐");

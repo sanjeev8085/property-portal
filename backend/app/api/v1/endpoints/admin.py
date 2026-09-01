@@ -40,9 +40,22 @@ async def admin_dashboard(
     unlock_check = await db.execute(select(func.count(ContactUnlock.id)))
     total_unlocks = unlock_check.scalar() or 0
 
-    # Sum payments revenue
-    rev_check = await db.execute(select(func.sum(Payment.amount)))
-    total_revenue = rev_check.scalar() or 0.0
+    # Sum today's revenue
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    today_rev_check = await db.execute(
+        select(func.sum(Payment.amount)).where(
+            Payment.created_at >= today_start,
+            Payment.status == "completed"
+        )
+    )
+    today_revenue = today_rev_check.scalar() or 0.0
+
+    # Count active subscriptions
+    from app.models.monetization import Subscription, SubscriptionStatus
+    active_sub_check = await db.execute(
+        select(func.count(Subscription.id)).where(Subscription.status == SubscriptionStatus.ACTIVE)
+    )
+    active_subscriptions = active_sub_check.scalar() or 0
 
     return {
         "stats": {
@@ -52,6 +65,8 @@ async def admin_dashboard(
             "published_properties": published_properties,
             "total_unlocks": total_unlocks,
             "total_revenue": total_revenue,
+            "today_revenue": today_revenue,
+            "active_subscriptions": active_subscriptions,
         }
     }
 

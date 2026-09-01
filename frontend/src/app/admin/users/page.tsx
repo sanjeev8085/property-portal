@@ -43,7 +43,12 @@ export default function AdminUsersPage() {
     });
   }, [users, search, filterStatus, filterType]);
 
-  const changeStatus = (id: string, newStatus: string) => {
+  const changeStatus = async (id: string, newStatus: string) => {
+    try {
+      await api.updateUserStatus(id, newStatus);
+    } catch {
+      // optimistic update fallback
+    }
     setUsers((prev) => prev.map((u) => u.id === id ? { ...u, status: newStatus } : u));
     const label = newStatus === "active" ? "unblocked" : newStatus;
     success(`User ${label} successfully`);

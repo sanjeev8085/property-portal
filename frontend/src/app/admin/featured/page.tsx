@@ -18,15 +18,18 @@ export default function AdminFeaturedPage() {
       const published = getPublishedProperties();
       let cloudProps: any[] = [];
       try {
-        const cloudData = await api.getProperties();
-        if (Array.isArray(cloudData)) {
+        const cloudData = await api.getAdminProperties();
+        if (Array.isArray(cloudData) && cloudData.length > 0) {
           cloudProps = cloudData;
+        } else {
+          const publicProps = await api.getProperties();
+          if (Array.isArray(publicProps)) cloudProps = publicProps;
         }
       } catch {
         // Fallback
       }
 
-      const merged = [...published, ...cloudProps];
+      const merged = [...cloudProps, ...published];
       const seen = new Set();
       const unique = merged.filter(p => {
         if (!p || !p.id) return false;
@@ -41,17 +44,18 @@ export default function AdminFeaturedPage() {
         title: p.title,
         owner: p.contactName || p.ownerEmail || p.owner?.name || "Verified Owner",
         location: p.location || p.locality || p.city || "Bhopal",
-        price: p.price,
-        expiry: "2026-12-31",
-        is_featured: true,
+        price: typeof p.price === "number" ? `₹${p.price.toLocaleString("en-IN")}` : p.price,
+        expiry: p.is_featured ? "2026-12-31" : null,
+        is_featured: Boolean(p.is_featured),
       })));
     };
 
     loadProps();
   }, []);
 
-  const toggle = (id: string) => {
-    setItems((p) => p.map((x) => x.id === id ? { ...x, is_featured: !x.is_featured, expiry: x.is_featured ? null : (newExpiry[id] || "2026-12-31") } : x));
+  const toggle = async (id: string) => {
+    try { await api.featureProperty(id); } catch { /* fallback ok */ }
+    setItems((p) => p.map((x) => x.id === id ? { ...x, is_featured: !x.is_featured, expiry: !x.is_featured ? (newExpiry[id] || "2026-12-31") : null } : x));
     const item = items.find((x) => x.id === id);
     item?.is_featured ? info("Removed from featured") : success("Added to featured ⭐");
   };

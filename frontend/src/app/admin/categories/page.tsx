@@ -3,14 +3,15 @@ import React, { useState } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import Button from "@/components/ui/Button";
 import { useToast } from "@/lib/useToast";
+import { api } from "@/lib/api";
 
 const INITIAL_CATS = [
-  { id: "1", name: "Apartment",   icon: "🏢", listings: 210, active: true  },
-  { id: "2", name: "Villa/House", icon: "🏡", listings: 98,  active: true  },
-  { id: "3", name: "Commercial",  icon: "🏪", listings: 52,  active: true  },
-  { id: "4", name: "Plot/Land",   icon: "🌳", listings: 20,  active: true  },
-  { id: "5", name: "PG/Hostel",   icon: "🛏️", listings: 14, active: false },
-  { id: "6", name: "Farm House",  icon: "🌾", listings: 6,   active: false },
+  { id: "1", name: "Apartment",   icon: "🏢", listings: 0, active: true  },
+  { id: "2", name: "Villa/House", icon: "🏡", listings: 0,  active: true  },
+  { id: "3", name: "Commercial",  icon: "🏪", listings: 0,  active: true  },
+  { id: "4", name: "Plot/Land",   icon: "🌳", listings: 0,  active: true  },
+  { id: "5", name: "PG/Hostel",   icon: "🛏️", listings: 0, active: true },
+  { id: "6", name: "Farm House",  icon: "🌾", listings: 0,   active: true },
 ];
 
 export default function AdminCategoriesPage() {
@@ -19,6 +20,26 @@ export default function AdminCategoriesPage() {
   const [adding, setAdding] = useState(false);
   const [newCat, setNewCat] = useState({ name: "", icon: "" });
   const { success, info } = useToast();
+
+  React.useEffect(() => {
+    api.getAdminProperties().then((props: any[]) => {
+      if (Array.isArray(props) && props.length > 0) {
+        const counts: Record<string, number> = {};
+        props.forEach(p => {
+          const type = (p.property_type || "").toLowerCase();
+          counts[type] = (counts[type] || 0) + 1;
+        });
+        setCats(prev => prev.map(c => {
+          const key = c.name.toLowerCase();
+          const matchCount = Object.keys(counts).reduce((acc, k) => {
+            if (k.includes(key.split("/")[0])) return acc + counts[k];
+            return acc;
+          }, 0);
+          return { ...c, listings: matchCount };
+        }));
+      }
+    }).catch(() => {});
+  }, []);
 
   const toggleActive = (id: string) => {
     setCats((p) => p.map((c) => c.id === id ? { ...c, active: !c.active } : c));
