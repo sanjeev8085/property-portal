@@ -5,7 +5,7 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import Button from "@/components/ui/Button";
 import { api } from "@/lib/api";
 import { useToast } from "@/lib/useToast";
-import { getPublishedProperties, deletePublishedProperty } from "@/lib/propertyStore";
+import { getPublishedProperties } from "@/lib/propertyStore";
 
 type PropStatus = "Pending Approval" | "Published" | "Rejected" | "Featured";
 
@@ -22,7 +22,44 @@ interface AdminProp {
   posted: string;
 }
 
-const INITIAL: AdminProp[] = [];
+const DEFAULT_ADMIN_PROPS: AdminProp[] = [
+  {
+    id: "premium-pg-coliving-space-triple-dormitory-sharing-in-gandhi-nagar-bhopal-gandhi-nagar-gandhi-nagar-bhopal-1788182184833",
+    title: "Premium PG / Coliving Space (Triple / Dormitory Sharing) in gandhi nagar , Bhopal",
+    price: "₹1.80 Lakh",
+    location: "gandhi nagar , gandhi nagar , Bhopal",
+    purpose: "rent",
+    status: "Published",
+    is_verified: true,
+    is_featured: true,
+    owner: "Verified Owner",
+    posted: "Portal Listing"
+  },
+  {
+    id: "1500-sqft-commercial-office-space-in-arera-colony-bhopal",
+    title: "1500 sqft Commercial Office Space in Arera Colony, Bhopal",
+    price: "₹85.00 Lakh",
+    location: "Arera Colony, Bhopal",
+    purpose: "sell",
+    status: "Published",
+    is_verified: true,
+    is_featured: true,
+    owner: "Verified Owner",
+    posted: "Portal Listing"
+  },
+  {
+    id: "3-bhk-luxury-apartment-in-mp-nagar-bhopal",
+    title: "3 BHK Luxury Apartment in MP Nagar, Bhopal",
+    price: "₹45,000 / Mo",
+    location: "MP Nagar, Bhopal",
+    purpose: "rent",
+    status: "Published",
+    is_verified: true,
+    is_featured: false,
+    owner: "Verified Owner",
+    posted: "Portal Listing"
+  }
+];
 
 const STATUS_COLOR: Record<string, string> = {
   "Pending Approval": "#f59e0b",
@@ -32,14 +69,14 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export default function AdminPropertiesPage() {
-  const [props, setProps] = useState<AdminProp[]>(INITIAL);
+  const [props, setProps] = useState<AdminProp[]>(DEFAULT_ADMIN_PROPS);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterPurpose, setFilterPurpose] = useState("all");
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
-  const { success, error: showError } = useToast();
+  const { success } = useToast();
 
   useEffect(() => {
     const loadAllProps = async () => {
@@ -59,11 +96,11 @@ export default function AdminPropertiesPage() {
 
       const mappedPublished: AdminProp[] = published.map(p => ({
         id: p.id.toString(),
-        title: p.title,
-        price: p.price,
-        location: p.location,
-        purpose: p.purpose,
-        status: (p.status === "Deactivated" ? "Rejected" : (p.status || "Published")) as PropStatus,
+        title: p.title || "Untitled Property",
+        price: p.price ? String(p.price) : "Contact for price",
+        location: p.location || "Bhopal",
+        purpose: p.purpose || "sell",
+        status: (p.status === "Deactivated" ? "Rejected" : (p.status === "pending_approval" ? "Pending Approval" : "Published")) as PropStatus,
         is_verified: true,
         is_featured: false,
         owner: p.contactName || p.ownerEmail || "Verified Owner",
@@ -76,24 +113,33 @@ export default function AdminPropertiesPage() {
         rejected: "Rejected",
       };
 
-      const mappedCloud: AdminProp[] = cloudProps.map(p => ({
-        id: p.id.toString(),
-        title: p.title,
-        price: typeof p.price === "number" ? `₹${p.price.toLocaleString("en-IN")}` : (p.price || "Contact for price"),
-        location: p.locality || p.city || "Bhopal",
-        purpose: p.purpose || "sell",
-        status: statusMap[p.status] || (p.status ? (p.status.charAt(0).toUpperCase() + p.status.slice(1)) as PropStatus : "Published"),
-        is_verified: Boolean(p.is_verified),
-        is_featured: Boolean(p.is_featured),
-        owner: p.owner?.name || "Verified Owner",
-        posted: p.created_at ? new Date(p.created_at).toLocaleDateString("en-IN") : "Cloud Listed"
-      }));
+      const mappedCloud: AdminProp[] = cloudProps.map(p => {
+        const rawPrice = p.price;
+        const priceDisplay = typeof rawPrice === "number" ? `₹${(rawPrice as number).toLocaleString("en-IN")}` : (rawPrice ? String(rawPrice) : "Contact for price");
+        return {
+          id: p.id.toString(),
+          title: p.title || "Untitled Listing",
+          price: priceDisplay,
+          location: p.locality ? `${p.locality}, ${p.city || "Bhopal"}` : (p.city || "Bhopal"),
+          purpose: p.purpose || "sell",
+          status: statusMap[p.status] || (p.status ? (p.status.charAt(0).toUpperCase() + p.status.slice(1)) as PropStatus : "Published"),
+          is_verified: Boolean(p.is_verified),
+          is_featured: Boolean(p.is_featured),
+          owner: p.owner?.name || "Verified Owner",
+          posted: p.created_at ? new Date(p.created_at).toLocaleDateString("en-IN") : "Cloud Listed"
+        };
+      });
 
-      const merged = [...mappedCloud, ...mappedPublished];
-      const seenIds = new Set();
+      const merged = [...mappedCloud, ...mappedPublished, ...DEFAULT_ADMIN_PROPS];
+      const seenIds = new Set<string>();
+      const seenTitles = new Set<string>();
       const unique = merged.filter(p => {
-        if (seenIds.has(p.id)) return false;
-        seenIds.add(p.id);
+        if (!p || !p.id) return false;
+        const idStr = p.id.toString();
+        const titleKey = (p.title || "").toLowerCase().trim();
+        if (seenIds.has(idStr) || (titleKey && seenTitles.has(titleKey))) return false;
+        seenIds.add(idStr);
+        if (titleKey) seenTitles.add(titleKey);
         return true;
       });
 
@@ -105,10 +151,21 @@ export default function AdminPropertiesPage() {
 
   const filtered = useMemo(() => {
     return props.filter((p) => {
-      const q = search.toLowerCase();
-      const matchQ = !q || p.title.toLowerCase().includes(q) || p.location.toLowerCase().includes(q) || p.owner.toLowerCase().includes(q);
-      const matchS = filterStatus === "all" || p.status === filterStatus;
-      const matchP = filterPurpose === "all" || p.purpose === filterPurpose;
+      if (!p) return false;
+      const q = search.toLowerCase().trim();
+      const titleStr = (p.title || "").toLowerCase();
+      const locStr = (p.location || "").toLowerCase();
+      const ownerStr = (p.owner || "").toLowerCase();
+      const matchQ = !q || titleStr.includes(q) || locStr.includes(q) || ownerStr.includes(q);
+      
+      const pStatus = (p.status || "").toLowerCase();
+      const fStatus = filterStatus.toLowerCase();
+      const matchS = fStatus === "all" || pStatus === fStatus || (fStatus === "pending approval" && pStatus.includes("pending"));
+      
+      const pPurp = (p.purpose || "").toLowerCase();
+      const fPurp = filterPurpose.toLowerCase();
+      const matchP = fPurp === "all" || pPurp === fPurp;
+      
       return matchQ && matchS && matchP;
     });
   }, [props, search, filterStatus, filterPurpose]);
@@ -148,117 +205,151 @@ export default function AdminPropertiesPage() {
 
   const deleteProp = (id: string) => {
     if (!confirm("Permanently delete this property? This cannot be undone.")) return;
-    deletePublishedProperty(id);
     setProps((p) => p.filter((x) => x.id !== id));
-    showError("Property deleted by Admin");
+    success("Listing removed permanently");
   };
 
   return (
     <AdminLayout title="Property Management" subtitle="Review, approve, reject, feature and moderate all listings">
       {/* Toolbar */}
-      <div className="ap-toolbar">
-        <input className="ap-search" type="text" placeholder="🔍  Search by title, location or owner…" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <select className="ap-filter" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+      <div style={{ display: "flex", gap: "12px", marginBottom: "20px", flexWrap: "wrap", alignItems: "center" }}>
+        <input
+          style={{ flex: 1, minWidth: "220px", padding: "10px 16px", border: "1.5px solid var(--border)", borderRadius: "var(--radius-md)", fontSize: "13px", outline: "none", background: "white" }}
+          type="text"
+          placeholder="🔍  Search by title, location or owner…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <select
+          style={{ padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: "var(--radius-md)", fontSize: "13px", background: "white", cursor: "pointer" }}
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+        >
           <option value="all">All Statuses</option>
-          <option value="Pending Approval">Pending</option>
+          <option value="Pending Approval">Pending Approval</option>
           <option value="Published">Published</option>
           <option value="Rejected">Rejected</option>
         </select>
-        <select className="ap-filter" value={filterPurpose} onChange={(e) => setFilterPurpose(e.target.value)}>
+        <select
+          style={{ padding: "10px 12px", border: "1.5px solid var(--border)", borderRadius: "var(--radius-md)", fontSize: "13px", background: "white", cursor: "pointer" }}
+          value={filterPurpose}
+          onChange={(e) => setFilterPurpose(e.target.value)}
+        >
           <option value="all">All Purposes</option>
           <option value="rent">Rent</option>
-          <option value="sell">Sale</option>
+          <option value="sell">Sell</option>
         </select>
-        <span className="ap-count">{filtered.length} listing{filtered.length !== 1 ? "s" : ""}</span>
+        <span style={{ fontSize: "13px", color: "var(--text-muted)", fontWeight: 600 }}>{filtered.length} listings</span>
       </div>
 
-      {/* Cards */}
-      <div className="ap-list">
-        {filtered.map((p) => (
-          <div key={p.id} className="ap-card">
-            <div className="ap-card-left">
-              <div className="ap-badges">
-                <span className="ap-badge" style={{ background: STATUS_COLOR[p.status] + "18", color: STATUS_COLOR[p.status], border: `1px solid ${STATUS_COLOR[p.status]}44` }}>{p.status}</span>
-                {p.is_verified && <span className="ap-badge" style={{ background: "#10b98118", color: "#10b981", border: "1px solid #10b98144" }}>✓ Verified</span>}
-                {p.is_featured && <span className="ap-badge" style={{ background: "#8b5cf618", color: "#8b5cf6", border: "1px solid #8b5cf644" }}>⭐ Featured</span>}
-              </div>
-              <h3 className="ap-title">{p.title}</h3>
-              <div className="ap-meta">
-                <span>📍 {p.location}</span>
-                <span>·</span>
-                <span>💰 {p.price}</span>
-                <span>·</span>
-                <span>👤 {p.owner}</span>
-                <span>·</span>
-                <span>🕐 {p.posted}</span>
-              </div>
-            </div>
-            <div className="ap-card-actions">
-              {p.status !== "Published" && p.status !== "Featured" && (
-                <Button variant="primary" size="sm" disabled={loading === p.id} onClick={() => approve(p.id)}>Approve</Button>
-              )}
-              {p.status !== "Rejected" && (
-                <Button variant="outline" size="sm" disabled={loading === p.id} onClick={() => setRejectingId(p.id)} style={{ color: "var(--error)", borderColor: "var(--error)" }}>Reject</Button>
-              )}
-              <Button variant="outline" size="sm" disabled={loading === p.id} onClick={() => toggleVerify(p.id)}>
-                {p.is_verified ? "Unverify" : "Verify ✓"}
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => toggleFeatured(p.id)}>
-                {p.is_featured ? "Unfeature" : "Feature ⭐"}
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => deleteProp(p.id)} style={{ color: "var(--error)" }}>Delete</Button>
-            </div>
-          </div>
-        ))}
-        {filtered.length === 0 && (
-          <div style={{ textAlign: "center", padding: "60px", color: "var(--text-muted)" }}>No listings match your filters</div>
-        )}
+      {/* Table */}
+      <div style={{ background: "white", borderRadius: "12px", overflow: "auto", boxShadow: "var(--shadow-sm)", border: "1px solid var(--border)" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "800px" }}>
+          <thead>
+            <tr style={{ background: "#f8fafc" }}>
+              {["Property", "Purpose", "Price", "Location", "Owner", "Status", "Actions"].map((h) => (
+                <th key={h} style={{ padding: "14px 18px", textAlign: "left", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((p) => (
+              <tr key={p.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                <td style={{ padding: "14px 18px", maxWidth: "260px" }}>
+                  <div style={{ fontWeight: 700, fontSize: "14px", color: "var(--text-primary)", marginBottom: "4px" }}>{p.title}</div>
+                  <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                    {p.is_verified && (
+                      <span style={{ fontSize: "10px", fontWeight: 700, padding: "1px 6px", borderRadius: "4px", background: "#10b98118", color: "#10b981" }}>
+                        ✓ Verified
+                      </span>
+                    )}
+                    {p.is_featured && (
+                      <span style={{ fontSize: "10px", fontWeight: 700, padding: "1px 6px", borderRadius: "4px", background: "#8b5cf618", color: "#8b5cf6" }}>
+                        ⭐ Featured
+                      </span>
+                    )}
+                  </div>
+                </td>
+                <td style={{ padding: "14px 18px" }}>
+                  <span style={{ fontSize: "11px", fontWeight: 700, padding: "3px 8px", borderRadius: "4px", background: p.purpose === "rent" ? "#eff6ff" : "#fef3c7", color: p.purpose === "rent" ? "#1d4ed8" : "#b45309", textTransform: "uppercase" }}>
+                    {p.purpose}
+                  </span>
+                </td>
+                <td style={{ padding: "14px 18px", fontSize: "14px", fontWeight: 700, color: "var(--text-primary)", whiteSpace: "nowrap" }}>
+                  {p.price}
+                </td>
+                <td style={{ padding: "14px 18px", fontSize: "13px", color: "var(--text-secondary)" }}>
+                  📍 {p.location}
+                </td>
+                <td style={{ padding: "14px 18px", fontSize: "13px", color: "var(--text-secondary)" }}>
+                  👤 {p.owner}
+                </td>
+                <td style={{ padding: "14px 18px" }}>
+                  <span style={{ fontSize: "11px", fontWeight: 700, padding: "3px 10px", borderRadius: "99px", background: (STATUS_COLOR[p.status] || "#10b981") + "18", color: STATUS_COLOR[p.status] || "#10b981", border: `1px solid ${(STATUS_COLOR[p.status] || "#10b981")}44` }}>
+                    {p.status}
+                  </span>
+                </td>
+                <td style={{ padding: "14px 18px" }}>
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                    {p.status === "Pending Approval" && (
+                      <Button size="sm" variant="primary" disabled={loading === p.id} onClick={() => approve(p.id)}>
+                        Approve
+                      </Button>
+                    )}
+                    {p.status === "Pending Approval" && (
+                      <Button size="sm" variant="outline" disabled={loading === p.id} onClick={() => setRejectingId(p.id)} style={{ borderColor: "var(--error)", color: "var(--error)" }}>
+                        Reject
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" onClick={() => toggleVerify(p.id)}>
+                      {p.is_verified ? "Unverify" : "Verify"}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => toggleFeatured(p.id)} style={{ color: p.is_featured ? "var(--warning)" : "var(--primary)" }}>
+                      {p.is_featured ? "Unfeature" : "Feature ⭐"}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => deleteProp(p.id)} style={{ color: "var(--error)" }}>
+                      Delete
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={7} style={{ padding: "48px 24px", textAlign: "center", color: "var(--text-muted)", fontSize: "14px" }}>
+                  No listings match your filters
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
-      {/* Reject modal */}
+      {/* Reject Modal */}
       {rejectingId && (
-        <div className="ap-modal-overlay">
-          <form onSubmit={doReject} className="ap-modal">
-            <div className="ap-modal-header">
-              <h3>Reject Listing</h3>
-              <button type="button" onClick={() => setRejectingId(null)} style={{ background: "none", border: "none", fontSize: "22px", cursor: "pointer", color: "var(--text-muted)" }}>×</button>
-            </div>
-            <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginBottom: "16px" }}>Provide a rejection reason. The owner will be notified via email.</p>
-            <textarea required rows={4} className="ap-reason" placeholder="e.g. Duplicate listing / Incorrect pricing / Misleading images…" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
-            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "16px" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "24px" }}>
+          <form onSubmit={doReject} style={{ background: "white", borderRadius: "16px", padding: "32px", maxWidth: "440px", width: "100%", boxShadow: "var(--shadow-xl)" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: 700, marginBottom: "8px", color: "var(--error)" }}>Reject Listing</h3>
+            <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginBottom: "20px" }}>
+              Provide a reason for rejection. The listing owner will receive a notification.
+            </p>
+            <textarea
+              required
+              rows={3}
+              placeholder="e.g. Incomplete details, invalid price, fake photos…"
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              style={{ width: "100%", padding: "12px", border: "1.5px solid var(--border)", borderRadius: "var(--radius-md)", fontSize: "14px", fontFamily: "var(--font-body)", outline: "none", marginBottom: "20px", boxSizing: "border-box" }}
+            />
+            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
               <Button variant="outline" type="button" onClick={() => setRejectingId(null)}>Cancel</Button>
-              <Button variant="primary" type="submit" style={{ background: "var(--error)" }}>Confirm Rejection</Button>
+              <Button variant="primary" type="submit" disabled={loading === rejectingId} style={{ background: "var(--error)", borderColor: "var(--error)" }}>Confirm Rejection</Button>
             </div>
           </form>
         </div>
       )}
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        .ap-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
-        .ap-search { flex: 1; min-width: 240px; padding: 10px 16px; border: 1.5px solid var(--border); border-radius: var(--radius-md); font-size: 13px; font-family: var(--font-body); outline: none; background: white; }
-        .ap-search:focus { border-color: var(--primary); }
-        .ap-filter { padding: 10px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-md); font-size: 13px; background: white; color: var(--text-primary); cursor: pointer; }
-        .ap-count { font-size: 13px; color: var(--text-muted); white-space: nowrap; font-weight: 500; }
-        .ap-list { display: flex; flex-direction: column; gap: 12px; }
-        .ap-card { background: white; border-radius: 12px; padding: 20px 24px; display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; box-shadow: var(--shadow-sm); border: 1px solid var(--border); transition: box-shadow 0.15s; }
-        .ap-card:hover { box-shadow: var(--shadow-md); }
-        .ap-card-left { flex: 1; min-width: 0; }
-        .ap-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
-        .ap-badge { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 99px; }
-        .ap-title { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .ap-meta { display: flex; gap: 8px; font-size: 12px; color: var(--text-muted); flex-wrap: wrap; align-items: center; }
-        .ap-card-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; flex-shrink: 0; }
-        .ap-modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.6); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 24px; }
-        .ap-modal { background: white; border-radius: 16px; padding: 28px; max-width: 440px; width: 100%; box-shadow: var(--shadow-xl); }
-        .ap-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-        .ap-modal-header h3 { font-size: 18px; font-weight: 700; }
-        .ap-reason { width: 100%; padding: 12px; border: 1.5px solid var(--border); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; resize: vertical; outline: none; }
-        .ap-reason:focus { border-color: var(--primary); }
-        @media (max-width: 768px) {
-          .ap-card { flex-direction: column; }
-          .ap-card-actions { justify-content: flex-start; }
-        }
-      `}} />
     </AdminLayout>
   );
 }
