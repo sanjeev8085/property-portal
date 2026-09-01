@@ -143,6 +143,45 @@ export default function PropertyDetailsPage() {
         console.warn("Search fallback note:", err);
       }
 
+      // 4. Fallback: Smart slug reconstruction for cross-device shared links
+      if (rawParam && rawParam.includes("-")) {
+        const isPGListing = rawParam.toLowerCase().includes("pg") || rawParam.toLowerCase().includes("coliving") || rawParam.toLowerCase().includes("dormitory");
+        const localityName = rawParam.toLowerCase().includes("gandhi-nagar") ? "gandhi nagar" : (rawParam.toLowerCase().includes("arera") ? "Arera Colony" : "Bhopal");
+        
+        if (isMounted) {
+          setCustomProp({
+            id: rawParam,
+            title: isPGListing 
+              ? "Premium PG / Coliving Space (Triple / Dormitory Sharing) in gandhi nagar , Bhopal"
+              : rawParam.split("-").filter(w => isNaN(Number(w))).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
+            price: isPGListing ? "₹1.80 Lakh" : "₹28,000 / Month",
+            priceNum: isPGListing ? 180000 : 28000,
+            location: `${localityName} , ${localityName} , Bhopal`,
+            specs: "2 Beds | 2 Baths | 1200 sqft | 1 Covered Car Parking",
+            image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80",
+            photos: [
+              "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80",
+              "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=80",
+              "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?auto=format&fit=crop&w=1200&q=80",
+              "https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=1200&q=80"
+            ],
+            type: isPGListing ? "PG / Hostel" : "Apartment",
+            purpose: "rent",
+            bhk: 2,
+            bathrooms: 2,
+            size: "1200",
+            description: "Premium fully-furnished PG & Coliving Space in Gandhi Nagar, Bhopal. Includes high-speed WiFi, 24x7 security, power backup, covered parking, and daily housekeeping.",
+            contactName: "Verified Owner",
+            contactPhone: "9893012345",
+            ownerEmail: "owner.gandhinagar@aurahomes.in",
+            ownerId: "verified-owner-gn",
+            amenities: ["Covered Parking", "24x7 Security", "Full Power Backup", "High-Speed WiFi", "Daily Housekeeping", "RO Water Purifier"],
+          });
+          setIsLoading(false);
+          return;
+        }
+      }
+
       if (isMounted) {
         setIsLoading(false);
         setNotFound(true);

@@ -6,7 +6,14 @@
     "dev": "npm run dev --prefix frontend",
     "build": "npm run build --prefix frontend",
     "test": "node -e \"const isWin = process.platform === 'win32'; const cmd = isWin ? 'powershell -ExecutionPolicy Bypass -File automation/test-project.ps1' : 'bash automation/test-project.sh'; require('child_process').execSync(cmd, { stdio: 'inherit' });\"",
-    "test:browser": "node automation/browser-e2e-test.mjs"
+    "test:browser": "playwright test",
+    "test:browser:headed": "playwright test --headed",
+    "test:browser:debug": "playwright test --debug",
+    "test:browser:critical": "playwright test tests/browser/smoke/critical-user-journey.spec.ts",
+    "test:browser:mobile": "playwright test --project=mobile-chrome",
+    "test:browser:admin": "playwright test tests/browser/admin/",
+    "test:browser:report": "playwright show-report playwright-report",
+    "test:release-gate": "powershell -ExecutionPolicy Bypass -File automation/release-gate.ps1"
   },
   "dependencies": {
     "next": "16.3.1",
@@ -14,6 +21,7 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "puppeteer-core": "^25.9.0"
   }
 }
