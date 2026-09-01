@@ -40,11 +40,35 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("[Sentry] DSN not configured — error monitoring disabled (set SENTRY_DSN in .env).")
 
-    # 2. Initialize schema automatically if not using alembic in dev/initial free deploy
+    # 2. Initialize schema and enforce Row Level Security (RLS) on PostgreSQL
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-        logger.info("Database schemas verified.")
+            if conn.dialect.name == "postgresql":
+                from sqlalchemy import text
+                tables = [
+                    "deactivated_properties", "property_verifications", "property_reports",
+                    "contact_unlocks", "favorites", "subscriptions", "subscription_plans",
+                    "contact_credits", "payments", "saved_searches", "notifications",
+                    "audit_logs", "users", "agents", "properties", "locations",
+                    "property_images", "property_amenities", "property_views"
+                ]
+                for tbl in tables:
+                    await conn.execute(text(f"ALTER TABLE IF EXISTS public.{tbl} ENABLE ROW LEVEL SECURITY;"))
+                
+                # Default public SELECT policies for readable tables
+                public_read_tables = ["properties", "locations", "property_images", "property_amenities", "subscription_plans"]
+                for tbl in public_read_tables:
+                    policy_sql = text(f"""
+                        DO $$
+                        BEGIN
+                            IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '{tbl}' AND policyname = 'allow_public_read_{tbl}') THEN
+                                CREATE POLICY allow_public_read_{tbl} ON public.{tbl} FOR SELECT USING (true);
+                            END IF;
+                        END $$;
+                    """)
+                    await conn.execute(policy_sql)
+        logger.info("Database schemas and Row Level Security (RLS) verified.")
     except Exception as e:
         logger.warning(f"Database schema auto-creation skipped or already initialized: {e}")
 
