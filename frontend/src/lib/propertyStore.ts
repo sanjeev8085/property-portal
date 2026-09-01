@@ -49,25 +49,25 @@ export function getPublishedProperties(): StoredProperty[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
 
-    const LEGACY_SAMPLES = [
-      "premium pg / coliving space",
-      "1500 sqft commercial office space",
-      "1500 sqft east facing plot",
-      "3 bhk luxury apartment in mp nagar",
-    ];
+    const LEGACY_SAMPLE_IDS = new Set([
+      "premium-pg-coliving-space-triple-dormitory-sharing-in-gandhi-nagar-bhopal-gandhi-nagar-gandhi-nagar-bhopal-1788182184833",
+      "1500-sqft-commercial-office-space-in-arera-colony-bhopal",
+      "3-bhk-luxury-apartment-in-mp-nagar-bhopal",
+      "1500-sqft-east-facing-plot-land-in-kolar-road-bhopal",
+    ]);
 
-    // Deduplicate by id and title+price, and filter out legacy sample listings
+    // Deduplicate by id and title+price, and filter out exact legacy sample IDs
     const seenIds = new Set<string>();
     const seenKeys = new Set<string>();
     const valid = parsed.filter(p => {
       if (!p || !p.id) return false;
       const idStr = p.id.toString();
-      const titleLower = (p.title || "").toLowerCase().trim();
 
-      if (LEGACY_SAMPLES.some(s => titleLower.includes(s) || idStr.includes(s.replace(/ /g, "-")))) {
+      if (LEGACY_SAMPLE_IDS.has(idStr)) {
         return false;
       }
 
+      const titleLower = (p.title || "").toLowerCase().trim();
       const priceVal = Number(p.priceNum || p.price) || 0;
       const contentKey = `${titleLower}_${priceVal}`;
       if (seenIds.has(idStr) || seenKeys.has(contentKey)) {
