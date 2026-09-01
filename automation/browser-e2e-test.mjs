@@ -1,6 +1,8 @@
 import puppeteer from "puppeteer-core";
 import fs from "node:fs";
 import path from "node:path";
+import http from "node:http";
+import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -57,6 +59,53 @@ function findBrowserExecutable() {
   return null;
 }
 
+async function isServerReachable(url) {
+  return new Promise((resolve) => {
+    try {
+      const req = http.get(url, (res) => {
+        resolve(res.statusCode >= 200 && res.statusCode < 500);
+      });
+      req.on("error", () => resolve(false));
+      req.setTimeout(2000, () => {
+        req.destroy();
+        resolve(false);
+      });
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
+async function ensureDevServer(url) {
+  const reachable = await isServerReachable(url);
+  if (reachable) {
+    logSuccess(`Frontend server is already active at ${url}`);
+    return null;
+  }
+
+  logInfo(`Starting Next.js frontend dev server...`);
+  const isWin = process.platform === "win32";
+  const cmd = isWin ? "npm.cmd" : "npm";
+  const child = spawn(cmd, ["run", "dev", "--prefix", "frontend"], {
+    cwd: ROOT_DIR,
+    stdio: "pipe",
+    shell: true,
+  });
+
+  // Wait up to 30 seconds for the server to be ready
+  const startTime = Date.now();
+  while (Date.now() - startTime < 30000) {
+    await sleep(1500);
+    if (await isServerReachable(url)) {
+      logSuccess(`Frontend server is up and ready at ${url}!`);
+      return child;
+    }
+  }
+
+  logInfo("Proceeding to launch browser test...");
+  return child;
+}
+
 async function runVisualBrowserTest() {
   console.log(colors.cyan("====================================================="));
   console.log(colors.cyan("🏠 AuraHomes — Live Visual Browser Automation Test"));
@@ -68,23 +117,37 @@ async function runVisualBrowserTest() {
     process.exit(1);
   }
 
+  const baseUrl = process.env.BASE_URL || "http://localhost:3000";
+  let devServerProcess = null;
+
+  try {
+    devServerProcess = await ensureDevServer(baseUrl);
+  } catch (err) {
+    logInfo(`Server check note: ${err.message}`);
+  }
+
   logInfo(`Using Browser: ${browserPath}`);
   logInfo("Launching Browser in visible mode (Headless: FALSE)...");
 
-  const baseUrl = process.env.BASE_URL || "http://localhost:3000";
-
-  const browser = await puppeteer.launch({
-    executablePath: browserPath,
-    headless: false, // Visible browser window
-    defaultViewport: null,
-    args: [
-      "--start-maximized",
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-infobars",
-      "--window-size=1280,850",
-    ],
-  });
+  let browser;
+  try {
+    browser = await puppeteer.launch({
+      executablePath: browserPath,
+      headless: false, // Visible browser window on screen
+      defaultViewport: null,
+      args: [
+        "--start-maximized",
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-infobars",
+        "--window-size=1280,850",
+      ],
+    });
+  } catch (err) {
+    console.error(colors.red(`[-] Failed to launch browser: ${err.message}`));
+    if (devServerProcess) devServerProcess.kill();
+    process.exit(1);
+  }
 
   const pages = await browser.pages();
   const page = pages[0] || (await browser.newPage());
@@ -106,7 +169,7 @@ async function runVisualBrowserTest() {
     logInfo('Typing search query "Bhopal" into search widget...');
     const searchInputs = await page.$$("input");
     if (searchInputs.length > 0) {
-      await searchInputs[0].type("Bhopal", { delay: 80 });
+      await searchInputs[0].type("Bhopal", { delay: 70 });
       await sleep(1000);
     }
 
@@ -145,7 +208,7 @@ async function runVisualBrowserTest() {
     logStep(3, "Opening Property Details View & Verifying Amenities");
     const viewButtons = await page.$$(".btn-view-prop, .search-property-card a, .search-property-card");
     if (viewButtons.length > 0) {
-      logInfo("Clicking on first property card to open details...");
+      logInfo("Clicking on property card to view details...");
       await viewButtons[0].click();
       await sleep(2500);
 
@@ -301,8 +364,22 @@ async function runVisualBrowserTest() {
   } catch (err) {
     console.error(colors.red(`\n[-] Browser test encountered an issue: ${err.message}`));
   } finally {
-    await browser.close();
-    logSuccess("Browser session closed cleanly.");
+    if (browser) {
+      await browser.close();
+      logSuccess("Browser session closed cleanly.");
+    }
+    if (devServerProcess) {
+      logInfo("Stopping temporary dev server...");
+      try {
+        if (process.platform === "win32") {
+          spawn("taskkill", ["/pid", devServerProcess.pid.toString(), "/f", "/t"]);
+        } else {
+          devServerProcess.kill();
+        }
+      } catch {
+        // Ignored
+      }
+    }
   }
 }
 

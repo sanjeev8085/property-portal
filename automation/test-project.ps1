@@ -100,7 +100,7 @@ if ($nodeMissing) {
             Start-Sleep -Seconds 4
         }
 
-        Push-Location "$root\frontend"
+        Push-Location "$root"
         node "$root\automation\browser-e2e-test.mjs"
         if ($LASTEXITCODE -eq 0) {
             Write-Host "[+] Live Visual Browser Test PASSED" -ForegroundColor Green
