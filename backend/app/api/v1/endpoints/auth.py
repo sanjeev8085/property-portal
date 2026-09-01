@@ -367,3 +367,55 @@ async def reset_password(
     db.add(user)
     await db.commit()
     return {"message": "Password has been successfully updated. You can now log in."}
+
+
+# ─── Bootstrap Admin (one-time setup) ─────────────────────────────────────────
+@router.post("/bootstrap-admin", status_code=status.HTTP_201_CREATED)
+async def bootstrap_admin(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    One-time endpoint to create the first admin user.
+    Protected by the APP_SECRET_KEY header.
+    Returns 409 if an admin already exists.
+    """
+    secret_key = request.headers.get("X-Bootstrap-Key", "")
+    if not secret_key or secret_key != settings.APP_SECRET_KEY:
+        raise HTTPException(status_code=403, detail="Invalid or missing bootstrap key.")
+
+    # Block if admin already exists
+    existing = await db.execute(
+        select(User).where(User.user_type == UserType.ADMIN)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Admin user already exists.")
+
+    admin_password = "AuraAdmin@2026#Secure"
+    admin_email = "admin@aurahomes.in"
+
+    admin = User(
+        name="AuraHomes Admin",
+        email=admin_email,
+        mobile=None,
+        password_hash=hash_password(admin_password),
+        user_type=UserType.ADMIN,
+        status=UserStatus.ACTIVE,
+        is_email_verified=True,
+        is_mobile_verified=False,
+        city="Bhopal",
+    )
+    db.add(admin)
+    await db.flush()
+
+    credits = ContactCredit(user_id=admin.id, total_credits=999, used_credits=0)
+    db.add(credits)
+    await db.commit()
+
+    return {
+        "message": "Admin user created successfully.",
+        "email": admin_email,
+        "password": admin_password,
+        "role": "admin",
+        "login_url": "/admin/login",
+    }
