@@ -8,6 +8,12 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, "..");
+const SCREENSHOTS_DIR = path.resolve(__dirname, "screenshots");
+
+// Ensure screenshots folder exists
+if (!fs.existsSync(SCREENSHOTS_DIR)) {
+  fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
+}
 
 // Helper sleep to allow visual observation
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -173,6 +179,10 @@ async function runVisualBrowserTest() {
       await sleep(1000);
     }
 
+    const shot1 = path.join(SCREENSHOTS_DIR, "01_homepage_search.png");
+    await page.screenshot({ path: shot1 });
+    logSuccess(`Screenshot saved: ${shot1}`);
+
     // Click Search button
     logInfo("Clicking search button...");
     const searchBtn = await page.$("button.hero-search-btn, button[type='submit']");
@@ -204,6 +214,10 @@ async function runVisualBrowserTest() {
       logSuccess("Purpose toggle responsive and working.");
     }
 
+    const shot2 = path.join(SCREENSHOTS_DIR, "02_search_results.png");
+    await page.screenshot({ path: shot2 });
+    logSuccess(`Screenshot saved: ${shot2}`);
+
     // ── STEP 3: PROPERTY DETAILS & AMENITIES INSPECTION ──────────────────────
     logStep(3, "Opening Property Details View & Verifying Amenities");
     const viewButtons = await page.$$(".btn-view-prop, .search-property-card a, .search-property-card");
@@ -218,6 +232,10 @@ async function runVisualBrowserTest() {
         window.scrollBy({ top: 450, behavior: "smooth" });
       });
       await sleep(1500);
+
+      const shot3 = path.join(SCREENSHOTS_DIR, "03_property_details.png");
+      await page.screenshot({ path: shot3 });
+      logSuccess(`Screenshot saved: ${shot3}`);
 
       await page.evaluate(async () => {
         window.scrollBy({ top: 450, behavior: "smooth" });
@@ -295,7 +313,12 @@ async function runVisualBrowserTest() {
       }
       logSuccess(`Selected ${Math.min(amenityCards.length, 4)} amenities interactively.`);
     }
-    await sleep(1200);
+    await sleep(1000);
+
+    const shot4 = path.join(SCREENSHOTS_DIR, "04_amenities_selection_wizard.png");
+    await page.screenshot({ path: shot4 });
+    logSuccess(`Screenshot saved: ${shot4}`);
+
     const nextBtn5 = await page.$(".wizard-controls-row button.btn-primary");
     if (nextBtn5) await nextBtn5.click();
     await sleep(1000);
@@ -339,7 +362,10 @@ async function runVisualBrowserTest() {
 
     // Step 10: Preview & Publish
     logInfo("Step 10: Final Listing Summary & Amenity Badges Preview...");
-    await sleep(2000);
+    await sleep(1500);
+    const shot5 = path.join(SCREENSHOTS_DIR, "05_preview_publish.png");
+    await page.screenshot({ path: shot5 });
+    logSuccess(`Screenshot saved: ${shot5}`);
     logSuccess("Verified Step 10 Preview rendered successfully with selected amenities.");
 
     // ── STEP 5: SELLER DASHBOARD ──────────────────────────────────────────────
@@ -353,11 +379,16 @@ async function runVisualBrowserTest() {
     await page.evaluate(async () => {
       window.scrollBy({ top: 300, behavior: "smooth" });
     });
-    await sleep(2500);
+    await sleep(1500);
+
+    const shot6 = path.join(SCREENSHOTS_DIR, "06_seller_dashboard.png");
+    await page.screenshot({ path: shot6 });
+    logSuccess(`Screenshot saved: ${shot6}`);
 
     console.log(colors.cyan("\n====================================================="));
     console.log(colors.green("🎉 LIVE VISUAL BROWSER AUTOMATION TEST COMPLETED! 🟢"));
     console.log(colors.cyan("====================================================="));
+    logInfo(`All step screenshots saved in: ${SCREENSHOTS_DIR}`);
     logInfo("Keeping browser open for 3 seconds before closing...");
     await sleep(3000);
 

@@ -20,6 +20,8 @@ export default function PropertyDetailsPage() {
   const rawParam = (params?.id as string) || "";
   const propertyId = extractIdFromSlug(rawParam);
 
+  const [isLoading, setIsLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [showPlansModal, setShowPlansModal] = useState(false);
   const [credits, setCredits] = useState(0);
@@ -31,53 +33,127 @@ export default function PropertyDetailsPage() {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://aurahomes.in";
 
   useEffect(() => {
+    let isMounted = true;
+
     const loadDetails = async () => {
+      setIsLoading(true);
+      setNotFound(false);
+
+      // 1. Check client local storage
       const published = getPublishedProperties();
-      const found = published.find(p => p.id.toString() === propertyId.toString());
+      const found = published.find(
+        p => p.id.toString() === propertyId.toString() ||
+             p.id.toString() === rawParam.toString() ||
+             (p.title && rawParam.toLowerCase().includes(p.title.toLowerCase().slice(0, 15)))
+      );
       if (found) {
-        setCustomProp(found);
+        if (isMounted) {
+          setCustomProp(found);
+          setIsLoading(false);
+        }
         return;
       }
 
-      // Fetch from cloud database for cross-device links (mobile -> laptop)
+      // 2. Fetch from cloud database by propertyId or slug
       try {
-        const remote = await api.getProperty(propertyId);
-        if (remote && remote.title) {
-          setCustomProp({
-            id: remote.id,
-            title: remote.title,
-            price: remote.purpose === "rent"
-              ? `₹${Number(remote.price).toLocaleString("en-IN")} / Month`
-              : (Number(remote.price) >= 10000000 
-                  ? `₹${(Number(remote.price) / 10000000).toFixed(2)} Cr` 
-                  : (Number(remote.price) >= 100000 
-                      ? `₹${(Number(remote.price) / 100000).toFixed(2)} Lakh` 
-                      : `₹${Number(remote.price).toLocaleString("en-IN")}`)),
-            priceNum: Number(remote.price) || 0,
-            location: remote.locality ? `${remote.locality}, ${remote.city || "Bhopal"}` : (remote.city || "Bhopal"),
-            specs: `${remote.bhk || 2} Beds | ${remote.bathrooms || 2} Baths | ${remote.area_sqft || 1200} sqft`,
-            image: remote.images?.[0] || remote.image || DEFAULT_GALLERY_IMAGES[0],
-            photos: remote.images && remote.images.length > 0 ? remote.images : (remote.image ? [remote.image] : DEFAULT_GALLERY_IMAGES),
-            type: remote.property_type || "Apartment",
-            purpose: remote.purpose === "rent" ? "rent" : "sell",
-            bhk: remote.bhk || 2,
-            bathrooms: remote.bathrooms || 2,
-            size: `${remote.area_sqft || 1200}`,
-            description: remote.description,
-            contactName: remote.owner?.name || remote.contact_name || "Verified Owner",
-            contactPhone: remote.owner?.mobile || remote.contact_phone || "",
-            ownerEmail: remote.owner?.email || remote.contact_email || "",
-            ownerId: remote.owner_id || "",
-            amenities: remote.amenities || [],
-          });
+        let remote = await api.getProperty(propertyId);
+        if (!remote || !remote.title) {
+          remote = await api.getProperty(rawParam);
         }
-      } catch {
-        // Fallback handled
+        if (remote && remote.title) {
+          if (isMounted) {
+            setCustomProp({
+              id: remote.id,
+              title: remote.title,
+              price: remote.purpose === "rent"
+                ? `₹${Number(remote.price).toLocaleString("en-IN")} / Month`
+                : (Number(remote.price) >= 10000000 
+                    ? `₹${(Number(remote.price) / 10000000).toFixed(2)} Cr` 
+                    : (Number(remote.price) >= 100000 
+                        ? `₹${(Number(remote.price) / 100000).toFixed(2)} Lakh` 
+                        : `₹${Number(remote.price).toLocaleString("en-IN")}`)),
+              priceNum: Number(remote.price) || 0,
+              location: remote.locality ? `${remote.locality}, ${remote.city || "Bhopal"}` : (remote.city || "Bhopal"),
+              specs: `${remote.bhk || 2} Beds | ${remote.bathrooms || 2} Baths | ${remote.area_sqft || 1200} sqft`,
+              image: remote.images?.[0] || remote.image || DEFAULT_GALLERY_IMAGES[0],
+              photos: remote.images && remote.images.length > 0 ? remote.images : (remote.image ? [remote.image] : DEFAULT_GALLERY_IMAGES),
+              type: remote.property_type || "Apartment",
+              purpose: remote.purpose === "rent" ? "rent" : "sell",
+              bhk: remote.bhk || 2,
+              bathrooms: remote.bathrooms || 2,
+              size: `${remote.area_sqft || 1200}`,
+              description: remote.description,
+              contactName: remote.owner?.name || remote.contact_name || "Verified Owner",
+              contactPhone: remote.owner?.mobile || remote.contact_phone || "",
+              ownerEmail: remote.owner?.email || remote.contact_email || "",
+              ownerId: remote.owner_id || "",
+              amenities: remote.amenities || [],
+            });
+            setIsLoading(false);
+          }
+          return;
+        }
+      } catch (err) {
+        console.warn("Cloud lookup note:", err);
+      }
+
+      // 3. Fallback: Search cloud database by slug keywords
+      try {
+        const rawWords = rawParam.split("-").filter(w => w.length > 3 && isNaN(Number(w)));
+        const searchKeywords = rawWords.slice(0, 4).join(" ");
+        if (searchKeywords) {
+          const searchRes = await api.searchProperties({ query: searchKeywords });
+          const items = searchRes?.items || [];
+          if (items.length > 0) {
+            const remote = items[0];
+            if (isMounted) {
+              setCustomProp({
+                id: remote.id,
+                title: remote.title,
+                price: remote.purpose === "rent"
+                  ? `₹${Number(remote.price).toLocaleString("en-IN")} / Month`
+                  : (Number(remote.price) >= 10000000 
+                      ? `₹${(Number(remote.price) / 10000000).toFixed(2)} Cr` 
+                      : (Number(remote.price) >= 100000 
+                          ? `₹${(Number(remote.price) / 100000).toFixed(2)} Lakh` 
+                          : `₹${Number(remote.price).toLocaleString("en-IN")}`)),
+                priceNum: Number(remote.price) || 0,
+                location: remote.locality ? `${remote.locality}, ${remote.city || "Bhopal"}` : (remote.city || "Bhopal"),
+                specs: `${remote.bhk || 2} Beds | ${remote.bathrooms || 2} Baths | ${remote.area_sqft || 1200} sqft`,
+                image: remote.images?.[0] || remote.image || DEFAULT_GALLERY_IMAGES[0],
+                photos: remote.images && remote.images.length > 0 ? remote.images : (remote.image ? [remote.image] : DEFAULT_GALLERY_IMAGES),
+                type: remote.property_type || "Apartment",
+                purpose: remote.purpose === "rent" ? "rent" : "sell",
+                bhk: remote.bhk || 2,
+                bathrooms: remote.bathrooms || 2,
+                size: `${remote.area_sqft || 1200}`,
+                description: remote.description,
+                contactName: remote.owner?.name || remote.contact_name || "Verified Owner",
+                contactPhone: remote.owner?.mobile || remote.contact_phone || "",
+                ownerEmail: remote.owner?.email || remote.contact_email || "",
+                ownerId: remote.owner_id || "",
+                amenities: remote.amenities || [],
+              });
+              setIsLoading(false);
+            }
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("Search fallback note:", err);
+      }
+
+      if (isMounted) {
+        setIsLoading(false);
+        setNotFound(true);
       }
     };
 
     loadDetails();
-  }, [propertyId]);
+    return () => {
+      isMounted = false;
+    };
+  }, [propertyId, rawParam]);
 
   const rawPhotos = (customProp?.photos && customProp.photos.length > 0)
     ? customProp.photos
@@ -306,6 +382,41 @@ export default function PropertyDetailsPage() {
     `Hi ${propertyDetails.owner.name}, I am interested in your property "${propertyDetails.title}" listed on AuraHomes (${propertyDetails.price}). Could you please share more details?`
   );
   const whatsappUrl = `https://wa.me/91${propertyDetails.owner.rawPhone.replace(/\D/g, "")}?text=${whatsappMsg}`;
+
+  if (isLoading) {
+    return (
+      <div className="detail-page-container" style={{ padding: "60px 20px", textAlign: "center", minHeight: "60vh" }}>
+        <div style={{ maxWidth: 600, margin: "0 auto", padding: 40, background: "var(--surface)", borderRadius: 16, border: "1px solid var(--border)" }}>
+          <div className="gallery-shimmer" style={{ width: "100%", height: 300, borderRadius: 12, marginBottom: 20 }} />
+          <div style={{ height: 24, width: "70%", background: "var(--border)", borderRadius: 6, margin: "0 auto 12px" }} />
+          <div style={{ height: 16, width: "40%", background: "var(--border)", borderRadius: 4, margin: "0 auto" }} />
+          <p style={{ marginTop: 24, color: "var(--text-secondary)", fontSize: 14 }}>Loading verified property details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (notFound && !customProp) {
+    return (
+      <div className="detail-page-container" style={{ padding: "80px 20px", textAlign: "center", minHeight: "65vh" }}>
+        <div style={{ maxWidth: 520, margin: "0 auto", background: "var(--surface)", padding: "48px 32px", borderRadius: 20, border: "1.5px solid var(--border)", boxShadow: "0 10px 30px rgba(0,0,0,0.06)" }}>
+          <div style={{ fontSize: 56, marginBottom: 16 }}>🏡</div>
+          <h2 style={{ fontSize: 24, fontWeight: 800, color: "var(--text-primary)", marginBottom: 10 }}>Property Listing Not Found</h2>
+          <p style={{ color: "var(--text-secondary)", fontSize: 14.5, lineHeight: 1.6, marginBottom: 28 }}>
+            This property listing might have expired, been deactivated by the owner, or the link is incomplete.
+          </p>
+          <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
+            <a href="/search" className="btn btn-primary" style={{ padding: "12px 24px", borderRadius: 10, textDecoration: "none", fontWeight: 600 }}>
+              🔍 Browse All Properties
+            </a>
+            <a href="/" className="btn btn-outline" style={{ padding: "12px 24px", borderRadius: 10, textDecoration: "none", fontWeight: 600, border: "1px solid var(--border)" }}>
+              🏠 Go to Home
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="detail-page-container fade-in">

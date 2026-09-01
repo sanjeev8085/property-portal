@@ -47,7 +47,7 @@ if ($nodeMissing) {
     Write-Host ""
     Write-Host "[*] Running Frontend Unit Tests..." -ForegroundColor Yellow
     Push-Location "$root\frontend"
-    npm run test
+    npm.cmd run test
     if ($LASTEXITCODE -eq 0) {
         Write-Host "[+] Frontend unit tests PASSED" -ForegroundColor Green
     } else {
@@ -58,7 +58,7 @@ if ($nodeMissing) {
     # Run Frontend TypeScript compilation check
     Write-Host ""
     Write-Host "[*] Running Frontend Type-Check..." -ForegroundColor Yellow
-    npm run type-check
+    npm.cmd run type-check
     if ($LASTEXITCODE -eq 0) {
         Write-Host "[+] Frontend TypeScript check PASSED" -ForegroundColor Green
     } else {
@@ -69,7 +69,7 @@ if ($nodeMissing) {
     # Run Frontend Linting (Non-blocking)
     Write-Host ""
     Write-Host "[*] Running Frontend Lint-Check..." -ForegroundColor Yellow
-    npm run lint
+    npm.cmd run lint
     if ($LASTEXITCODE -eq 0) {
         Write-Host "[+] Frontend Lint checks PASSED" -ForegroundColor Green
     } else {
@@ -81,25 +81,6 @@ if ($nodeMissing) {
     if (-not $SkipBrowser -and (Test-Path "$root\automation\browser-e2e-test.mjs")) {
         Write-Host ""
         Write-Host "[*] Launching Live Visual Browser Automation Test (Chrome/Edge)..." -ForegroundColor Yellow
-        
-        # Check if local frontend server is running on port 3000
-        $serverRunning = $false
-        try {
-            $tcp = New-Object System.Net.Sockets.TcpClient
-            $tcp.Connect("127.0.0.1", 3000)
-            $serverRunning = $true
-            $tcp.Close()
-        } catch {
-            $serverRunning = $false
-        }
-
-        $devProcess = $null
-        if (-not $serverRunning) {
-            Write-Host "[*] Frontend server not detected on port 3000. Starting temporary dev server..." -ForegroundColor Yellow
-            $devProcess = Start-Process -FilePath "npm.cmd" -ArgumentList "run dev --prefix frontend" -PassThru -NoNewWindow
-            Start-Sleep -Seconds 4
-        }
-
         Push-Location "$root"
         node "$root\automation\browser-e2e-test.mjs"
         if ($LASTEXITCODE -eq 0) {
@@ -108,10 +89,6 @@ if ($nodeMissing) {
             Write-Host "[!] Live Visual Browser Test finished with notice" -ForegroundColor Yellow
         }
         Pop-Location
-
-        if ($devProcess -and -not $devProcess.HasExited) {
-            Stop-Process -Id $devProcess.Id -Force -ErrorAction SilentlyContinue
-        }
     }
 }
 

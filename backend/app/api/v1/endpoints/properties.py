@@ -2,7 +2,7 @@
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, or_, and_, func
 from app.core.database import get_db
 from typing import Optional
 from app.api.deps import get_current_active_user, get_optional_user, require_role
@@ -273,14 +273,33 @@ async def get_property(
     db: AsyncSession = Depends(get_db),
     current_user: Optional[User] = Depends(get_optional_user),
 ):
-    """Get property details with server-side contact masking."""
+    """Get property details with server-side contact masking and slug/UUID fallback."""
+    prop = None
+    pid = None
+
     try:
         pid = uuid.UUID(property_id)
+        result = await db.execute(select(Property).where(Property.id == pid))
+        prop = result.scalar_one_or_none()
     except ValueError:
-        raise HTTPException(status_code=422, detail="Invalid property ID format.")
+        pid = None
 
-    result = await db.execute(select(Property).where(Property.id == pid))
-    prop = result.scalar_one_or_none()
+    if not prop:
+        # Search by slug or title if non-uuid identifier is passed (e.g. from SEO slugs or client timestamps)
+        clean_slug = property_id.replace("-", " ").strip()
+        result = await db.execute(
+            select(Property).where(
+                or_(
+                    Property.title.ilike(f"%{property_id}%"),
+                    Property.title.ilike(f"%{clean_slug}%"),
+                    Property.description.ilike(f"%{clean_slug}%")
+                )
+            ).limit(1)
+        )
+        prop = result.scalar_one_or_none()
+        if prop:
+            pid = prop.id
+
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found.")
 
