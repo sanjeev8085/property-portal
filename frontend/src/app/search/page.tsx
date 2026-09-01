@@ -79,7 +79,15 @@ function SearchContent() {
     const loadProps = async () => {
       const published = getPublishedProperties();
       const localIds = new Set(published.map(p => p.id));
-      const deactSet = new Set(getDeactivatedPropertyIds());
+      
+      let remoteDeactIds: string[] = [];
+      try {
+        remoteDeactIds = await api.getDeactivatedIds();
+      } catch {
+        // Fallback
+      }
+
+      const deactSet = new Set([...getDeactivatedPropertyIds(), ...remoteDeactIds]);
       if (isMounted) {
         setMyPublishedIds(localIds);
         setDeactivatedIds(deactSet);

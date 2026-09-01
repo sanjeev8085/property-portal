@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Avatar from "@/components/ui/Avatar";
 import { useToast } from "@/lib/useToast";
 import { extractIdFromSlug } from "@/lib/slug";
-import { getPublishedProperties, StoredProperty } from "@/lib/propertyStore";
+import { getPublishedProperties, getDeactivatedPropertyIds, StoredProperty } from "@/lib/propertyStore";
 import { api } from "@/lib/api";
 
 const DEFAULT_GALLERY_IMAGES = [
@@ -38,6 +38,22 @@ export default function PropertyDetailsPage() {
     const loadDetails = async () => {
       setIsLoading(true);
       setNotFound(false);
+
+      // Check if property was deactivated/deleted across any device or browser
+      let remoteDeact: string[] = [];
+      try {
+        remoteDeact = await api.getDeactivatedIds();
+      } catch {
+        // Fallback
+      }
+      const deactSet = new Set([...getDeactivatedPropertyIds(), ...remoteDeact]);
+      if (deactSet.has(propertyId.toString()) || deactSet.has(rawParam.toString())) {
+        if (isMounted) {
+          setIsLoading(false);
+          setNotFound(true);
+        }
+        return;
+      }
 
       // 1. Check client local storage
       const published = getPublishedProperties();

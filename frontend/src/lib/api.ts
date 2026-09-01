@@ -270,6 +270,15 @@ export const api = {
     }
   },
 
+  async getDeactivatedIds() {
+    try {
+      const data = await apiFetch("/properties/deactivated");
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
+  },
+
   async deleteAdminProperty(propertyId: string) {
     return apiFetch(`/admin/properties/${propertyId}`, {
       method: "DELETE",

@@ -289,17 +289,28 @@ async def delete_admin_property(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role(UserType.ADMIN))
 ):
-    """Delete a property listing from database (Admin only)."""
+    """Delete a property listing from database (Admin only) and record deletion for cross-device sync."""
+    from app.models.property import DeactivatedProperty
+    
+    # 1. Store deactivated ID record so all devices filter it out
+    try:
+        deact = DeactivatedProperty(id=str(property_id))
+        db.add(deact)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+
+    # 2. Delete ORM property record if UUID
     try:
         pid = uuid.UUID(property_id)
+        result = await db.execute(select(Property).where(Property.id == pid))
+        prop = result.scalar_one_or_none()
+        if prop:
+            await db.delete(prop)
+            await db.commit()
     except ValueError:
-        return {"message": "Listing removed.", "property_id": property_id}
+        pass
 
-    result = await db.execute(select(Property).where(Property.id == pid))
-    prop = result.scalar_one_or_none()
-    if prop:
-        await db.delete(prop)
-        await db.commit()
     return {"message": "Property deleted successfully.", "property_id": property_id}
 
 

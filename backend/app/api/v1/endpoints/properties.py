@@ -14,6 +14,17 @@ from app.schemas.property import PropertyCreate
 router = APIRouter()
 
 
+@router.get("/deactivated")
+async def get_deactivated_properties(db: AsyncSession = Depends(get_db)):
+    """Return all deactivated property IDs for cross-device & cross-browser synchronization."""
+    from app.models.property import DeactivatedProperty
+    try:
+        res = await db.execute(select(DeactivatedProperty.id))
+        return res.scalars().all()
+    except Exception:
+        return []
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_property(
     payload: PropertyCreate,

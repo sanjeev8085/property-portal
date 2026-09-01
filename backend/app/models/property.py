@@ -207,3 +207,11 @@ class PropertyReport(Base):
 
     property = relationship("Property", back_populates="reports")
     reporter = relationship("User", back_populates="property_reports")
+
+
+class DeactivatedProperty(Base):
+    __tablename__ = "deactivated_properties"
+
+    id = Column(String(500), primary_key=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+

@@ -130,6 +130,15 @@ export default function AdminPropertiesPage() {
         };
       });
 
+      let remoteDeactIds: string[] = [];
+      try {
+        remoteDeactIds = await api.getDeactivatedIds();
+      } catch {
+        // Fallback
+      }
+
+      const deactSet = new Set([...remoteDeactIds]);
+
       const merged = [...mappedCloud, ...mappedPublished, ...DEFAULT_ADMIN_PROPS];
       const seenIds = new Set<string>();
       const seenTitles = new Set<string>();
@@ -137,7 +146,7 @@ export default function AdminPropertiesPage() {
         if (!p || !p.id) return false;
         const idStr = p.id.toString();
         const titleKey = (p.title || "").toLowerCase().trim();
-        if (seenIds.has(idStr) || (titleKey && seenTitles.has(titleKey))) return false;
+        if (deactSet.has(idStr) || seenIds.has(idStr) || (titleKey && seenTitles.has(titleKey))) return false;
         seenIds.add(idStr);
         if (titleKey) seenTitles.add(titleKey);
         return true;
