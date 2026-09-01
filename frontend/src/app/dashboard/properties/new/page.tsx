@@ -5,6 +5,55 @@ import { useToast } from "@/lib/useToast";
 import { savePublishedProperty } from "@/lib/propertyStore";
 import { api } from "@/lib/api";
 
+const RESIDENTIAL_AMENITIES = [
+  "Covered Parking",
+  "24x7 Security",
+  "Full Power Backup",
+  "High-Speed Lift",
+  "CCTV Surveillance",
+  "Fitness Center / Gym",
+  "Children Play Area",
+  "Vastu Compliant"
+];
+
+const COMMERCIAL_AMENITIES = [
+  "Main Road Frontage",
+  "High Footfall Zone",
+  "Power Backup",
+  "CCTV Surveillance",
+  "Private Washroom",
+  "Water Supply",
+  "Fire Safety Equipment",
+  "Customer Parking",
+  "High Speed Elevators",
+  "100% Power Backup",
+  "Central Air Conditioning",
+  "24x7 Security & CCTV",
+  "Conference Room Setup",
+  "Pantry & Cafeteria",
+  "Reserved Staff Parking",
+  "Fire Safety Certified",
+  "24ft Clear Ceiling Height",
+  "Dedicated Loading Bays",
+  "40ft Container Access",
+  "Heavy Industrial Flooring",
+  "3-Phase Industrial Power",
+  "Gated & Guarded Compound",
+  "Fire Hydrant System",
+  "Office / Staff Quarters"
+];
+
+const PLOT_AMENITIES = [
+  "Boundary Wall",
+  "30ft Wide Road",
+  "Electricity Connection",
+  "Water Supply Line",
+  "Gated Layout",
+  "Street Lights",
+  "Clear Title / Registry",
+  "Vastu Compliant"
+];
+
 export default function NewPropertyWizard() {
   const [step, setStep] = useState(1);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -85,6 +134,18 @@ export default function NewPropertyWizard() {
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
+
+  const getAmenitiesListForType = () => {
+    const isPlot = propertyType === "Plot / Land";
+    const isShop = propertyType === "Shop";
+    const isOffice = propertyType === "Office Space";
+    const isWarehouse = propertyType === "Warehouse";
+    
+    if (isPlot) return PLOT_AMENITIES;
+    if (isShop || isOffice || isWarehouse) return COMMERCIAL_AMENITIES;
+    return RESIDENTIAL_AMENITIES;
+  };
 
   // Auto-fill logged in user credentials so user never has to retype
   useEffect(() => {
@@ -111,6 +172,7 @@ export default function NewPropertyWizard() {
     "Type",
     "Location",
     "Specs",
+    "Amenities",
     "Pricing",
     "Photos",
     "Description",
@@ -119,7 +181,7 @@ export default function NewPropertyWizard() {
   ];
 
   const handleNext = () => {
-    if (step < 9) setStep(step + 1);
+    if (step < 10) setStep(step + 1);
   };
 
   const handlePrev = () => {
@@ -298,6 +360,7 @@ export default function NewPropertyWizard() {
       views: 1,
       leads: 0,
       status: "published",
+      amenities: selectedAmenities,
     };
 
     // Send full payload including images and location to cloud database
@@ -318,6 +381,7 @@ export default function NewPropertyWizard() {
         locality: locality || area,
         contact_name: contactName || "Property Owner",
         contact_phone: contactPhone || "",
+        amenities: selectedAmenities,
       });
 
       if (cloudRes && cloudRes.id) {
@@ -714,10 +778,48 @@ export default function NewPropertyWizard() {
           </div>
         )}
 
-        {/* Step 5: Pricing */}
+        {/* Step 5: Amenities */}
         {step === 5 && (
           <div className="step-content fade-in">
-            <h2>Step 5 — Pricing & Financials</h2>
+            <h2>Step 5 — Select Amenities & Highlights</h2>
+            <p className="step-intro-text">Select only the amenities and highlights actually available at your {propertyType}.</p>
+            
+            <div className="amenities-selection-grid">
+              {getAmenitiesListForType().map((amenity) => {
+                const isSelected = selectedAmenities.includes(amenity);
+                return (
+                  <button
+                    key={amenity}
+                    type="button"
+                    className={`amenity-select-card ${isSelected ? "selected" : ""}`}
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedAmenities(selectedAmenities.filter(a => a !== amenity));
+                      } else {
+                        setSelectedAmenities([...selectedAmenities, amenity]);
+                      }
+                    }}
+                  >
+                    <span className="amenity-checkbox">
+                      {isSelected ? "✓" : ""}
+                    </span>
+                    <span className="amenity-name">{amenity}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {selectedAmenities.length === 0 && (
+              <p style={{ marginTop: "12px", fontSize: "13px", color: "var(--text-muted)" }}>
+                💡 Tip: You can select multiple amenities, or click Next Step to proceed without any.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Step 6: Pricing */}
+        {step === 6 && (
+          <div className="step-content fade-in">
+            <h2>Step 6 — Pricing & Financials</h2>
             <p className="step-intro-text">Specify details relating to expected price for your {propertyType}.</p>
             <div className="form-grid">
               <div className="form-group">
@@ -754,11 +856,11 @@ export default function NewPropertyWizard() {
           </div>
         )}
 
-        {/* Step 6: Photos Upload with Full Interactive Engine */}
-        {step === 6 && (
+        {/* Step 7: Photos Upload with Full Interactive Engine */}
+        {step === 7 && (
           <div className="step-content fade-in">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: "8px" }}>
-              <h2>Step 6 — Photos Upload</h2>
+              <h2>Step 7 — Photos Upload</h2>
               <span className="photo-count-badge">
                 📸 {photos.length} / 10 Photos Uploaded
               </span>
@@ -834,10 +936,10 @@ export default function NewPropertyWizard() {
           </div>
         )}
 
-        {/* Step 7: Description */}
-        {step === 7 && (
+        {/* Step 8: Description */}
+        {step === 8 && (
           <div className="step-content fade-in">
-            <h2>Step 7 — Description</h2>
+            <h2>Step 8 — Description</h2>
             <p className="step-intro-text">Write a detailed summary of your {propertyType}.</p>
             
             <div className="ai-assist-box">
@@ -857,10 +959,10 @@ export default function NewPropertyWizard() {
           </div>
         )}
 
-        {/* Step 8: Contact */}
-        {step === 8 && (
+        {/* Step 9: Contact */}
+        {step === 9 && (
           <div className="step-content fade-in">
-            <h2>Step 8 — Contact Details</h2>
+            <h2>Step 9 — Contact Details</h2>
             <p className="step-intro-text">Confirm owner / agent profile details for verified buyer unlocks.</p>
             
             {contactName && contactPhone && (
@@ -894,10 +996,10 @@ export default function NewPropertyWizard() {
           </div>
         )}
 
-        {/* Step 9: Preview & Publish */}
-        {step === 9 && (
+        {/* Step 10: Preview & Publish */}
+        {step === 10 && (
           <div className="step-content fade-in">
-            <h2>Step 9 — Preview & Publish</h2>
+            <h2>Step 10 — Preview & Publish</h2>
             <p className="step-intro-text">Your property listing is ready to go live! Review summary below.</p>
             
             <div className="preview-summary-card premium-card">
@@ -1011,6 +1113,21 @@ export default function NewPropertyWizard() {
                 )}
               </div>
 
+              {selectedAmenities.length > 0 && (
+                <div style={{ marginTop: "12px", marginBottom: "8px" }}>
+                  <p style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "6px" }}>
+                    Selected Amenities ({selectedAmenities.length}):
+                  </p>
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                    {selectedAmenities.map((a) => (
+                      <span key={a} style={{ background: "var(--surface)", padding: "4px 10px", borderRadius: "8px", fontSize: "12px", fontWeight: 600, border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+                        ✨ {a}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <p className="preview-price">
                 {purpose === "rent" ? "Expected Rent:" : "Expected Price:"} ₹{price || (purpose === "rent" ? "25,000 / Month" : "85,00,000")}
               </p>
@@ -1034,7 +1151,7 @@ export default function NewPropertyWizard() {
             Previous
           </button>
           
-          {step === 9 ? (
+          {step === 10 ? (
             <button 
               type="button" 
               className="btn-primary" 
@@ -1405,6 +1522,60 @@ export default function NewPropertyWizard() {
           color: var(--text-muted);
         }
         
+        .amenities-selection-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 14px;
+          margin-top: 16px;
+        }
+        .amenity-select-card {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 16px;
+          background: var(--surface);
+          border: 1.5px solid var(--border);
+          border-radius: var(--radius-md);
+          cursor: pointer;
+          transition: all 0.2s ease;
+          text-align: left;
+          width: 100%;
+        }
+        .amenity-select-card:hover {
+          border-color: var(--primary);
+          background: var(--primary-light);
+          transform: translateY(-1px);
+        }
+        .amenity-select-card.selected {
+          border-color: var(--primary);
+          background: var(--primary-light);
+          box-shadow: 0 0 0 1px var(--primary);
+        }
+        .amenity-checkbox {
+          width: 20px;
+          height: 20px;
+          min-width: 20px;
+          border-radius: 4px;
+          border: 2px solid var(--border);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 800;
+          font-size: 13px;
+          color: white;
+          background: var(--surface);
+          transition: all 0.2s ease;
+        }
+        .amenity-select-card.selected .amenity-checkbox {
+          border-color: var(--primary);
+          background: var(--primary);
+        }
+        .amenity-name {
+          font-size: 13.5px;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
         .wizard-controls-row {
           display: flex;
           justify-content: space-between;

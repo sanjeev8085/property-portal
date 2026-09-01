@@ -104,6 +104,17 @@ async def create_property(
         status=PropertyStatus.PENDING_APPROVAL,
     )
     db.add(prop)
+
+    # Persist property amenities in database
+    if payload.amenities:
+        from app.models.property import PropertyAmenity
+        for amenity_name in payload.amenities:
+            if amenity_name:
+                db.add(PropertyAmenity(
+                    property_id=prop.id,
+                    amenity=amenity_name
+                ))
+
     await db.commit()
     await db.refresh(prop)
 
@@ -314,8 +325,14 @@ async def get_property(
         exposed_whatsapp = ""
         exposed_email = ""
 
+    # Retrieve amenities
+    from app.models.property import PropertyAmenity
+    amenities_res = await db.execute(select(PropertyAmenity.amenity).where(PropertyAmenity.property_id == pid))
+    amenities_list = list(amenities_res.scalars().all())
+
     return {
         "id": str(prop.id),
+        "amenities": amenities_list,
         "title": prop.title,
         "purpose": prop.purpose,
         "property_type": prop.property_type,

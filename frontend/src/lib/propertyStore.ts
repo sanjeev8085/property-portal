@@ -35,6 +35,7 @@ export interface StoredProperty {
   status?: string;
   ownerId?: string;
   ownerEmail?: string;
+  amenities?: string[];
 }
 
 const STORAGE_KEY = "aurahomes_published_properties";

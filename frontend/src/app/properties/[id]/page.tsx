@@ -68,6 +68,7 @@ export default function PropertyDetailsPage() {
             contactPhone: remote.owner?.mobile || remote.contact_phone || "",
             ownerEmail: remote.owner?.email || remote.contact_email || "",
             ownerId: remote.owner_id || "",
+            amenities: remote.amenities || [],
           });
         }
       } catch {
@@ -156,6 +157,55 @@ export default function PropertyDetailsPage() {
     { name: "Vastu Compliant", icon: "🧭" }
   ];
 
+  const allKnownAmenities = [
+    ...defaultAmenities,
+    { name: "Boundary Wall", icon: "🧱" },
+    { name: "30ft Wide Road", icon: "🛣️" },
+    { name: "Electricity Connection", icon: "⚡" },
+    { name: "Water Supply Line", icon: "🚰" },
+    { name: "Gated Layout", icon: "🛡️" },
+    { name: "Street Lights", icon: "💡" },
+    { name: "Clear Title / Registry", icon: "📜" },
+    { name: "Vastu Compliant", icon: "🧭" },
+    { name: "Main Road Frontage", icon: "🏪" },
+    { name: "High Footfall Zone", icon: "👥" },
+    { name: "Power Backup", icon: "⚡" },
+    { name: "CCTV Surveillance", icon: "📹" },
+    { name: "Private Washroom", icon: "🚻" },
+    { name: "Water Supply", icon: "🚰" },
+    { name: "Fire Safety Equipment", icon: "🧯" },
+    { name: "Customer Parking", icon: "🚗" },
+    { name: "High Speed Elevators", icon: "🛗" },
+    { name: "100% Power Backup", icon: "⚡" },
+    { name: "Central Air Conditioning", icon: "❄️" },
+    { name: "24x7 Security & CCTV", icon: "🛡️" },
+    { name: "Conference Room Setup", icon: "📽️" },
+    { name: "Pantry & Cafeteria", icon: "☕" },
+    { name: "Reserved Staff Parking", icon: "🚗" },
+    { name: "Fire Safety Certified", icon: "🧯" },
+    { name: "24ft Clear Ceiling Height", icon: "🏗️" },
+    { name: "Dedicated Loading Bays", icon: "🚛" },
+    { name: "40ft Container Access", icon: "🛣️" },
+    { name: "Heavy Industrial Flooring", icon: "🧱" },
+    { name: "3-Phase Industrial Power", icon: "⚡" },
+    { name: "Gated & Guarded Compound", icon: "🛡️" },
+    { name: "Fire Hydrant System", icon: "🧯" },
+    { name: "Office / Staff Quarters", icon: "🏢" },
+    { name: "Covered Parking", icon: "🚗" },
+    { name: "24x7 Security", icon: "🛡️" },
+    { name: "Full Power Backup", icon: "⚡" },
+    { name: "High-Speed Lift", icon: "🛗" },
+    { name: "Fitness Center / Gym", icon: "🏋️" },
+    { name: "Children Play Area", icon: "🛝" },
+  ];
+
+  const resolvedAmenities = Array.isArray(customProp?.amenities)
+    ? customProp.amenities.map((a: string) => {
+        const found = allKnownAmenities.find(k => k.name.toLowerCase() === a.toLowerCase());
+        return { name: a, icon: found ? found.icon : "✨" };
+      })
+    : defaultAmenities;
+
   const propertyDetails = {
     id: customProp?.id || propertyId || "12345",
     title: customProp?.title || "Sleek 2 BHK Modern Apartment in Arera Colony",
@@ -192,7 +242,7 @@ export default function PropertyDetailsPage() {
       ? "Clear title, RERA approved plot ready for immediate registry and construction in a prime locality with road access and electricity."
       : "Located in a prime locality, this property features excellent construction, high-quality finishes, 24x7 security, and convenient access to key city hubs."),
     photos: rawPhotos,
-    amenities: defaultAmenities,
+    amenities: resolvedAmenities,
     owner: {
       name: resolvedOwnerName,
       status: isOwner ? "Your Listing" : "Verified Owner",
@@ -648,17 +698,19 @@ export default function PropertyDetailsPage() {
           </div>
 
           {/* Amenities & Highlights */}
-          <div className="details-card premium-card">
-            <h2>Amenities & Highlights</h2>
-            <div className="amenities-grid">
-              {propertyDetails.amenities.map((amenity, i) => (
-                <div key={i} className="amenity-chip">
-                  <span className="amenity-icon">{amenity.icon}</span>
-                  <span className="amenity-name">{amenity.name}</span>
-                </div>
-              ))}
+          {propertyDetails.amenities && propertyDetails.amenities.length > 0 && (
+            <div className="details-card premium-card">
+              <h2>Amenities & Highlights</h2>
+              <div className="amenities-grid">
+                {propertyDetails.amenities.map((amenity, i) => (
+                  <div key={i} className="amenity-chip">
+                    <span className="amenity-icon">{amenity.icon}</span>
+                    <span className="amenity-name">{amenity.name}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Direct In-Page Owner & Contact Card (Visible on Mobile & Desktop) */}
           <div className="details-card premium-card owner-inpage-card">

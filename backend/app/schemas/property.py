@@ -30,3 +30,4 @@ class PropertyCreate(BaseModel):
     contact_phone: Optional[str] = None
     contact_whatsapp: Optional[str] = None
     idempotency_key: Optional[str] = None
+    amenities: Optional[List[str]] = None
