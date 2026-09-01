@@ -1,7 +1,7 @@
-﻿"use client";
+"use client";
 
 import React, { useEffect, useState } from "react";
-import api from "@/lib/api";
+import { api } from "@/lib/api";
 
 interface Plan {
   id: string;
