@@ -18,19 +18,17 @@ This folder contains the complete end-to-end automation test runners for AuraHom
 
 ## How to Run
 
-From project root:
+### 1. Run Complete Test Suite (Backend + Frontend + TypeScript + Visual Browser):
 ```bash
 npm test
 ```
 
-Or run directly:
-
-**PowerShell (Windows):**
-```powershell
-powershell -ExecutionPolicy Bypass -File automation/test-project.ps1
+### 2. Run Live Visual Browser Test Only (Opens Chrome/Edge on Screen):
+```bash
+npm run test:browser
 ```
 
-**Bash (Linux / macOS):**
-```bash
-bash automation/test-project.sh
+Or run directly with PowerShell:
+```powershell
+powershell -ExecutionPolicy Bypass -File automation/test-project.ps1
 ```
