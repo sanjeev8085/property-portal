@@ -286,5 +286,15 @@ export const api = {
     } catch {
       return [];
     }
-  }
+  },
+
+  // ── Subscription Plans (public, no auth needed) ───────────────────────────
+  async getPlans() {
+    try {
+      const data = await apiFetch("/payments/plans");
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
+  },
 };

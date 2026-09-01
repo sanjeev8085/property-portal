@@ -61,6 +61,31 @@ def _verify_webhook_signature(body: bytes, signature: str) -> bool:
     return _hmac.compare_digest(expected, signature)
 
 
+# ─── Public: List subscription plans from DB ──────────────────────────────────
+@router.get("/plans")
+async def list_plans(db: AsyncSession = Depends(get_db)):
+    """Return all active subscription plans ordered by sort_order."""
+    result = await db.execute(
+        select(SubscriptionPlan)
+        .where(SubscriptionPlan.is_active == True)
+        .order_by(SubscriptionPlan.sort_order)
+    )
+    plans = result.scalars().all()
+    return [
+        {
+            "id": str(p.id),
+            "name": p.name,
+            "price": p.price,
+            "contact_limit": p.contact_limit,
+            "validity_days": p.validity_days,
+            "description": p.description,
+            "is_featured": p.is_featured,
+            "sort_order": p.sort_order,
+        }
+        for p in plans
+    ]
+
+
 async def _credit_user_for_payment(payment: Payment, db: AsyncSession) -> dict:
     """
     Deliver contact credits and subscription after a verified payment.
