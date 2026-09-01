@@ -288,6 +288,14 @@ export const api = {
     }
   },
 
+  async getAnalytics() {
+    try {
+      return await apiFetch("/admin/analytics");
+    } catch {
+      return null;
+    }
+  },
+
   // ── Subscription Plans (public, no auth needed) ───────────────────────────
   async getPlans() {
     try {

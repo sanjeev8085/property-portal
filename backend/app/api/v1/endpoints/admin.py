@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from app.core.database import get_db
 from app.api.deps import require_role
 from app.models.user import User, UserType
@@ -370,25 +370,131 @@ async def get_admin_analytics(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role(UserType.ADMIN))
 ):
-    """Fetch high-level business analytics stats."""
-    # Count totals
-    user_count = await db.execute(select(func.count(User.id)))
-    total_users = user_count.scalar() or 0
+    """Fetch real business analytics from the database."""
+    now = datetime.now(timezone.utc)
+    seven_days_ago = now - timedelta(days=7)
 
-    prop_count = await db.execute(select(func.count(Property.id)))
-    total_properties = prop_count.scalar() or 0
+    # ── Overall totals ─────────────────────────────────────────────────────────
+    total_users = (await db.execute(select(func.count(User.id)))).scalar() or 0
+    total_properties = (await db.execute(select(func.count(Property.id)))).scalar() or 0
+    total_revenue = (await db.execute(select(func.sum(Payment.amount)))).scalar() or 0.0
+    total_unlocks = (await db.execute(select(func.count(ContactUnlock.id)))).scalar() or 0
 
-    payment_sum = await db.execute(select(func.sum(Payment.amount)))
-    total_revenue = payment_sum.scalar() or 0.0
+    # ── 7-day totals (for top stat cards) ─────────────────────────────────────
+    views_7d_res = await db.execute(
+        text("SELECT COUNT(*) FROM property_views WHERE viewed_at >= :since")
+        .bindparams(since=seven_days_ago)
+    )
+    views_7d = views_7d_res.scalar() or 0
 
-    unlock_count = await db.execute(select(func.count(ContactUnlock.id)))
-    total_unlocks = unlock_count.scalar() or 0
+    unlocks_7d_res = await db.execute(
+        select(func.count(ContactUnlock.id)).where(ContactUnlock.unlocked_at >= seven_days_ago)
+    )
+    unlocks_7d = unlocks_7d_res.scalar() or 0
+
+    revenue_7d_res = await db.execute(
+        select(func.sum(Payment.amount)).where(
+            Payment.created_at >= seven_days_ago,
+            Payment.status == "completed"
+        )
+    )
+    revenue_7d = float(revenue_7d_res.scalar() or 0.0)
+
+    # ── Daily revenue for last 7 days (bar chart) ──────────────────────────────
+    daily_revenue = []
+    day_labels = []
+    for i in range(6, -1, -1):  # 6 days ago -> today
+        day_start = (now - timedelta(days=i)).replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end   = day_start + timedelta(days=1)
+        day_rev_res = await db.execute(
+            select(func.sum(Payment.amount)).where(
+                Payment.created_at >= day_start,
+                Payment.created_at < day_end,
+                Payment.status == "completed"
+            )
+        )
+        daily_revenue.append(float(day_rev_res.scalar() or 0.0))
+        day_labels.append(day_start.strftime("%a"))  # Mon, Tue...
+
+    # ── Top cities by published listing count ──────────────────────────────────
+    cities_res = await db.execute(
+        select(Property.city, func.count(Property.id).label("cnt"))
+        .where(Property.status == PropertyStatus.PUBLISHED, Property.city.isnot(None))
+        .group_by(Property.city)
+        .order_by(func.count(Property.id).desc())
+        .limit(5)
+    )
+    cities_rows = cities_res.fetchall()
+    max_city_count = cities_rows[0][1] if cities_rows else 1
+    top_cities = [
+        {
+            "city": row[0],
+            "count": row[1],
+            "pct": round((row[1] / max_city_count) * 100) if max_city_count else 0,
+        }
+        for row in cities_rows
+    ]
+
+    # ── Property type distribution ─────────────────────────────────────────────
+    types_res = await db.execute(
+        select(Property.property_type, func.count(Property.id).label("cnt"))
+        .where(Property.property_type.isnot(None))
+        .group_by(Property.property_type)
+        .order_by(func.count(Property.id).desc())
+    )
+    types_rows = types_res.fetchall()
+    total_typed = sum(r[1] for r in types_rows) or 1
+    property_types = [
+        {
+            "type": row[0],
+            "count": row[1],
+            "pct": round((row[1] / total_typed) * 100),
+        }
+        for row in types_rows
+    ]
+
+    # ── Conversion funnel (real counts) ───────────────────────────────────────
+    total_views_res = await db.execute(text("SELECT COUNT(*) FROM property_views"))
+    total_views = total_views_res.scalar() or 0
+
+    # Properties with at least one view = "Contact Page Seen" proxy
+    props_with_views_res = await db.execute(
+        text("SELECT COUNT(DISTINCT property_id) FROM property_views")
+    )
+    props_with_views = props_with_views_res.scalar() or 0
+
+    unlock_attempted_res = await db.execute(select(func.count(ContactUnlock.id)))
+    unlock_attempted = unlock_attempted_res.scalar() or 0
+
+    payments_completed_res = await db.execute(
+        select(func.count(Payment.id)).where(Payment.status == "completed")
+    )
+    payments_completed = payments_completed_res.scalar() or 0
+
+    funnel = [
+        {"stage": "Property Views",    "count": total_views},
+        {"stage": "Contact Page Seen", "count": props_with_views},
+        {"stage": "Unlock Attempted",  "count": unlock_attempted},
+        {"stage": "Credits Purchased", "count": payments_completed},
+        {"stage": "Contact Unlocked",  "count": total_unlocks},
+    ]
 
     return {
+        # Summary cards
         "revenue": total_revenue,
         "users_count": total_users,
         "properties_count": total_properties,
         "unlocks_count": total_unlocks,
+        # 7-day stats
+        "views_7d": views_7d,
+        "unlocks_7d": unlocks_7d,
+        "revenue_7d": revenue_7d,
+        # Charts
+        "daily_revenue": daily_revenue,
+        "day_labels": day_labels,
+        "top_cities": top_cities,
+        "property_types": property_types,
+        "funnel": funnel,
     }
 
 
