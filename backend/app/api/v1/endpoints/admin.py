@@ -206,6 +206,37 @@ async def verify_property(
     return {"message": "Verification status toggled.", "property_id": str(prop.id), "is_verified": prop.is_verified}
 
 
+@router.post("/properties/{property_id}/approve")
+async def approve_property(
+    property_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserType.ADMIN))
+):
+    """Approve a property listing (admin only)."""
+    try:
+        pid = uuid.UUID(property_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid property ID format.")
+
+    result = await db.execute(select(Property).where(Property.id == pid))
+    prop = result.scalar_one_or_none()
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found.")
+
+    prop.status = PropertyStatus.PUBLISHED
+    prop.is_verified = True
+    db.add(prop)
+    await db.commit()
+
+    try:
+        from app.services.notification_service import trigger_matching_saved_search_alerts
+        await trigger_matching_saved_search_alerts(db, prop)
+    except Exception:
+        pass
+
+    return {"message": "Property approved.", "property_id": str(prop.id), "status": prop.status}
+
+
 from app.models.user import UserStatus
 from app.models.property import PropertyReport, ReportStatus
 

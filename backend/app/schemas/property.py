@@ -6,7 +6,7 @@ from app.models.property import PropertyPurpose, PropertyCategory, FurnishedStat
 
 class PropertyCreate(BaseModel):
     title: str
-    purpose: PropertyPurpose
+    purpose: str
     category: Optional[PropertyCategory] = PropertyCategory.RESIDENTIAL
     property_type: str
     price: float

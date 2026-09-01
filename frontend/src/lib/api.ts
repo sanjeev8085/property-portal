@@ -202,7 +202,18 @@ export const api = {
       }
     }
 
-    return apiFetch("/properties/", {
+    if (token) {
+      try {
+        await apiFetch("/users/me", {
+          method: "PUT",
+          body: JSON.stringify({ user_type: "owner" }),
+        });
+      } catch {
+        // Ignored
+      }
+    }
+
+    return apiFetch("/properties", {
       method: "POST",
       body: JSON.stringify(payload),
     });

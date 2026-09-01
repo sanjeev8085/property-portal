@@ -6,6 +6,7 @@ class UserUpdate(BaseModel):
     email: Optional[str] = None
     mobile: Optional[str] = None
     city: Optional[str] = None
+    user_type: Optional[str] = None
 
 class PasswordChange(BaseModel):
     old_password: str

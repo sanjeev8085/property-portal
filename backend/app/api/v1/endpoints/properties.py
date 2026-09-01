@@ -7,7 +7,7 @@ from app.core.database import get_db
 from typing import Optional
 from app.api.deps import get_current_active_user, get_optional_user, require_role
 from app.models.user import User, UserType, UserStatus
-from app.models.property import Property, PropertyStatus, PropertyImage
+from app.models.property import Property, PropertyStatus, PropertyPurpose, PropertyImage
 
 from app.schemas.property import PropertyCreate
 
@@ -88,7 +88,14 @@ async def create_property(
             await db.flush()
         location_id = loc_obj.id
 
-    # 5. Deduplicate rapid multi-taps & identical listings
+    # 5. Safe Purpose Enum mapping
+    p_str = str(payload.purpose).lower()
+    if "rent" in p_str or "pg" in p_str:
+        p_purpose = PropertyPurpose.RENT
+    else:
+        p_purpose = PropertyPurpose.SELL
+
+    # 6. Deduplicate rapid multi-taps & identical listings
     target_phone = payload.contact_phone or current_user.mobile or ""
     dup_check = await db.execute(
         select(Property).where(
@@ -104,11 +111,13 @@ async def create_property(
             detail="Duplicate listing detected. A property with matching title and price already exists in your account."
         )
 
+    prop_status = PropertyStatus.PUBLISHED if current_user.user_type == UserType.ADMIN else PropertyStatus.PENDING_APPROVAL
+
     prop = Property(
         owner_id=owner_id,
         location_id=location_id,
         title=payload.title,
-        purpose=payload.purpose,
+        purpose=p_purpose,
         category=payload.category or PropertyCategory.RESIDENTIAL,
         property_type=payload.property_type,
         price=payload.price,
@@ -119,7 +128,7 @@ async def create_property(
         contact_name=payload.contact_name or current_user.name or "Property Owner",
         contact_phone=target_phone,
         contact_whatsapp=payload.contact_whatsapp or target_phone,
-        status=PropertyStatus.PENDING_APPROVAL,
+        status=prop_status,
     )
     db.add(prop)
 

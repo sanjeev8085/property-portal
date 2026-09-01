@@ -48,6 +48,8 @@ async def update_me(
         current_user.mobile = payload.mobile.strip()
     if payload.city is not None:
         current_user.city = payload.city.strip()
+    if payload.user_type is not None and payload.user_type in ("owner", "agent", "buyer"):
+        current_user.user_type = payload.user_type
     
     db.add(current_user)
     await db.commit()
