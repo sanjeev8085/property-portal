@@ -49,14 +49,27 @@ export function getPublishedProperties(): StoredProperty[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
 
-    // Deduplicate by id and title+price
+    const LEGACY_SAMPLES = [
+      "premium pg / coliving space",
+      "1500 sqft commercial office space",
+      "1500 sqft east facing plot",
+      "3 bhk luxury apartment in mp nagar",
+    ];
+
+    // Deduplicate by id and title+price, and filter out legacy sample listings
     const seenIds = new Set<string>();
     const seenKeys = new Set<string>();
-    return parsed.filter(p => {
+    const valid = parsed.filter(p => {
       if (!p || !p.id) return false;
       const idStr = p.id.toString();
+      const titleLower = (p.title || "").toLowerCase().trim();
+
+      if (LEGACY_SAMPLES.some(s => titleLower.includes(s) || idStr.includes(s.replace(/ /g, "-")))) {
+        return false;
+      }
+
       const priceVal = Number(p.priceNum || p.price) || 0;
-      const contentKey = `${(p.title || "").toLowerCase().trim()}_${priceVal}`;
+      const contentKey = `${titleLower}_${priceVal}`;
       if (seenIds.has(idStr) || seenKeys.has(contentKey)) {
         return false;
       }
@@ -64,6 +77,13 @@ export function getPublishedProperties(): StoredProperty[] {
       seenKeys.add(contentKey);
       return true;
     });
+
+    // Auto-clean localStorage if legacy items were pruned
+    if (valid.length !== parsed.length) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(valid));
+    }
+
+    return valid;
   } catch {
     return [];
   }
