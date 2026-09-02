@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { generatePropertySlug, normalizeImage, getFallbackImage } from "@/lib/slug";
 import { useToast } from "@/lib/useToast";
-import { getPublishedProperties, getDeactivatedPropertyIds } from "@/lib/propertyStore";
+import { getPublishedProperties, getDeactivatedPropertyIds, syncOfflinePropertiesToCloud } from "@/lib/propertyStore";
 import { api } from "@/lib/api";
 
 interface Property {
@@ -91,6 +91,13 @@ function SearchContent() {
       if (isMounted) {
         setMyPublishedIds(localIds);
         setDeactivatedIds(deactSet);
+      }
+
+      // Auto-sync any local unsynced properties to cloud DB
+      try {
+        await syncOfflinePropertiesToCloud();
+      } catch {
+        // Ignored
       }
 
       // Fetch properties from cloud API so uploads from mobile are received on laptop

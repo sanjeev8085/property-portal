@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { generatePropertySlug, normalizeImage, getFallbackImage } from "@/lib/slug";
-import { getPublishedProperties, getDeactivatedPropertyIds, StoredProperty } from "@/lib/propertyStore";
+import { getPublishedProperties, getDeactivatedPropertyIds, syncOfflinePropertiesToCloud, StoredProperty } from "@/lib/propertyStore";
 import { api } from "@/lib/api";
 
 const DEFAULT_FEATURED: any[] = [];
@@ -17,6 +17,11 @@ export default function Home() {
   useEffect(() => {
     const loadProps = async () => {
       const published = getPublishedProperties();
+      try {
+        await syncOfflinePropertiesToCloud();
+      } catch {
+        // Ignored
+      }
       
       let remoteDeactIds: string[] = [];
       try {

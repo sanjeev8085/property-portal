@@ -169,6 +169,64 @@ export function reactivatePropertyStore(id: string | number): void {
   }
 }
 
+import { api } from "@/lib/api";
+
+export async function syncOfflinePropertiesToCloud(): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return;
+
+    let updated = false;
+    for (const item of parsed) {
+      if (!item || !item.id) continue;
+      const idStr = String(item.id);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idStr);
+      
+      // If item is a local unsynced property (not a UUID)
+      if (!isUuid && item.title) {
+        try {
+          const type = item.type || item.property_type || "Apartment";
+          const isLandOrComm = ["Plot / Land", "Shop", "Office Space", "Warehouse"].includes(type);
+          const cloudRes = await api.createProperty({
+            title: item.title,
+            price: Number(item.priceNum || item.price) || 500000,
+            purpose: item.purpose === "sell" ? "sell" : "rent",
+            category: ["Shop", "Office Space", "Warehouse"].includes(type) ? "commercial" : "residential",
+            property_type: type,
+            bhk: isLandOrComm ? null : (Number(item.bhk) || null),
+            area_sqft: parseFloat(String(item.size || item.area_sqft)) || 1200,
+            bathrooms: type === "Plot / Land" ? null : (Number(item.bathrooms) || null),
+            description: item.description || item.title,
+            images: item.photos && item.photos.length > 0 ? item.photos : (item.image ? [item.image] : []),
+            image: item.image || (item.photos && item.photos[0]) || "",
+            city: item.city || "Bhopal",
+            locality: item.location || item.locality || "Arera Colony",
+            contact_name: item.contactName || "Property Owner",
+            contact_phone: item.contactPhone || "",
+            amenities: item.amenities || [],
+          });
+
+          if (cloudRes && cloudRes.id) {
+            item.id = cloudRes.id;
+            updated = true;
+          }
+        } catch {
+          // Ignored
+        }
+      }
+    }
+    if (updated) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      window.dispatchEvent(new Event("aurahomes_properties_updated"));
+    }
+  } catch {
+    // Ignored
+  }
+}
+
 export function deletePublishedProperty(id: string | number): void {
   if (typeof window === "undefined") return;
   try {
