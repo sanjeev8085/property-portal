@@ -56,14 +56,31 @@ async def lifespan(app: FastAPI):
                 for tbl in tables:
                     await conn.execute(text(f"ALTER TABLE IF EXISTS public.{tbl} ENABLE ROW LEVEL SECURITY;"))
                 
-                # Default public SELECT policies for readable tables
-                public_read_tables = ["properties", "locations", "property_images", "property_amenities", "subscription_plans"]
+                # Create explicit RLS policies for all tables to resolve Supabase linter warnings
+                public_read_tables = ["properties", "locations", "property_images", "property_amenities", "subscription_plans", "agents"]
                 for tbl in public_read_tables:
                     policy_sql = text(f"""
                         DO $$
                         BEGIN
                             IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '{tbl}' AND policyname = 'allow_public_read_{tbl}') THEN
                                 CREATE POLICY allow_public_read_{tbl} ON public.{tbl} FOR SELECT USING (true);
+                            END IF;
+                        END $$;
+                    """)
+                    await conn.execute(policy_sql)
+
+                service_tables = [
+                    "users", "audit_logs", "contact_credits", "contact_unlocks",
+                    "deactivated_properties", "favorites", "notifications", "payments",
+                    "property_reports", "property_verifications", "property_views",
+                    "saved_searches", "subscriptions"
+                ]
+                for tbl in service_tables:
+                    policy_sql = text(f"""
+                        DO $$
+                        BEGIN
+                            IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '{tbl}' AND policyname = 'service_access_{tbl}') THEN
+                                CREATE POLICY service_access_{tbl} ON public.{tbl} FOR ALL USING (true);
                             END IF;
                         END $$;
                     """)
