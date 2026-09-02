@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.api.deps import get_current_active_user
-from app.models.user import User
+from app.models.user import User, UserType
 from app.schemas.user import UserUpdate, PasswordChange
 from app.core.security import verify_password, hash_password
 
@@ -46,10 +46,9 @@ async def update_me(
         if dup.scalar_one_or_none():
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Mobile already registered to another account.")
         current_user.mobile = payload.mobile.strip()
-    if payload.city is not None:
-        current_user.city = payload.city.strip()
     if payload.user_type is not None and payload.user_type in ("owner", "agent", "buyer"):
-        current_user.user_type = payload.user_type
+        if current_user.user_type != UserType.ADMIN and (current_user.email or "").lower() != "admin@aurahomes.in":
+            current_user.user_type = payload.user_type
     
     db.add(current_user)
     await db.commit()

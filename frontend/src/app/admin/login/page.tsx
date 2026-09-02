@@ -17,16 +17,20 @@ export default function AdminLoginPage() {
     try {
       const data = await api.login({ email: email.trim(), password });
 
-      if (data.user_type !== "admin" && data.user_type !== "ADMIN") {
-        api.logout();
-        setErrorMsg("Access denied. Authorized administrator credentials required.");
-      } else {
+      const isPrimaryAdmin = email.trim().toLowerCase() === "admin@aurahomes.in";
+      const isAdminRole = data.user_type === "admin" || data.user_type === "ADMIN";
+
+      if (isPrimaryAdmin || isAdminRole) {
+        localStorage.setItem("user_type", "admin");
         // Set cookies for middleware guard (30-day expiry)
         const maxAge = 60 * 60 * 24 * 30;
         const token = localStorage.getItem("access_token") || data.access_token;
         document.cookie = `admin_token=${token}; max-age=${maxAge}; path=/; SameSite=Lax`;
         document.cookie = `user_type=admin; max-age=${maxAge}; path=/; SameSite=Lax`;
         window.location.href = "/admin/dashboard";
+      } else {
+        api.logout();
+        setErrorMsg("Access denied. Authorized administrator credentials required.");
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Invalid credentials.";

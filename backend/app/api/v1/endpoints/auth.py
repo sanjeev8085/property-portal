@@ -130,8 +130,14 @@ async def login(
     if user.status == UserStatus.BLOCKED:
         raise HTTPException(status_code=403, detail="Account is blocked.")
 
+    # Auto-enforce admin role for primary admin email
+    if user.email and user.email.lower() == "admin@aurahomes.in" and user.user_type != UserType.ADMIN:
+        user.user_type = UserType.ADMIN
+        db.add(user)
+
     user.last_login_at = datetime.now(timezone.utc)
     await db.commit()
+    await db.refresh(user)
 
     access_token = create_access_token({"sub": str(user.id), "role": user.user_type})
     refresh_token = create_refresh_token({"sub": str(user.id)})
