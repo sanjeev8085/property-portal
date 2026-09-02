@@ -16,44 +16,51 @@ export default function Home() {
 
   useEffect(() => {
     const loadProps = async () => {
-      const published = getPublishedProperties();
+      // Step 1: Sync any offline localStorage properties to cloud DB
       try {
         await syncOfflinePropertiesToCloud();
       } catch {
         // Ignored
       }
-      
+
+      // Step 2: Fetch deactivated IDs
       let remoteDeactIds: string[] = [];
       try {
         remoteDeactIds = await api.getDeactivatedIds();
       } catch {
         // Fallback
       }
-
       const deactSet = new Set([...getDeactivatedPropertyIds(), ...remoteDeactIds]);
-      
-      let cloudProps: any[] = [];
+
+      // Step 3: Cloud DB = Single Source of Truth
+      // Only fall back to localStorage when the API is unreachable
+      let sourceProps: any[] = [];
+      let usedCloud = false;
       try {
         const res = await api.getProperties();
-        if (Array.isArray(res)) {
-          cloudProps = res;
+        if (Array.isArray(res) && res.length > 0) {
+          sourceProps = res;
+          usedCloud = true;
         }
       } catch {
-        // Fallback to local
+        // Cloud unreachable — fall back to localStorage
       }
 
-      const merged = [...published, ...cloudProps];
+      // Offline fallback: only use localStorage if cloud returned nothing
+      if (!usedCloud || sourceProps.length === 0) {
+        const published = getPublishedProperties();
+        if (published.length > 0 && sourceProps.length === 0) {
+          sourceProps = published;
+        }
+      }
+
+      // Step 4: Deduplicate and filter
       const seenIds = new Set<string>();
-      const seenKeys = new Set<string>();
-      const unique = merged.filter(p => {
+      const unique = sourceProps.filter(p => {
         if (!p || !p.id) return false;
         const idStr = p.id.toString();
-        const priceVal = Number(p.priceNum || p.price) || 0;
-        const contentKey = `${(p.title || "").toLowerCase().trim()}_${priceVal}`;
-
         if (
           seenIds.has(idStr) ||
-          seenKeys.has(contentKey) ||
           deactSet.has(idStr) ||
           p.status === "Deactivated" ||
           p.status === "inactive"
@@ -61,10 +68,10 @@ export default function Home() {
           return false;
         }
         seenIds.add(idStr);
-        seenKeys.add(contentKey);
         return true;
       });
 
+      // Step 5: Format for display
       const formatted = unique.map(p => {
         let priceStr = p.price;
         if (typeof p.price === "number" || (typeof p.price === "string" && !p.price.includes("₹"))) {
@@ -85,15 +92,15 @@ export default function Home() {
           price: priceStr,
           location: p.location || p.locality || p.city || "Bhopal",
           specs: p.specs || (
-            (p.type === "Plot / Land" || (p.title || "").toLowerCase().includes("plot"))
+            (p.property_type === "Plot / Land" || p.type === "Plot / Land" || (p.title || "").toLowerCase().includes("plot"))
               ? `${p.area_sqft || p.size || "1500"} sqft Plot Area`
-              : (p.type === "Shop" || (p.title || "").toLowerCase().includes("shop"))
+              : (p.property_type === "Shop" || p.type === "Shop" || (p.title || "").toLowerCase().includes("shop"))
                 ? `${p.area_sqft || p.size || "650"} sqft Retail Shop`
-                : (p.type === "Office Space" || (p.title || "").toLowerCase().includes("office"))
+                : (p.property_type === "Office Space" || p.type === "Office Space" || (p.title || "").toLowerCase().includes("office"))
                   ? `${p.area_sqft || p.size || "1500"} sqft Office`
                   : `${p.bhk || 2} BHK | ${p.area_sqft || p.size || "1200"} sqft`
           ),
-          image: normalizeImage(p.image || (p.photos && p.photos[0]) || (p.images && p.images[0]), p.type || p.title),
+          image: normalizeImage(p.image || (p.photos && p.photos[0]) || (p.images && p.images[0]), p.property_type || p.type || p.title),
           tag: "⭐ Verified",
           isFeatured: true,
         };

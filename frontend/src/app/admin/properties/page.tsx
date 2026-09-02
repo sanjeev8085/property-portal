@@ -43,32 +43,24 @@ export default function AdminPropertiesPage() {
 
   useEffect(() => {
     const loadAllProps = async () => {
-      const published = getPublishedProperties();
+      // Cloud DB = Single Source of Truth for admin view
       let cloudProps: any[] = [];
+      let usedCloud = false;
       try {
         const cloudData = await api.getAdminProperties();
         if (Array.isArray(cloudData) && cloudData.length > 0) {
           cloudProps = cloudData;
+          usedCloud = true;
         } else {
           const publicProps = await api.getProperties();
-          if (Array.isArray(publicProps)) cloudProps = publicProps;
+          if (Array.isArray(publicProps) && publicProps.length > 0) {
+            cloudProps = publicProps;
+            usedCloud = true;
+          }
         }
       } catch {
-        // Fallback to local
+        // Cloud unreachable — fall back to localStorage
       }
-
-      const mappedPublished: AdminProp[] = published.map(p => ({
-        id: p.id.toString(),
-        title: p.title || "Untitled Property",
-        price: p.price ? String(p.price) : "Contact for price",
-        location: p.location || "Bhopal",
-        purpose: p.purpose || "sell",
-        status: (p.status === "Deactivated" ? "Rejected" : (p.status === "pending_approval" ? "Pending Approval" : "Published")) as PropStatus,
-        is_verified: true,
-        is_featured: false,
-        owner: p.contactName || p.ownerEmail || "Verified Owner",
-        posted: "Recently Listed"
-      }));
 
       const statusMap: Record<string, PropStatus> = {
         pending_approval: "Pending Approval",
@@ -76,22 +68,42 @@ export default function AdminPropertiesPage() {
         rejected: "Rejected",
       };
 
-      const mappedCloud: AdminProp[] = cloudProps.map(p => {
-        const rawPrice = p.price;
-        const priceDisplay = typeof rawPrice === "number" ? `₹${(rawPrice as number).toLocaleString("en-IN")}` : (rawPrice ? String(rawPrice) : "Contact for price");
-        return {
+      let allProps: AdminProp[] = [];
+
+      if (usedCloud && cloudProps.length > 0) {
+        // Use cloud data only
+        allProps = cloudProps.map(p => {
+          const rawPrice = p.price;
+          const priceDisplay = typeof rawPrice === "number" ? `₹${(rawPrice as number).toLocaleString("en-IN")}` : (rawPrice ? String(rawPrice) : "Contact for price");
+          return {
+            id: p.id.toString(),
+            title: p.title || "Untitled Listing",
+            price: priceDisplay,
+            location: p.locality ? `${p.locality}, ${p.city || "Bhopal"}` : (p.city || "Bhopal"),
+            purpose: p.purpose || "sell",
+            status: statusMap[p.status] || (p.status ? (p.status.charAt(0).toUpperCase() + p.status.slice(1)) as PropStatus : "Published"),
+            is_verified: Boolean(p.is_verified),
+            is_featured: Boolean(p.is_featured),
+            owner: p.owner?.name || "Verified Owner",
+            posted: p.created_at ? new Date(p.created_at).toLocaleDateString("en-IN") : "Cloud Listed"
+          };
+        });
+      } else {
+        // Offline fallback: use localStorage
+        const published = getPublishedProperties();
+        allProps = published.map(p => ({
           id: p.id.toString(),
-          title: p.title || "Untitled Listing",
-          price: priceDisplay,
-          location: p.locality ? `${p.locality}, ${p.city || "Bhopal"}` : (p.city || "Bhopal"),
+          title: p.title || "Untitled Property",
+          price: p.price ? String(p.price) : "Contact for price",
+          location: p.location || "Bhopal",
           purpose: p.purpose || "sell",
-          status: statusMap[p.status] || (p.status ? (p.status.charAt(0).toUpperCase() + p.status.slice(1)) as PropStatus : "Published"),
-          is_verified: Boolean(p.is_verified),
-          is_featured: Boolean(p.is_featured),
-          owner: p.owner?.name || "Verified Owner",
-          posted: p.created_at ? new Date(p.created_at).toLocaleDateString("en-IN") : "Cloud Listed"
-        };
-      });
+          status: (p.status === "Deactivated" ? "Rejected" : (p.status === "pending_approval" ? "Pending Approval" : "Published")) as PropStatus,
+          is_verified: true,
+          is_featured: false,
+          owner: p.contactName || p.ownerEmail || "Verified Owner",
+          posted: "Recently Listed"
+        }));
+      }
 
       let remoteDeactIds: string[] = [];
       try {
@@ -102,16 +114,13 @@ export default function AdminPropertiesPage() {
 
       const deactSet = new Set([...remoteDeactIds]);
 
-      const merged = [...mappedCloud, ...mappedPublished, ...DEFAULT_ADMIN_PROPS];
+      // Deduplicate by ID
       const seenIds = new Set<string>();
-      const seenTitles = new Set<string>();
-      const unique = merged.filter(p => {
+      const unique = allProps.filter(p => {
         if (!p || !p.id) return false;
         const idStr = p.id.toString();
-        const titleKey = (p.title || "").toLowerCase().trim();
-        if (deactSet.has(idStr) || seenIds.has(idStr) || (titleKey && seenTitles.has(titleKey))) return false;
+        if (deactSet.has(idStr) || seenIds.has(idStr)) return false;
         seenIds.add(idStr);
-        if (titleKey) seenTitles.add(titleKey);
         return true;
       });
 

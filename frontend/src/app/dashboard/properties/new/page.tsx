@@ -364,6 +364,7 @@ export default function NewPropertyWizard() {
     };
 
     // Send full payload including images and location to cloud database
+    let cloudSaveSuccess = false;
     try {
       const isLandOrComm = ["Plot / Land", "Shop", "Office Space", "Warehouse"].includes(propertyType);
       const cloudRes = await api.createProperty({
@@ -387,13 +388,16 @@ export default function NewPropertyWizard() {
 
       if (cloudRes && cloudRes.id) {
         newPropertyObj.id = cloudRes.id;
+        cloudSaveSuccess = true;
       }
     } catch (err) {
       console.warn("Cloud database sync note:", err);
     }
 
-    // Save to persistent client store with synced ID
-    savePublishedProperty(newPropertyObj);
+    // Only save to localStorage as offline fallback when cloud save failed
+    if (!cloudSaveSuccess) {
+      savePublishedProperty(newPropertyObj);
+    }
 
     success("🎉 Property published successfully! It is now live in the search & buy listings.");
     setTimeout(() => {

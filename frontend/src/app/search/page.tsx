@@ -72,14 +72,19 @@ function SearchContent() {
 
   const [maxPrice, setMaxPrice] = useState<number>(parsedBudget || (isRentMode ? 100000 : 50000000));
 
-  // Load published properties from local store AND backend cloud database for cross-device sync
+  // Load properties from cloud DB (single source of truth) with localStorage offline fallback
   useEffect(() => {
     let isMounted = true;
 
     const loadProps = async () => {
-      const published = getPublishedProperties();
-      const localIds = new Set(published.map(p => p.id));
-      
+      // Step 1: Sync any offline localStorage properties to cloud DB
+      try {
+        await syncOfflinePropertiesToCloud();
+      } catch {
+        // Ignored
+      }
+
+      // Step 2: Fetch deactivated IDs
       let remoteDeactIds: string[] = [];
       try {
         remoteDeactIds = await api.getDeactivatedIds();
@@ -89,23 +94,16 @@ function SearchContent() {
 
       const deactSet = new Set([...getDeactivatedPropertyIds(), ...remoteDeactIds]);
       if (isMounted) {
-        setMyPublishedIds(localIds);
         setDeactivatedIds(deactSet);
       }
 
-      // Auto-sync any local unsynced properties to cloud DB
-      try {
-        await syncOfflinePropertiesToCloud();
-      } catch {
-        // Ignored
-      }
-
-      // Fetch properties from cloud API so uploads from mobile are received on laptop
-      let backendProps: Property[] = [];
+      // Step 3: Cloud DB = Single Source of Truth
+      let sourceProps: Property[] = [];
+      let usedCloud = false;
       try {
         const cloudData = await api.getProperties();
         if (Array.isArray(cloudData) && cloudData.length > 0) {
-          backendProps = cloudData.map((p: any) => ({
+          sourceProps = cloudData.map((p: any) => ({
             id: p.id,
             title: p.title,
             price: typeof p.price === "string" && p.price.includes("₹")
@@ -135,23 +133,33 @@ function SearchContent() {
             featured: true,
             status: p.status || "published",
           }));
+          usedCloud = true;
         }
       } catch {
-        // Fallback to local
+        // Cloud unreachable — fall back to localStorage
+      }
+
+      // Offline fallback: only use localStorage if cloud returned nothing
+      if (!usedCloud || sourceProps.length === 0) {
+        const published = getPublishedProperties();
+        if (published.length > 0 && sourceProps.length === 0) {
+          sourceProps = published as Property[];
+          if (isMounted) {
+            const localIds = new Set(published.map(p => p.id));
+            setMyPublishedIds(localIds);
+          }
+        }
       }
 
       if (!isMounted) return;
+
+      // Step 4: Deduplicate by ID and filter deactivated
       const seenIds = new Set<string>();
-      const seenKeys = new Set<string>();
-      const allMerged = [...published, ...backendProps].filter(p => {
+      const filtered = sourceProps.filter(p => {
         if (!p || !p.id) return false;
         const idStr = p.id.toString();
-        const priceVal = Number(p.priceNum || p.price) || 0;
-        const contentKey = `${(p.title || "").toLowerCase().trim()}_${priceVal}`;
-
         if (
           seenIds.has(idStr) ||
-          seenKeys.has(contentKey) ||
           deactSet.has(idStr) ||
           p.status === "Deactivated" ||
           p.status === "inactive"
@@ -159,10 +167,9 @@ function SearchContent() {
           return false;
         }
         seenIds.add(idStr);
-        seenKeys.add(contentKey);
         return true;
       });
-      setAllProperties(allMerged as Property[]);
+      setAllProperties(filtered as Property[]);
     };
 
     loadProps();
