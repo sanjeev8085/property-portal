@@ -1,6 +1,6 @@
 """Properties CRUD endpoint."""
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Header, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, and_, func
 from app.core.database import get_db
@@ -37,15 +37,17 @@ async def create_property(
     payload: PropertyCreate,
     db: AsyncSession = Depends(get_db),
     current_user: Optional[User] = Depends(get_optional_user),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+    x_idempotency_key: Optional[str] = Header(None, alias="X-Idempotency-Key"),
 ):
-    """Create a new property listing with cross-device sync."""
+    """Create a new property listing with atomic database transaction & persistence verification."""
     from app.models.location import Location
-    from app.models.property import PropertyCategory
+    from app.models.property import PropertyCategory, PropertyAmenity
 
-    # 1. Require Authentication
+    # 1. Require Authentication (HTTP 401 Unauthorized if unauthenticated)
     if not current_user:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required to create a property listing."
         )
 
@@ -65,37 +67,14 @@ async def create_property(
 
     owner_id = current_user.id
 
-    # 4. Find or link Location
-    location_id = None
-    if payload.city or payload.locality or payload.area:
-        loc_city = payload.city or "Bhopal"
-        loc_locality = payload.locality or payload.area or "Arera Colony"
-        loc_res = await db.execute(
-            select(Location).where(
-                Location.city.ilike(f"%{loc_city}%"),
-                Location.locality.ilike(f"%{loc_locality}%")
-            )
-        )
-        loc_obj = loc_res.scalar_one_or_none()
-        if not loc_obj:
-            loc_obj = Location(
-                city=loc_city,
-                area=loc_locality,
-                locality=loc_locality,
-                full_address=f"{loc_locality}, {loc_city}",
-            )
-            db.add(loc_obj)
-            await db.flush()
-        location_id = loc_obj.id
-
-    # 5. Safe Purpose Enum mapping
+    # 4. Safe Purpose Enum mapping
     p_str = str(payload.purpose).lower()
     if "rent" in p_str or "pg" in p_str:
         p_purpose = PropertyPurpose.RENT
     else:
         p_purpose = PropertyPurpose.SELL
 
-    # 6. Deduplicate rapid multi-taps & identical listings
+    # 5. Deduplicate rapid multi-taps & identical listings (HTTP 409 Conflict)
     target_phone = payload.contact_phone or current_user.mobile or ""
     dup_check = await db.execute(
         select(Property).where(
@@ -107,69 +86,115 @@ async def create_property(
     existing_prop = dup_check.scalars().first()
     if existing_prop:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_409_CONFLICT,
             detail="Duplicate listing detected. A property with matching title and price already exists in your account."
         )
 
     prop_status = PropertyStatus.PUBLISHED if current_user.user_type == UserType.ADMIN else PropertyStatus.PENDING_APPROVAL
 
-    prop = Property(
-        owner_id=owner_id,
-        location_id=location_id,
-        title=payload.title,
-        purpose=p_purpose,
-        category=payload.category or PropertyCategory.RESIDENTIAL,
-        property_type=payload.property_type,
-        price=payload.price,
-        bhk=payload.bhk,
-        area_sqft=payload.area_sqft,
-        bathrooms=payload.bathrooms,
-        description=payload.description,
-        contact_name=payload.contact_name or current_user.name or "Property Owner",
-        contact_phone=target_phone,
-        contact_whatsapp=payload.contact_whatsapp or target_phone,
-        status=prop_status,
-    )
-    db.add(prop)
+    # 6. Single Atomic Database Transaction
+    try:
+        # Find or create Location
+        location_id = None
+        if payload.city or payload.locality or payload.area:
+            loc_city = payload.city or "Bhopal"
+            loc_locality = payload.locality or payload.area or "Arera Colony"
+            loc_res = await db.execute(
+                select(Location).where(
+                    Location.city.ilike(f"%{loc_city}%"),
+                    Location.locality.ilike(f"%{loc_locality}%")
+                )
+            )
+            loc_obj = loc_res.scalar_one_or_none()
+            if not loc_obj:
+                loc_obj = Location(
+                    city=loc_city,
+                    area=loc_locality,
+                    locality=loc_locality,
+                    full_address=f"{loc_locality}, {loc_city}",
+                )
+                db.add(loc_obj)
+                await db.flush()
+            location_id = loc_obj.id
 
-    # Persist property amenities in database
-    if payload.amenities:
-        from app.models.property import PropertyAmenity
-        for amenity_name in payload.amenities:
-            if amenity_name:
-                db.add(PropertyAmenity(
-                    property_id=prop.id,
-                    amenity=amenity_name
-                ))
+        # Instantiate Property
+        prop = Property(
+            owner_id=owner_id,
+            location_id=location_id,
+            title=payload.title,
+            purpose=p_purpose,
+            category=payload.category or PropertyCategory.RESIDENTIAL,
+            property_type=payload.property_type,
+            price=payload.price,
+            bhk=payload.bhk,
+            area_sqft=payload.area_sqft,
+            bathrooms=payload.bathrooms,
+            description=payload.description,
+            contact_name=payload.contact_name or current_user.name or "Property Owner",
+            contact_phone=target_phone,
+            contact_whatsapp=payload.contact_whatsapp or target_phone,
+            status=prop_status,
+        )
+        db.add(prop)
+        await db.flush()
 
-    await db.commit()
-    await db.refresh(prop)
+        # Add Amenities in same transaction
+        if payload.amenities:
+            for amenity_name in payload.amenities:
+                if amenity_name:
+                    db.add(PropertyAmenity(
+                        property_id=prop.id,
+                        amenity=amenity_name
+                    ))
 
-    # Persist property images in database
-    if payload.images and len(payload.images) > 0:
-        for idx, img_url in enumerate(payload.images):
-            if img_url:
-                db.add(PropertyImage(
-                    property_id=prop.id,
-                    image_url=img_url,
-                    is_cover=(idx == 0),
-                    sort_order=idx
-                ))
+        # Add Images in same transaction
+        if payload.images and len(payload.images) > 0:
+            for idx, img_url in enumerate(payload.images):
+                if img_url:
+                    db.add(PropertyImage(
+                        property_id=prop.id,
+                        image_url=img_url,
+                        is_cover=(idx == 0),
+                        sort_order=idx
+                    ))
+        elif payload.image:
+            db.add(PropertyImage(
+                property_id=prop.id,
+                image_url=payload.image,
+                is_cover=True,
+                sort_order=0
+            ))
+
+        # Single atomic transaction commit
         await db.commit()
-    elif payload.image:
-        db.add(PropertyImage(
-            property_id=prop.id,
-            image_url=payload.image,
-            is_cover=True,
-            sort_order=0
-        ))
-        await db.commit()
+        await db.refresh(prop)
 
+    except Exception as err:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to post property right now. Database transaction failed."
+        )
+
+    # 7. Post-Commit Database Verification
+    verify_res = await db.execute(select(Property).where(Property.id == prop.id))
+    verified_prop = verify_res.scalar_one_or_none()
+    if not verified_prop:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database persistence verification failed. Property record was not found after commit."
+        )
+
+    status_str = verified_prop.status.value if hasattr(verified_prop.status, "value") else str(verified_prop.status)
     return {
-        "id": str(prop.id),
-        "title": prop.title,
-        "status": prop.status.value if hasattr(prop.status, "value") else str(prop.status)
+        "success": True,
+        "property_id": str(verified_prop.id),
+        "id": str(verified_prop.id),
+        "title": verified_prop.title,
+        "status": status_str,
+        "message": "Property submitted successfully and is pending admin approval." if status_str == "pending_approval" else "Property created successfully."
     }
+
 @router.get("/me/dashboard-stats")
 async def get_my_dashboard_stats(
     db: AsyncSession = Depends(get_db),

@@ -173,9 +173,14 @@ export const api = {
     }
   },
 
-  async createProperty(payload: any) {
+  async createProperty(payload: any, idempotencyKey?: string) {
+    const headers: Record<string, string> = {};
+    if (idempotencyKey) {
+      headers["Idempotency-Key"] = idempotencyKey;
+    }
     return apiFetch("/properties", {
       method: "POST",
+      headers,
       body: JSON.stringify(payload),
     });
   },

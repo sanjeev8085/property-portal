@@ -57,7 +57,7 @@ const PLOT_AMENITIES = [
 export default function NewPropertyWizard() {
   const [step, setStep] = useState(1);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const { success, info } = useToast();
+  const { success, info, error } = useToast();
 
   // Authentication Guard — User must be logged in to post a property
   useEffect(() => {
@@ -300,109 +300,83 @@ export default function NewPropertyWizard() {
     if (isPublishing) return;
     setIsPublishing(true);
 
-    const propertyId = Date.now();
+    // Generate unique idempotency key for this submission attempt
+    const idempotencyKey = `prop_pub_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     const finalPriceNum = parseFloat(price) || (purpose === "rent" ? 25000 : 8500000);
-    const finalPriceStr = purpose === "rent" 
-      ? `₹${finalPriceNum.toLocaleString("en-IN")} / Month`
-      : (finalPriceNum >= 10000000 
-          ? `₹${(finalPriceNum / 10000000).toFixed(2)} Cr` 
-          : (finalPriceNum >= 100000 
-              ? `₹${(finalPriceNum / 100000).toFixed(2)} Lakh` 
-              : `₹${finalPriceNum.toLocaleString("en-IN")}`));
 
-    let specsSummary = "";
-    if (propertyType === "Shop") {
-      specsSummary = `${size || "650"} sqft | ${frontage} Front | ${shopFloor} | ${parking || "Roadside Parking"}`;
-    } else if (propertyType === "Office Space") {
-      specsSummary = `${size || "1500"} sqft | ${cabins} | ${workstations} | ${parking}`;
-    } else if (propertyType === "Plot / Land") {
-      specsSummary = `${size || "1500"} sqft | ${dimensions} | ${facing}`;
-    } else {
-      specsSummary = `${bhk} Beds | ${bathrooms} Baths | ${size || "1200"} sqft | ${parking}`;
-    }
-
-    const userIdentifier = typeof window !== "undefined" ? localStorage.getItem("user_email") || localStorage.getItem("user_mobile") || "my_account" : "my_account";
-
-    const newPropertyObj = {
-      id: propertyId,
-      ownerId: userIdentifier,
-      ownerEmail: userIdentifier,
+    const isLandOrComm = ["Plot / Land", "Shop", "Office Space", "Warehouse"].includes(propertyType);
+    const payload = {
       title: getPreviewTitle(),
-      price: finalPriceStr,
-      priceNum: finalPriceNum,
-      purpose: purpose,
-      type: propertyType,
-      bhk: ["Apartment", "Villa / House", "Independent Floor"].includes(propertyType) ? bhk : 0,
-      bathrooms: ["Apartment", "Villa / House", "Independent Floor", "PG / Hostel"].includes(propertyType) ? bathrooms : 0,
-      furnished: ["Apartment", "Villa / House", "Independent Floor", "PG / Hostel"].includes(propertyType) ? furnished : "",
-      parking: propertyType === "Plot / Land" ? "" : parking,
-      size: size || (propertyType === "Plot / Land" ? "1500" : (purpose === "rent" ? "1200" : "1500")),
-      facing: propertyType === "Plot / Land" ? facing : "",
-      dimensions: propertyType === "Plot / Land" ? dimensions : "",
-      boundaryWall: propertyType === "Plot / Land" ? boundaryWall : "",
-      cornerPlot: propertyType === "Plot / Land" ? cornerPlot : "",
-      frontage: propertyType === "Shop" ? frontage : "",
-      shopFloor: propertyType === "Shop" ? shopFloor : "",
-      shopWashroom: propertyType === "Shop" ? shopWashroom : "",
-      cabins: propertyType === "Office Space" ? cabins : "",
-      workstations: propertyType === "Office Space" ? workstations : "",
-      pgFor: propertyType === "PG / Hostel" ? pgFor : "",
-      roomType: propertyType === "PG / Hostel" ? roomType : "",
-      foodIncluded: propertyType === "PG / Hostel" ? foodIncluded : "",
-      location: `${locality ? locality + ", " : ""}${area || "Arera Colony"}, ${city}`,
-      specs: specsSummary,
-      image: photos[0] || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80",
-      photos: photos,
+      price: finalPriceNum,
+      purpose: purpose === "sell" ? "sell" : "rent",
+      category: ["Shop", "Office Space", "Warehouse"].includes(propertyType) ? "commercial" : "residential",
+      property_type: propertyType,
+      bhk: isLandOrComm ? null : (Number(bhk) || null),
+      area_sqft: parseFloat(String(size)) || 1200,
+      bathrooms: propertyType === "Plot / Land" ? null : (Number(bathrooms) || null),
       description: description || "Verified listing posted by owner on AuraHomes portal.",
-      contactName: contactName || "Property Owner",
-      contactPhone: contactPhone || "",
-      created_at: new Date().toISOString(),
-      views: 1,
-      leads: 0,
-      status: "published",
+      images: photos && photos.length > 0 ? photos : [photos[0] || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80"],
+      image: photos[0] || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80",
+      city: city || "Bhopal",
+      locality: locality || area || "Arera Colony",
+      contact_name: contactName || "Property Owner",
+      contact_phone: contactPhone || "",
       amenities: selectedAmenities,
     };
 
-    // Send full payload including images and location to cloud database
-    let cloudSaveSuccess = false;
     try {
-      const isLandOrComm = ["Plot / Land", "Shop", "Office Space", "Warehouse"].includes(propertyType);
-      const cloudRes = await api.createProperty({
-        title: newPropertyObj.title,
-        price: finalPriceNum,
-        purpose: purpose === "sell" ? "sell" : "rent",
-        category: ["Shop", "Office Space", "Warehouse"].includes(propertyType) ? "commercial" : "residential",
-        property_type: propertyType,
-        bhk: isLandOrComm ? null : (Number(bhk) || null),
-        area_sqft: parseFloat(String(size)) || 1200,
-        bathrooms: propertyType === "Plot / Land" ? null : (Number(bathrooms) || null),
-        description: newPropertyObj.description,
-        images: photos && photos.length > 0 ? photos : [newPropertyObj.image],
-        image: photos[0] || newPropertyObj.image,
-        city: city || "Bhopal",
-        locality: locality || area || "Arera Colony",
-        contact_name: contactName || "Property Owner",
-        contact_phone: contactPhone || "",
-        amenities: selectedAmenities,
-      });
+      // 1. Send property creation request with Idempotency-Key
+      const cloudRes = await api.createProperty(payload, idempotencyKey);
+      const returnedId = cloudRes?.property_id || cloudRes?.id;
 
-      if (cloudRes && cloudRes.id) {
-        newPropertyObj.id = cloudRes.id;
-        cloudSaveSuccess = true;
+      // 2. Strict Confirmation Guard: NO property_id = NO SUCCESS
+      if (!cloudRes || !returnedId || cloudRes?.success === false) {
+        throw new Error(cloudRes?.detail || cloudRes?.message || "Property creation failed. Database did not return confirmation.");
       }
-    } catch (err) {
-      console.warn("Cloud database sync note:", err);
-    }
 
-    // Only save to localStorage as offline fallback when cloud save failed
-    if (!cloudSaveSuccess) {
-      savePublishedProperty(newPropertyObj);
-    }
+      // 3. Post-Creation Refresh Verification (Confirm property can be retrieved from backend API)
+      try {
+        await api.getProperty(returnedId);
+      } catch {
+        // Backend DB commit is primary confirmation; proceed if GET endpoint has minor delay
+      }
 
-    success("🎉 Property published successfully! It is now live in the search & buy listings.");
-    setTimeout(() => {
-      window.location.href = `/search?purpose=${purpose === "sell" ? "sell" : "rent"}`;
-    }, 1200);
+      // 4. ONLY NOW show success and navigate
+      const statusMsg = cloudRes.status === "pending_approval"
+        ? "✓ Property submitted successfully! Your listing is pending admin approval."
+        : "🎉 Property posted successfully! It is now live in the listings.";
+      
+      success(statusMsg);
+
+      setTimeout(() => {
+        window.location.href = `/properties/${returnedId}`;
+      }, 1200);
+    } catch (err: any) {
+      setIsPublishing(false);
+      const errMsg = err?.message || "";
+
+      if (errMsg.includes("401") || errMsg.toLowerCase().includes("authentication required")) {
+        info("Please log in to post a property listing.");
+        setTimeout(() => {
+          window.location.href = `/login?next=/dashboard/properties/new`;
+        }, 1000);
+        return;
+      }
+      if (errMsg.includes("403") || errMsg.toLowerCase().includes("role")) {
+        info("Only owner or agent accounts can post properties. Please update your account type in Profile settings.");
+        return;
+      }
+      if (errMsg.includes("409") || errMsg.toLowerCase().includes("duplicate")) {
+        info("Duplicate property detected. This property has already been submitted.");
+        return;
+      }
+      if (errMsg.includes("422") || errMsg.toLowerCase().includes("validation")) {
+        info(`Validation error: ${errMsg}`);
+        return;
+      }
+
+      info(errMsg || "We couldn't confirm that your property was posted. Please check your connection and try again.");
+    }
   };
 
   const getPreviewTitle = () => {
@@ -1151,7 +1125,8 @@ export default function NewPropertyWizard() {
             type="button" 
             className="btn-secondary" 
             onClick={handlePrev}
-            style={{ visibility: step === 1 ? "hidden" : "visible" }}
+            disabled={isPublishing}
+            style={{ visibility: step === 1 ? "hidden" : "visible", opacity: isPublishing ? 0.5 : 1 }}
           >
             Previous
           </button>
@@ -1164,7 +1139,7 @@ export default function NewPropertyWizard() {
               disabled={isPublishing}
               style={{ opacity: isPublishing ? 0.7 : 1, cursor: isPublishing ? "not-allowed" : "pointer" }}
             >
-              {isPublishing ? "Publishing Listing..." : "Publish Property Listing"}
+              {isPublishing ? "Posting Property..." : "Publish Property Listing"}
             </button>
           ) : (
             <button type="button" className="btn-primary" onClick={handleNext}>

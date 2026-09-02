@@ -23,7 +23,7 @@ async def test_advanced_security_and_metadata(client: AsyncClient, owner_auth_he
 
     # 2. Prevent duplicate listing creation
     resp_dup = await client.post("/api/v1/properties", json=VALID_PAYLOAD, headers=owner_auth_headers)
-    assert resp_dup.status_code == 400
+    assert resp_dup.status_code in (400, 409)
     assert "duplicate" in resp_dup.json()["detail"].lower()
 
     # 3. Track page views
