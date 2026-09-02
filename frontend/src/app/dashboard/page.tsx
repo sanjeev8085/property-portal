@@ -26,6 +26,13 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Auth guard: redirect to login if no token present
+    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+    if (!token) {
+      window.location.href = "/login?next=/dashboard";
+      return;
+    }
+
     let active = true;
     api.getDashboardStats()
       .then((res: any) => {
@@ -36,7 +43,15 @@ export default function DashboardPage() {
       })
       .catch((err: any) => {
         if (active) {
-          setError(err.message || "Failed to load dashboard statistics.");
+          // If 401/auth error, redirect to login
+          const msg = err?.message || "";
+          if (msg.includes("401") || msg.toLowerCase().includes("authenticated") || msg.toLowerCase().includes("not authenticated")) {
+            localStorage.removeItem("access_token");
+            localStorage.removeItem("refresh_token");
+            window.location.href = "/login?next=/dashboard";
+            return;
+          }
+          setError(msg || "Failed to load dashboard statistics.");
           setLoading(false);
         }
       });

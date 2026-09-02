@@ -78,6 +78,8 @@ export default function PropertyDetailsPage() {
         }
         if (remote && remote.title) {
           if (isMounted) {
+            const serverHasContactAccess = Boolean(remote.is_unlocked || remote.is_owner);
+            setIsUnlocked(serverHasContactAccess);
             setCustomProp({
               id: remote.id,
               title: remote.title,
@@ -100,8 +102,9 @@ export default function PropertyDetailsPage() {
               size: `${remote.area_sqft || 1200}`,
               description: remote.description,
               contactName: remote.owner?.name || remote.contact_name || "Verified Owner",
-              contactPhone: remote.owner?.mobile || remote.contact_phone || "",
-              ownerEmail: remote.owner?.email || remote.contact_email || "",
+              // The API deliberately omits raw contact fields until it has authorized an unlock.
+              contactPhone: serverHasContactAccess ? (remote.contact_phone || remote.owner?.mobile || "") : "",
+              ownerEmail: serverHasContactAccess ? (remote.contact_email || remote.owner?.email || "") : "",
               ownerId: remote.owner_id || "",
               amenities: remote.amenities || [],
             });
@@ -152,8 +155,9 @@ export default function PropertyDetailsPage() {
                 size: `${remote.area_sqft || 1200}`,
                 description: remote.description,
                 contactName: remote.owner?.name || remote.contact_name || "Verified Owner",
-                contactPhone: remote.owner?.mobile || remote.contact_phone || "",
-                ownerEmail: remote.owner?.email || remote.contact_email || "",
+                // Search results never carry owner contact details.
+                contactPhone: "",
+                ownerEmail: "",
                 ownerId: remote.owner_id || "",
                 amenities: remote.amenities || [],
               });
@@ -195,8 +199,8 @@ export default function PropertyDetailsPage() {
             size: "1200",
             description: "Premium fully-furnished PG & Coliving Space in Gandhi Nagar, Bhopal. Includes high-speed WiFi, 24x7 security, power backup, covered parking, and daily housekeeping.",
             contactName: "Verified Owner",
-            contactPhone: "9893012345",
-            ownerEmail: "owner.gandhinagar@aurahomes.in",
+            contactPhone: "",
+            ownerEmail: "",
             ownerId: "verified-owner-gn",
             amenities: ["Covered Parking", "24x7 Security", "Full Power Backup", "High-Speed WiFi", "Daily Housekeeping", "RO Water Purifier"],
           });
@@ -226,19 +230,21 @@ export default function PropertyDetailsPage() {
   const loggedInName = typeof window !== "undefined" ? localStorage.getItem("user_name") || "" : "";
   const loggedInUserId = typeof window !== "undefined" ? localStorage.getItem("user_id") || "" : "";
 
-  const isOwner = Boolean(
+  const isLocalOwner = Boolean(
     (customProp?.ownerId && loggedInUserId && customProp.ownerId === loggedInUserId) ||
     (customProp?.ownerEmail && loggedInEmail && customProp.ownerEmail.toLowerCase() === loggedInEmail.toLowerCase()) ||
     (customProp?.contactPhone && loggedInPhone && customProp.contactPhone.replace(/\D/g, "") === loggedInPhone.replace(/\D/g, "")) ||
     (customProp?.contactName && loggedInName && customProp.contactName.trim().toLowerCase() === loggedInName.trim().toLowerCase())
   );
 
+  // Only expose raw phone/email after a confirmed server-side unlock or owner identity
+  const isOwnerView = isLocalOwner || isUnlocked;
   const resolvedOwnerName = customProp?.contactName || "Verified Owner";
-  const resolvedOwnerEmail = customProp?.ownerEmail || (customProp?.contactName ? `${customProp.contactName.toLowerCase().replace(/\s+/g, '')}@gmail.com` : "contact.owner@aurahomes.in");
-  const resolvedPhone = customProp?.contactPhone ? `+91 ${customProp.contactPhone}` : "";
+  const resolvedOwnerEmail = isOwnerView ? (customProp?.ownerEmail || "") : "";
+  const resolvedPhone = isOwnerView && customProp?.contactPhone ? `+91 ${customProp.contactPhone}` : "";
   const maskedPhone = customProp?.contactPhone ? `+91 ${customProp.contactPhone.slice(0, 5)} XXXXX` : "+91 XXXXX XXXXX";
-  const maskedEmail = resolvedOwnerEmail.includes("@") 
-    ? `${resolvedOwnerEmail.slice(0, 3)}***@${resolvedOwnerEmail.split("@")[1]}` 
+  const maskedEmail = (customProp?.ownerEmail && isOwnerView && customProp.ownerEmail.includes("@"))
+    ? `${customProp.ownerEmail.slice(0, 3)}***@${customProp.ownerEmail.split("@")[1]}`
     : "owner***@aurahomes.in";
 
   const propType = customProp?.type || (customProp?.title?.toLowerCase().includes("plot") ? "Plot / Land" : (customProp?.title?.toLowerCase().includes("shop") ? "Shop" : (customProp?.title?.toLowerCase().includes("office") ? "Office Space" : (customProp?.title?.toLowerCase().includes("warehouse") ? "Warehouse" : (customProp?.title?.toLowerCase().includes("pg") ? "PG / Hostel" : "Apartment")))));
@@ -383,12 +389,13 @@ export default function PropertyDetailsPage() {
     amenities: resolvedAmenities,
     owner: {
       name: resolvedOwnerName,
-      status: isOwner ? "Your Listing" : "Verified Owner",
+      status: isLocalOwner ? "Your Listing" : "Verified Owner",
       memberSince: "Member since 2026",
-      phone: maskedPhone,
-      unlockedPhone: resolvedPhone,
-      rawPhone: customProp?.contactPhone || "",
-      email: resolvedOwnerEmail,
+      phone: isOwnerView ? resolvedPhone : maskedPhone,
+      unlockedPhone: isOwnerView ? resolvedPhone : "",
+      // rawPhone is only set after unlock — never before — so wa.me URLs cannot be derived from DOM
+      rawPhone: isOwnerView ? (customProp?.contactPhone || "") : "",
+      email: isOwnerView ? resolvedOwnerEmail : "",
       maskedEmail: maskedEmail,
     }
   };
@@ -403,18 +410,31 @@ export default function PropertyDetailsPage() {
     setActivePhotoIdx((prev) => (prev - 1 + propertyDetails.photos.length) % propertyDetails.photos.length);
   };
 
-  const handleContactOwner = () => {
+  const handleContactOwner = async () => {
     const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
     if (!token) {
       window.location.href = `/login?next=/properties/${rawParam}`;
       return;
     }
-    if (credits > 0) {
-      setCredits(credits - 1);
+    try {
+      const unlock = await api.unlockContact(String(propertyDetails.id));
+      if (!unlock?.contact_phone) {
+        throw new Error("The contact could not be unlocked. Please try again.");
+      }
+      setCustomProp((current) => current ? {
+        ...current,
+        contactPhone: unlock.contact_phone,
+        ownerEmail: unlock.contact_email || unlock.contact?.email || current.ownerEmail,
+      } : current);
+      setCredits(typeof unlock.remaining_credits === "number" ? unlock.remaining_credits : Math.max(0, credits - 1));
       setIsUnlocked(true);
       success("Contact unlocked successfully! ✓");
-    } else {
-      setShowPlansModal(true);
+    } catch (err: any) {
+      if (/credit|payment|required|402/i.test(err?.message || "")) {
+        setShowPlansModal(true);
+        return;
+      }
+      info(err?.message || "Unable to unlock owner contact right now.");
     }
   };
 
@@ -443,7 +463,9 @@ export default function PropertyDetailsPage() {
   const whatsappMsg = encodeURIComponent(
     `Hi ${propertyDetails.owner.name}, I am interested in your property "${propertyDetails.title}" listed on AuraHomes (${propertyDetails.price}). Could you please share more details?`
   );
-  const whatsappUrl = `https://wa.me/91${propertyDetails.owner.rawPhone.replace(/\D/g, "")}?text=${whatsappMsg}`;
+  const whatsappUrl = isUnlocked && propertyDetails.owner.rawPhone
+    ? `https://wa.me/91${propertyDetails.owner.rawPhone.replace(/\D/g, "")}?text=${whatsappMsg}`
+    : null;
 
   if (isLoading) {
     return (
@@ -895,14 +917,14 @@ export default function PropertyDetailsPage() {
                   <span className="verified-check">✓</span>
                 </div>
                 <span className="owner-badge">
-                  {isOwner ? "Your Property Listing" : "Verified Owner • Fast Responder"}
+                  {isLocalOwner ? "Your Property Listing" : "Verified Owner • Fast Responder"}
                 </span>
               </div>
             </div>
 
             <div className="divider" style={{ margin: "16px 0" }}></div>
 
-            {isOwner ? (
+            {isLocalOwner ? (
               <div className="unlocked-contact-box fade-in">
                 <div style={{ background: "rgba(99, 102, 241, 0.1)", color: "var(--primary)", padding: "8px 14px", borderRadius: "8px", fontWeight: 700, marginBottom: "14px", fontSize: "13px" }}>
                   👤 This is your property listing (Owner View)
@@ -943,7 +965,7 @@ export default function PropertyDetailsPage() {
                   <a href={`tel:${propertyDetails.owner.unlockedPhone}`} className="btn-call-direct">
                     📞 Call Owner Now
                   </a>
-                  <a href={whatsappUrl} target="_blank" rel="noreferrer" className="btn-whatsapp-direct">
+                  <a href={whatsappUrl || "#"} target="_blank" rel="noreferrer" className="btn-whatsapp-direct">
                     💬 WhatsApp Chat
                   </a>
                 </div>
@@ -1007,7 +1029,7 @@ export default function PropertyDetailsPage() {
               <span className="credit-badge">{credits} Credits</span>
             </div>
 
-            {isOwner ? (
+            {isLocalOwner ? (
               <div className="unlocked-contact-info fade-in">
                 <p className="unlock-success-msg" style={{ background: "rgba(99, 102, 241, 0.1)", color: "var(--primary)" }}>
                   👤 Your Property Listing
@@ -1042,7 +1064,7 @@ export default function PropertyDetailsPage() {
                   </div>
                 </div>
                 <a 
-                  href={whatsappUrl}
+                  href={whatsappUrl || "#"}
                   target="_blank"
                   rel="noreferrer"
                   className="btn-whatsapp"
@@ -1078,7 +1100,7 @@ export default function PropertyDetailsPage() {
         <div className="bar-buttons-col">
           {isUnlocked ? (
             <>
-              <a href={whatsappUrl} target="_blank" rel="noreferrer" className="btn-mobile-wa">
+              <a href={whatsappUrl || "#"} target="_blank" rel="noreferrer" className="btn-mobile-wa">
                 💬 WhatsApp
               </a>
               <a href={`tel:${propertyDetails.owner.unlockedPhone}`} className="btn-mobile-call">
@@ -1087,9 +1109,9 @@ export default function PropertyDetailsPage() {
             </>
           ) : (
             <>
-              <a href={whatsappUrl} target="_blank" rel="noreferrer" className="btn-mobile-wa">
-                💬 WhatsApp
-              </a>
+              <button type="button" className="btn-mobile-wa" onClick={handleContactOwner}>
+                💬 Unlock WhatsApp
+              </button>
               <button type="button" className="btn-mobile-call" onClick={handleContactOwner}>
                 📞 Contact Owner
               </button>

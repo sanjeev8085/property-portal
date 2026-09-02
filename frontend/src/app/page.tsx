@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { generatePropertySlug, normalizeImage, getFallbackImage } from "@/lib/slug";
-import { getPublishedProperties, getDeactivatedPropertyIds, syncOfflinePropertiesToCloud, StoredProperty } from "@/lib/propertyStore";
+import { getPublishedProperties, getDeactivatedPropertyIds, StoredProperty } from "@/lib/propertyStore";
 import { api } from "@/lib/api";
 
 const DEFAULT_FEATURED: any[] = [];
@@ -16,28 +16,26 @@ export default function Home() {
 
   useEffect(() => {
     const loadProps = async () => {
-      // Step 1: Sync any offline localStorage properties to cloud DB
-      try {
-        await syncOfflinePropertiesToCloud();
-      } catch {
-        // Ignored
-      }
-
-      // Step 2: Fetch deactivated IDs
+      // Fetch deactivated IDs (fast, cached endpoint)
       let remoteDeactIds: string[] = [];
       try {
         remoteDeactIds = await api.getDeactivatedIds();
       } catch {
-        // Fallback
+        // Fallback to empty
       }
       const deactSet = new Set([...getDeactivatedPropertyIds(), ...remoteDeactIds]);
 
-      // Step 3: Cloud DB = Single Source of Truth
-      // Only fall back to localStorage when the API is unreachable
+      // Cloud DB = Single Source of Truth for homepage featured listings
+      // Retry once on empty response to handle Render.com cold-start delays
       let sourceProps: any[] = [];
       let usedCloud = false;
       try {
-        const res = await api.getProperties();
+        let res = await api.getProperties("per_page=6");
+        if (!Array.isArray(res) || res.length === 0) {
+          // Wait 1.2s and retry — Render free tier can take time to wake up
+          await new Promise((resolve) => setTimeout(resolve, 1200));
+          res = await api.getProperties("per_page=6");
+        }
         if (Array.isArray(res) && res.length > 0) {
           sourceProps = res;
           usedCloud = true;
@@ -49,12 +47,12 @@ export default function Home() {
       // Offline fallback: only use localStorage if cloud returned nothing
       if (!usedCloud || sourceProps.length === 0) {
         const published = getPublishedProperties();
-        if (published.length > 0 && sourceProps.length === 0) {
+        if (published.length > 0) {
           sourceProps = published;
         }
       }
 
-      // Step 4: Deduplicate and filter
+      // Deduplicate and filter
       const seenIds = new Set<string>();
       const unique = sourceProps.filter(p => {
         if (!p || !p.id) return false;

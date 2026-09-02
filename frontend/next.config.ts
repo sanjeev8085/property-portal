@@ -20,6 +20,27 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      // UAT-006: /pricing was used in automated tests but page doesn't exist
+      {
+        source: "/pricing",
+        destination: "/plans",
+        permanent: true,
+      },
+      // Common URL aliases
+      {
+        source: "/properties",
+        destination: "/search",
+        permanent: true,
+      },
+      {
+        source: "/listings",
+        destination: "/search",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

@@ -32,7 +32,14 @@ export default function ProfilePage() {
   useEffect(() => {
     const loadUserData = async () => {
       setIsLoadingUser(true);
-      
+
+      // Auth guard: redirect to login if no token
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        window.location.href = "/login?next=/account/profile";
+        return;
+      }
+
       // Load from LocalStorage first for instant rendering
       const storedName = localStorage.getItem("user_name") || "";
       const storedEmail = localStorage.getItem("user_email") || "";
@@ -47,27 +54,31 @@ export default function ProfilePage() {
       setCity(storedCity);
 
       // Fetch fresh data from backend API
-      const token = localStorage.getItem("access_token");
-      if (token) {
-        try {
-          const remoteUser = await api.getMe();
-          if (remoteUser) {
-            if (remoteUser.id) setUserId(remoteUser.id);
-            if (remoteUser.name) setFullName(remoteUser.name);
-            if (remoteUser.email) setEmail(remoteUser.email);
-            if (remoteUser.mobile) setPhone(remoteUser.mobile);
-            if (remoteUser.city) setCity(remoteUser.city);
-            if (remoteUser.user_type) setUserType(remoteUser.user_type);
+      try {
+        const remoteUser = await api.getMe();
+        if (remoteUser) {
+          if (remoteUser.id) setUserId(remoteUser.id);
+          if (remoteUser.name) setFullName(remoteUser.name);
+          if (remoteUser.email) setEmail(remoteUser.email);
+          if (remoteUser.mobile) setPhone(remoteUser.mobile);
+          if (remoteUser.city) setCity(remoteUser.city);
+          if (remoteUser.user_type) setUserType(remoteUser.user_type);
 
-            // Keep localStorage updated
-            if (remoteUser.name) localStorage.setItem("user_name", remoteUser.name);
-            if (remoteUser.email) localStorage.setItem("user_email", remoteUser.email);
-            if (remoteUser.mobile) localStorage.setItem("user_mobile", remoteUser.mobile);
-            if (remoteUser.user_type) localStorage.setItem("user_type", remoteUser.user_type);
-          }
-        } catch {
-          // Keep local fallback
+          // Keep localStorage updated
+          if (remoteUser.name) localStorage.setItem("user_name", remoteUser.name);
+          if (remoteUser.email) localStorage.setItem("user_email", remoteUser.email);
+          if (remoteUser.mobile) localStorage.setItem("user_mobile", remoteUser.mobile);
+          if (remoteUser.user_type) localStorage.setItem("user_type", remoteUser.user_type);
         }
+      } catch (err: any) {
+        // If 401, token is invalid — redirect to login
+        if (err?.message?.includes("401") || err?.message?.toLowerCase().includes("authenticated")) {
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("refresh_token");
+          window.location.href = "/login?next=/account/profile";
+          return;
+        }
+        // Otherwise keep local fallback
       }
       setIsLoadingUser(false);
     };

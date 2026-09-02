@@ -2,7 +2,7 @@ const RAW_URL = process.env.NEXT_PUBLIC_API_URL || "https://aurahomes-backend-tz
 const CLEAN_URL = RAW_URL.replace(/\/+$/, "");
 const API_BASE_URL = CLEAN_URL.endsWith("/api/v1") ? CLEAN_URL : `${CLEAN_URL}/api/v1`;
 
-// Helper to fetch wrapper with token injection and graceful 401 re-authentication handling
+// Helper to fetch wrapper with token injection
 async function apiFetch(endpoint: string, options: RequestInit = {}, isRetry: boolean = false): Promise<any> {
   let token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
   
@@ -18,29 +18,11 @@ async function apiFetch(endpoint: string, options: RequestInit = {}, isRetry: bo
       headers,
     });
 
-    // Handle 401 Unauthorized by attempting auto-login for admin or refreshing token
+    // On 401, clear stale token and let the caller handle it
     if (response.status === 401 && !isRetry && !endpoint.includes("/auth/login")) {
-      if (endpoint.startsWith("/admin") || endpoint.includes("/approve") || endpoint.includes("/reject") || endpoint.includes("/verify")) {
-        try {
-          const adminLoginRes = await fetch(`${API_BASE_URL}/auth/login`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              email_or_mobile: "admin@aurahomes.in",
-              password: "AuraAdmin@2026#Secure",
-            }),
-          });
-          if (adminLoginRes.ok) {
-            const adminData = await adminLoginRes.json();
-            if (adminData.access_token && typeof window !== "undefined") {
-              localStorage.setItem("access_token", adminData.access_token);
-              localStorage.setItem("user_type", "admin");
-              return apiFetch(endpoint, options, true);
-            }
-          }
-        } catch {
-          // Ignored
-        }
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
       }
     }
 
@@ -192,66 +174,10 @@ export const api = {
   },
 
   async createProperty(payload: any) {
-    const ensureOwnerToken = async () => {
-      try {
-        const phone = payload.contact_phone ? payload.contact_phone.replace(/\D/g, "") : "9876543210";
-        const cleanName = (payload.contact_name || "owner").toLowerCase().replace(/[^a-z0-9]/g, "");
-        const email = `${cleanName}_${phone.slice(-4)}@aurahomes.in`;
-        
-        try {
-          const regRes = await api.register({
-            name: payload.contact_name || "Property Owner",
-            email: email,
-            mobile: phone.length >= 10 ? phone.slice(-10) : "9876543210",
-            password: "Password@123",
-            user_type: "owner",
-          });
-          if (regRes?.access_token) return regRes.access_token;
-        } catch {
-          const logRes = await api.login({
-            email_or_mobile: email,
-            password: "Password@123",
-          });
-          if (logRes?.access_token) return logRes.access_token;
-        }
-      } catch {
-        return null;
-      }
-      return null;
-    };
-
-    let token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-    if (!token) {
-      token = await ensureOwnerToken();
-    }
-
-    if (token) {
-      try {
-        await apiFetch("/users/me", {
-          method: "PUT",
-          body: JSON.stringify({ user_type: "owner" }),
-        });
-      } catch {
-        // Ignored
-      }
-    }
-
-    try {
-      return await apiFetch("/properties", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-    } catch (err: any) {
-      // If 401 Unauthorized occurs, obtain fresh token and retry immediately
-      const freshToken = await ensureOwnerToken();
-      if (freshToken) {
-        return await apiFetch("/properties", {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
-      }
-      throw err;
-    }
+    return apiFetch("/properties", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
 
   // Credits API
