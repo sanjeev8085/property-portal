@@ -1,5 +1,5 @@
 -- ==============================================================================
--- Supabase Security Migration: Enable RLS & Add Policies for 100% Clean Linter
+-- Supabase Security Migration: Perfect 0-Warning RLS Policy Setup
 -- ==============================================================================
 
 -- 1. Enable RLS on all 19 public schema tables
@@ -23,10 +23,25 @@ ALTER TABLE IF EXISTS public.property_images ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.property_amenities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.property_views ENABLE ROW LEVEL SECURITY;
 
--- 2. Define Explicit Policies for All 19 Tables to resolve "rls_enabled_no_policy" INFO warnings
+-- 2. Drop previous legacy policies to replace with targeted role-restricted policies
+DO $$
+DECLARE
+    tbl text;
+    tables_list text[] := ARRAY[
+        'users', 'audit_logs', 'contact_credits', 'contact_unlocks',
+        'deactivated_properties', 'favorites', 'notifications', 'payments',
+        'property_reports', 'property_verifications', 'property_views',
+        'saved_searches', 'subscriptions'
+    ];
+BEGIN
+    FOREACH tbl IN ARRAY tables_list LOOP
+        EXECUTE format('DROP POLICY IF EXISTS service_access_%I ON public.%I;', tbl, tbl);
+    END LOOP;
+END $$;
+
+-- 3. Create SELECT-only policies for public data (Supabase Linter permits FOR SELECT USING (true))
 DO $$
 BEGIN
-    -- Public Read Tables
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'properties' AND policyname = 'allow_public_read_properties') THEN
         CREATE POLICY allow_public_read_properties ON public.properties FOR SELECT USING (true);
     END IF;
@@ -51,56 +66,56 @@ BEGIN
         CREATE POLICY allow_public_read_agents ON public.agents FOR SELECT USING (true);
     END IF;
 
-    -- Backend / Service Level Policies for remaining 13 tables
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'users' AND policyname = 'service_access_users') THEN
-        CREATE POLICY service_access_users ON public.users FOR ALL USING (true);
+    -- Service-role targeted policies for private backend tables (restricted to service_role)
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'users' AND policyname = 'service_role_users') THEN
+        CREATE POLICY service_role_users ON public.users TO service_role USING (true) WITH CHECK (true);
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'audit_logs' AND policyname = 'service_access_audit_logs') THEN
-        CREATE POLICY service_access_audit_logs ON public.audit_logs FOR ALL USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'audit_logs' AND policyname = 'service_role_audit_logs') THEN
+        CREATE POLICY service_role_audit_logs ON public.audit_logs TO service_role USING (true) WITH CHECK (true);
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'contact_credits' AND policyname = 'service_access_contact_credits') THEN
-        CREATE POLICY service_access_contact_credits ON public.contact_credits FOR ALL USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'contact_credits' AND policyname = 'service_role_contact_credits') THEN
+        CREATE POLICY service_role_contact_credits ON public.contact_credits TO service_role USING (true) WITH CHECK (true);
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'contact_unlocks' AND policyname = 'service_access_contact_unlocks') THEN
-        CREATE POLICY service_access_contact_unlocks ON public.contact_unlocks FOR ALL USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'contact_unlocks' AND policyname = 'service_role_contact_unlocks') THEN
+        CREATE POLICY service_role_contact_unlocks ON public.contact_unlocks TO service_role USING (true) WITH CHECK (true);
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'deactivated_properties' AND policyname = 'service_access_deactivated_properties') THEN
-        CREATE POLICY service_access_deactivated_properties ON public.deactivated_properties FOR ALL USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'deactivated_properties' AND policyname = 'service_role_deactivated_properties') THEN
+        CREATE POLICY service_role_deactivated_properties ON public.deactivated_properties TO service_role USING (true) WITH CHECK (true);
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'favorites' AND policyname = 'service_access_favorites') THEN
-        CREATE POLICY service_access_favorites ON public.favorites FOR ALL USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'favorites' AND policyname = 'service_role_favorites') THEN
+        CREATE POLICY service_role_favorites ON public.favorites TO service_role USING (true) WITH CHECK (true);
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'notifications' AND policyname = 'service_access_notifications') THEN
-        CREATE POLICY service_access_notifications ON public.notifications FOR ALL USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'notifications' AND policyname = 'service_role_notifications') THEN
+        CREATE POLICY service_role_notifications ON public.notifications TO service_role USING (true) WITH CHECK (true);
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'payments' AND policyname = 'service_access_payments') THEN
-        CREATE POLICY service_access_payments ON public.payments FOR ALL USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'payments' AND policyname = 'service_role_payments') THEN
+        CREATE POLICY service_role_payments ON public.payments TO service_role USING (true) WITH CHECK (true);
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'property_reports' AND policyname = 'service_access_property_reports') THEN
-        CREATE POLICY service_access_property_reports ON public.property_reports FOR ALL USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'property_reports' AND policyname = 'service_role_property_reports') THEN
+        CREATE POLICY service_role_property_reports ON public.property_reports TO service_role USING (true) WITH CHECK (true);
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'property_verifications' AND policyname = 'service_access_property_verifications') THEN
-        CREATE POLICY service_access_property_verifications ON public.property_verifications FOR ALL USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'property_verifications' AND policyname = 'service_role_property_verifications') THEN
+        CREATE POLICY service_role_property_verifications ON public.property_verifications TO service_role USING (true) WITH CHECK (true);
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'property_views' AND policyname = 'service_access_property_views') THEN
-        CREATE POLICY service_access_property_views ON public.property_views FOR ALL USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'property_views' AND policyname = 'service_role_property_views') THEN
+        CREATE POLICY service_role_property_views ON public.property_views TO service_role USING (true) WITH CHECK (true);
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'saved_searches' AND policyname = 'service_access_saved_searches') THEN
-        CREATE POLICY service_access_saved_searches ON public.saved_searches FOR ALL USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'saved_searches' AND policyname = 'service_role_saved_searches') THEN
+        CREATE POLICY service_role_saved_searches ON public.saved_searches TO service_role USING (true) WITH CHECK (true);
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'subscriptions' AND policyname = 'service_access_subscriptions') THEN
-        CREATE POLICY service_access_subscriptions ON public.subscriptions FOR ALL USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'subscriptions' AND policyname = 'service_role_subscriptions') THEN
+        CREATE POLICY service_role_subscriptions ON public.subscriptions TO service_role USING (true) WITH CHECK (true);
     END IF;
 END $$;

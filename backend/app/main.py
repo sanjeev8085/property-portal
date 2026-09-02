@@ -79,8 +79,9 @@ async def lifespan(app: FastAPI):
                     policy_sql = text(f"""
                         DO $$
                         BEGIN
-                            IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '{tbl}' AND policyname = 'service_access_{tbl}') THEN
-                                CREATE POLICY service_access_{tbl} ON public.{tbl} FOR ALL USING (true);
+                            DROP POLICY IF EXISTS service_access_{tbl} ON public.{tbl};
+                            IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '{tbl}' AND policyname = 'service_role_{tbl}') THEN
+                                CREATE POLICY service_role_{tbl} ON public.{tbl} TO service_role USING (true) WITH CHECK (true);
                             END IF;
                         END $$;
                     """)
