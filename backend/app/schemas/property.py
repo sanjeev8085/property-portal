@@ -15,6 +15,10 @@ class PropertyCreate(BaseModel):
     floor: Optional[int] = None
     total_floors: Optional[int] = None
     furnished_status: Optional[Any] = None
+    furnished: Optional[str] = None
+    pg_for: Optional[str] = None
+    room_type: Optional[str] = None
+    food_status: Optional[str] = None
     parking: Optional[int] = None
     description: Optional[str] = None
     images: Optional[List[str]] = None

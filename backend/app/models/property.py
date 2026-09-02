@@ -69,6 +69,9 @@ class Property(Base):
     floor = Column(Integer, nullable=True)
     total_floors = Column(Integer, nullable=True)
     furnished_status = Column(Enum(FurnishedStatus), nullable=True)
+    pg_for = Column(String(50), nullable=True)
+    room_type = Column(String(100), nullable=True)
+    food_status = Column(String(100), nullable=True)
     parking = Column(Integer, nullable=True)
     property_age = Column(Integer, nullable=True)  # Years
     preferred_tenant = Column(String(100), nullable=True)

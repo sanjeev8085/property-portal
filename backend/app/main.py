@@ -85,7 +85,10 @@ async def lifespan(app: FastAPI):
                             END IF;
                         END $$;
                     """)
-                    await conn.execute(policy_sql)
+                # Ensure new attribute columns exist on properties table
+                await conn.execute(text("ALTER TABLE properties ADD COLUMN IF NOT EXISTS pg_for VARCHAR(50);"))
+                await conn.execute(text("ALTER TABLE properties ADD COLUMN IF NOT EXISTS room_type VARCHAR(100);"))
+                await conn.execute(text("ALTER TABLE properties ADD COLUMN IF NOT EXISTS food_status VARCHAR(100);"))
         logger.info("Database schemas and Row Level Security (RLS) verified.")
     except Exception as e:
         logger.warning(f"Database schema auto-creation skipped or already initialized: {e}")

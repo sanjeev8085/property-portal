@@ -116,6 +116,19 @@ async def create_property(
                 db.add(loc_obj)
                 await db.flush()
             location_id = loc_obj.id
+        
+        # Safe FurnishedStatus Enum mapping
+        f_val = payload.furnished_status or payload.furnished
+        p_furnished = None
+        if f_val:
+            from app.models.property import FurnishedStatus
+            f_str = str(f_val).lower().replace("-", "_")
+            if "semi" in f_str:
+                p_furnished = FurnishedStatus.SEMI_FURNISHED
+            elif "un" in f_str:
+                p_furnished = FurnishedStatus.UNFURNISHED
+            elif "furnish" in f_str:
+                p_furnished = FurnishedStatus.FURNISHED
 
         # Instantiate Property
         prop = Property(
@@ -129,6 +142,10 @@ async def create_property(
             bhk=payload.bhk,
             area_sqft=payload.area_sqft,
             bathrooms=payload.bathrooms,
+            furnished_status=p_furnished,
+            pg_for=payload.pg_for,
+            room_type=payload.room_type,
+            food_status=payload.food_status,
             description=payload.description,
             contact_name=payload.contact_name or current_user.name or "Property Owner",
             contact_phone=target_phone,
@@ -259,13 +276,13 @@ async def get_my_dashboard_stats(
 
     recent_leads = []
     for row in raw_leads:
-        unlock_rec, prop_title, buyer_name, buyer_email = row
+        unlock_obj, prop_title, buyer_name, buyer_email = row
         recent_leads.append({
-            "buyer_name": buyer_name,
+            "buyer_name": buyer_name or "Interested Buyer",
             "buyer_email": buyer_email,
             "property_title": prop_title,
-            "unlocked_at": unlock_rec.unlocked_at.isoformat() if unlock_rec.unlocked_at else None,
-            "credit_used": unlock_rec.credit_used,
+            "unlocked_at": unlock_obj.unlocked_at.isoformat() if unlock_obj.unlocked_at else None,
+            "credit_used": unlock_obj.credit_deducted or 1
         })
 
     return {
@@ -274,47 +291,63 @@ async def get_my_dashboard_stats(
             "total_listings": total_count,
             "total_views": total_views,
             "contact_unlocks": leads_count,
-            "conversion_rate": f"{conv_rate}%",
+            "conversion_rate": f"{conv_rate}%"
         },
         "recent_leads": recent_leads
     }
 
 
 @router.get("/me/listings")
-async def get_my_properties(
+async def get_my_listings(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    """Get all properties listed by current logged-in user across all devices."""
-    result = await db.execute(
-        select(Property).where(Property.owner_id == current_user.id).order_by(Property.created_at.desc())
+    """Return all property listings owned by the logged-in user."""
+    res = await db.execute(
+        select(Property)
+        .where(Property.owner_id == current_user.id)
+        .order_by(Property.created_at.desc())
     )
-    properties = result.scalars().all()
+    props = res.scalars().all()
     out = []
-    for prop in properties:
+    for p in props:
+        from app.models.property import PropertyImage
         img_res = await db.execute(
-            select(PropertyImage.image_url).where(PropertyImage.property_id == prop.id).order_by(PropertyImage.sort_order).limit(1)
+            select(PropertyImage.image_url)
+            .where(PropertyImage.property_id == p.id, PropertyImage.is_cover == True)
+            .limit(1)
         )
-        img_url = img_res.scalar_one_or_none() or "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80"
-        
-        price_display = f"₹{int(prop.price):,} / Mo" if prop.purpose.value == "rent" or str(prop.purpose) == "rent" else (
-            f"₹{(prop.price / 10000000):.2f} Cr" if prop.price >= 10000000 else f"₹{(prop.price / 100000):.0f} Lakh"
-        )
-        
+        cover_img = img_res.scalar_one_or_none()
+        if not cover_img:
+            any_img_res = await db.execute(
+                select(PropertyImage.image_url)
+                .where(PropertyImage.property_id == p.id)
+                .limit(1)
+            )
+            cover_img = any_img_res.scalar_one_or_none()
+
+        f_str = p.furnished_status.value if hasattr(p.furnished_status, "value") else str(p.furnished_status) if p.furnished_status else None
+        f_display = "Semi-Furnished" if f_str == "semi_furnished" else ("Unfurnished" if f_str == "unfurnished" else ("Furnished" if f_str == "furnished" else None))
+
         out.append({
-            "id": str(prop.id),
-            "title": prop.title,
-            "purpose": prop.purpose,
-            "property_type": prop.property_type,
-            "price": price_display,
-            "priceNum": prop.price,
-            "bhk": prop.bhk,
-            "area_sqft": prop.area_sqft,
-            "location": prop.locality or prop.city or "Bhopal",
-            "image": img_url,
-            "status": prop.status,
-            "views": prop.views_count or 1,
-            "leads": prop.contacts_count or 0,
+            "id": str(p.id),
+            "title": p.title,
+            "price": p.price,
+            "purpose": p.purpose.value if hasattr(p.purpose, "value") else str(p.purpose),
+            "property_type": p.property_type,
+            "status": p.status.value if hasattr(p.status, "value") else str(p.status),
+            "views_count": p.views_count,
+            "contacts_count": p.contacts_count,
+            "created_at": p.created_at.isoformat() if p.created_at else None,
+            "image": cover_img,
+            "bhk": p.bhk,
+            "area_sqft": p.area_sqft,
+            "bathrooms": p.bathrooms,
+            "furnished_status": f_str,
+            "furnished": f_display,
+            "pg_for": p.pg_for,
+            "room_type": p.room_type,
+            "food_status": p.food_status,
         })
     return out
 
@@ -397,9 +430,12 @@ async def get_property(
         exposed_email = ""
 
     # Retrieve amenities
-    from app.models.property import PropertyAmenity
+    from app.models.property import PropertyAmenity, FurnishedStatus
     amenities_res = await db.execute(select(PropertyAmenity.amenity).where(PropertyAmenity.property_id == pid))
     amenities_list = list(amenities_res.scalars().all())
+
+    f_str = prop.furnished_status.value if hasattr(prop.furnished_status, "value") else str(prop.furnished_status) if prop.furnished_status else None
+    f_display = "Semi-Furnished" if f_str == "semi_furnished" else ("Unfurnished" if f_str == "unfurnished" else ("Furnished" if f_str == "furnished" else None))
 
     return {
         "id": str(prop.id),
@@ -412,6 +448,11 @@ async def get_property(
         "bhk": prop.bhk,
         "area_sqft": prop.area_sqft,
         "bathrooms": prop.bathrooms,
+        "furnished_status": f_str,
+        "furnished": f_display,
+        "pg_for": prop.pg_for,
+        "room_type": prop.room_type,
+        "food_status": prop.food_status,
         "description": prop.description,
         "image": cover_image,
         "images": image_urls,

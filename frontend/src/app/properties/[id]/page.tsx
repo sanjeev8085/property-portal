@@ -107,6 +107,11 @@ export default function PropertyDetailsPage() {
               ownerEmail: serverHasContactAccess ? (remote.contact_email || remote.owner?.email || "") : "",
               ownerId: remote.owner_id || "",
               amenities: remote.amenities || [],
+              // Dynamic attribute fields — fetched from database per property
+              pgFor: remote.pg_for || null,
+              roomType: remote.room_type || null,
+              foodIncluded: remote.food_status || null,
+              furnished: remote.furnished || remote.furnished_status || null,
             });
             setIsLoading(false);
           }
@@ -374,10 +379,10 @@ export default function PropertyDetailsPage() {
     shopWashroom: customProp?.shopWashroom || "Private Washroom",
     cabins: customProp?.cabins || "2 Cabins",
     workstations: customProp?.workstations || "15-25 Workstations",
-    pgFor: customProp?.pgFor || "Any (Boys / Girls / Working)",
-    roomType: customProp?.roomType || "Single & Double Sharing",
-    foodIncluded: customProp?.foodIncluded || "Breakfast & Dinner Included",
-    furnished: isPlot ? "" : (customProp?.furnished || "Fully Furnished"),
+    pgFor: customProp?.pgFor || null,
+    roomType: customProp?.roomType || null,
+    foodIncluded: customProp?.foodIncluded || null,
+    furnished: isPlot ? "" : (customProp?.furnished || null),
     bathrooms: isPlot ? 0 : (customProp?.bathrooms || 2),
     bedrooms: isPlot || isShop || isOffice || isWarehouse ? 0 : (customProp?.bhk || 2),
     parking: isPlot ? "" : (customProp?.parking || "1 Covered Car Parking"),
@@ -799,28 +804,28 @@ export default function PropertyDetailsPage() {
                   <span className="spec-icon">👥</span>
                   <div className="spec-text">
                     <span className="spec-label">PG For</span>
-                    <span className="spec-value">{propertyDetails.pgFor}</span>
+                    <span className="spec-value">{propertyDetails.pgFor || "Not specified"}</span>
                   </div>
                 </div>
                 <div className="spec-card">
                   <span className="spec-icon">🛏️</span>
                   <div className="spec-text">
                     <span className="spec-label">Room Type</span>
-                    <span className="spec-value">{propertyDetails.roomType}</span>
+                    <span className="spec-value">{propertyDetails.roomType || "Not specified"}</span>
                   </div>
                 </div>
                 <div className="spec-card">
                   <span className="spec-icon">🍲</span>
                   <div className="spec-text">
                     <span className="spec-label">Food Status</span>
-                    <span className="spec-value">{propertyDetails.foodIncluded}</span>
+                    <span className="spec-value">{propertyDetails.foodIncluded || "Not specified"}</span>
                   </div>
                 </div>
                 <div className="spec-card">
                   <span className="spec-icon">🛋️</span>
                   <div className="spec-text">
                     <span className="spec-label">Furnishing</span>
-                    <span className="spec-value">Fully Furnished</span>
+                    <span className="spec-value">{propertyDetails.furnished || "Not specified"}</span>
                   </div>
                 </div>
                 <div className="spec-card">
@@ -865,7 +870,7 @@ export default function PropertyDetailsPage() {
                   <span className="spec-icon">🛋️</span>
                   <div className="spec-text">
                     <span className="spec-label">Furnishing</span>
-                    <span className="spec-value">{propertyDetails.furnished}</span>
+                    <span className="spec-value">{propertyDetails.furnished || "Not specified"}</span>
                   </div>
                 </div>
                 <div className="spec-card">
