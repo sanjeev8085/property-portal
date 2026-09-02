@@ -112,7 +112,7 @@ function SearchContent() {
                   ? `₹${Number(p.price).toLocaleString("en-IN")} / Mo` 
                   : (Number(p.price) >= 10000000 
                       ? `₹${(Number(p.price) / 10000000).toFixed(2)} Cr` 
-                      : `₹${(Number(p.price) / 100000).toFixed(0)} Lakh`)),
+                      : `₹${(Number(p.price) / 100000).toFixed(2)} Lakh`)),
             priceNum: Number(p.price) || 0,
             location: typeof p.location === "string" && p.location ? p.location : (p.locality ? `${p.locality}, ${p.city || "Bhopal"}` : (p.city || "Bhopal")),
             specs: p.specs || (
@@ -229,7 +229,8 @@ function SearchContent() {
       return `₹${(amount / 10000000).toFixed(2)} Cr`;
     }
     if (amount >= 100000) {
-      return `₹${(amount / 100000).toFixed(0)} Lakh`;
+      const lakhVal = (amount / 100000).toFixed(2);
+      return `₹${lakhVal.endsWith(".00") ? lakhVal.slice(0, -3) : lakhVal} Lakh`;
     }
     return `₹${amount.toLocaleString("en-IN")}${purpose === "rent" ? " / Mo" : ""}`;
   };
