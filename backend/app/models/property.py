@@ -132,8 +132,14 @@ class PropertyImage(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     property_id = Column(UUID(as_uuid=True), ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
-    image_url = Column(String(1000), nullable=False)
-    thumbnail_url = Column(String(1000), nullable=True)
+    image_url = Column(String(1000), nullable=False)           # Original / Cloudinary secure_url
+    thumbnail_url = Column(String(1000), nullable=True)        # ~300px optimized
+    card_url = Column(String(1000), nullable=True)             # ~600px optimized
+    detail_url = Column(String(1000), nullable=True)           # ~1200px optimized
+    cloudinary_public_id = Column(String(500), nullable=True, index=True)  # For deletion
+    width = Column(Integer, nullable=True)
+    height = Column(Integer, nullable=True)
+    file_size = Column(Integer, nullable=True)                 # Original bytes
     is_cover = Column(Boolean, default=False)
     sort_order = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

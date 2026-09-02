@@ -3,6 +3,17 @@ from pydantic import BaseModel, model_validator
 from app.models.property import PropertyPurpose, PropertyCategory, FurnishedStatus
 
 
+class ImageMetaInput(BaseModel):
+    url: str
+    thumbnail_url: Optional[str] = None
+    card_url: Optional[str] = None
+    detail_url: Optional[str] = None
+    public_id: Optional[str] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
+    file_size: Optional[int] = None
+
+
 class PropertyCreate(BaseModel):
     title: str
     purpose: str
@@ -21,7 +32,7 @@ class PropertyCreate(BaseModel):
     food_status: Optional[str] = None
     parking: Optional[int] = None
     description: Optional[str] = None
-    images: Optional[List[str]] = None
+    images: Optional[List[Any]] = None
     image: Optional[str] = None
     city: Optional[str] = "Bhopal"
     locality: Optional[str] = None

@@ -324,6 +324,29 @@ export const api = {
     }
   },
 
+  // ── Image Uploads (Cloudinary CDN) ─────────────────────────────────────────
+  async uploadImages(files: File[]) {
+    let token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+    const formData = new FormData();
+    files.forEach((file) => formData.append("files", file));
+
+    const response = await fetch(`${API_BASE_URL}/images/upload`, {
+      method: "POST",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      const msg = typeof errData.detail === "string" ? errData.detail : (errData.detail?.message || "Image upload to CDN failed.");
+      throw new Error(msg);
+    }
+
+    return response.json();
+  },
+
   // ── Subscription Plans (public, no auth needed) ───────────────────────────
   async getPlans() {
     try {

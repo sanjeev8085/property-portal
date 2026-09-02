@@ -166,11 +166,29 @@ async def create_property(
 
         # Add Images in same transaction
         if payload.images and len(payload.images) > 0:
-            for idx, img_url in enumerate(payload.images):
-                if img_url:
+            for idx, img in enumerate(payload.images):
+                if not img:
+                    continue
+                if isinstance(img, dict):
+                    url = img.get("url") or img.get("image_url") or ""
+                    if url:
+                        db.add(PropertyImage(
+                            property_id=prop.id,
+                            image_url=url,
+                            thumbnail_url=img.get("thumbnail_url"),
+                            card_url=img.get("card_url"),
+                            detail_url=img.get("detail_url"),
+                            cloudinary_public_id=img.get("public_id") or img.get("cloudinary_public_id"),
+                            width=img.get("width"),
+                            height=img.get("height"),
+                            file_size=img.get("file_size"),
+                            is_cover=(idx == 0),
+                            sort_order=idx
+                        ))
+                elif isinstance(img, str) and img:
                     db.add(PropertyImage(
                         property_id=prop.id,
-                        image_url=img_url,
+                        image_url=img,
                         is_cover=(idx == 0),
                         sort_order=idx
                     ))
@@ -389,10 +407,25 @@ async def get_property(
         raise HTTPException(status_code=404, detail="Property not found.")
 
     # Retrieve images
+    # Retrieve images
     images_res = await db.execute(select(PropertyImage).where(PropertyImage.property_id == pid).order_by(PropertyImage.sort_order))
     images_list = images_res.scalars().all()
     image_urls = [img.image_url for img in images_list]
-    cover_image = image_urls[0] if image_urls else "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1200&h=675&q=80"
+    image_details = [
+        {
+            "id": str(img.id),
+            "url": img.image_url,
+            "thumbnail_url": img.thumbnail_url or img.image_url,
+            "card_url": img.card_url or img.image_url,
+            "detail_url": img.detail_url or img.image_url,
+            "public_id": img.cloudinary_public_id,
+            "width": img.width,
+            "height": img.height,
+            "is_cover": img.is_cover
+        }
+        for img in images_list
+    ]
+    cover_image = (images_list[0].detail_url or images_list[0].card_url or images_list[0].image_url) if images_list else "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1200&h=675&q=80"
 
     # Server-side Contact Masking & Gating
     is_owner = False
@@ -456,6 +489,7 @@ async def get_property(
         "description": prop.description,
         "image": cover_image,
         "images": image_urls,
+        "image_details": image_details,
         "is_unlocked": is_unlocked,
         "is_owner": is_owner,
         "contact_phone": exposed_phone if is_unlocked else None,

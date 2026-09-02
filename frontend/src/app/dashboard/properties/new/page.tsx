@@ -124,6 +124,7 @@ export default function NewPropertyWizard() {
   const [photos, setPhotos] = useState<string[]>([
     "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80"
   ]);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
 
   // Step 7: Description
@@ -191,9 +192,10 @@ export default function NewPropertyWizard() {
   // Photo handlers
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      const newFiles = Array.from(e.target.files);
+      const newFiles = Array.from(e.target.files).filter(f => f.type.startsWith("image/"));
       const newUrls = newFiles.map(file => URL.createObjectURL(file));
       setPhotos(prev => [...prev, ...newUrls].slice(0, 10));
+      setPendingFiles(prev => [...prev, ...newFiles].slice(0, 10));
       success(`Added ${newFiles.length} photo(s) successfully! 📸`);
     }
   };
@@ -216,6 +218,7 @@ export default function NewPropertyWizard() {
       if (newFiles.length > 0) {
         const newUrls = newFiles.map(file => URL.createObjectURL(file));
         setPhotos(prev => [...prev, ...newUrls].slice(0, 10));
+        setPendingFiles(prev => [...prev, ...newFiles].slice(0, 10));
         success(`Added ${newFiles.length} photo(s) from drag & drop! 📸`);
       }
     }
@@ -300,36 +303,77 @@ export default function NewPropertyWizard() {
     if (isPublishing) return;
     setIsPublishing(true);
 
-    // Generate unique idempotency key for this submission attempt
-    const idempotencyKey = `prop_pub_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    const finalPriceNum = parseFloat(price) || (purpose === "rent" ? 25000 : 8500000);
-
-    const isLandOrComm = ["Plot / Land", "Shop", "Office Space", "Warehouse"].includes(propertyType);
-    const payload = {
-      title: getPreviewTitle(),
-      price: finalPriceNum,
-      purpose: purpose === "sell" ? "sell" : "rent",
-      category: ["Shop", "Office Space", "Warehouse"].includes(propertyType) ? "commercial" : "residential",
-      property_type: propertyType,
-      bhk: isLandOrComm ? null : (Number(bhk) || null),
-      area_sqft: parseFloat(String(size)) || 1200,
-      bathrooms: propertyType === "Plot / Land" ? null : (Number(bathrooms) || null),
-      furnished_status: furnished,
-      furnished: furnished,
-      pg_for: propertyType === "PG / Hostel" ? pgFor : null,
-      room_type: propertyType === "PG / Hostel" ? roomType : null,
-      food_status: propertyType === "PG / Hostel" ? foodIncluded : null,
-      description: description || "Verified listing posted by owner on AuraHomes portal.",
-      images: photos && photos.length > 0 ? photos : [photos[0] || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80"],
-      image: photos[0] || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80",
-      city: city || "Bhopal",
-      locality: locality || area || "Arera Colony",
-      contact_name: contactName || "Property Owner",
-      contact_phone: contactPhone || "",
-      amenities: selectedAmenities,
-    };
-
     try {
+      // 0. Image Upload Phase — Upload any selected local image files to Cloudinary CDN
+      let finalImages: any[] = [];
+      
+      // Filter existing HTTP/HTTPS URLs (e.g. Unsplash demo photos)
+      const existingUrls = photos.filter(p => typeof p === "string" && (p.startsWith("http://") || p.startsWith("https://")));
+      existingUrls.forEach(url => finalImages.push(url));
+
+      if (pendingFiles.length > 0) {
+        info("Uploading property images to Cloudinary CDN...");
+        try {
+          const uploadRes = await api.uploadImages(pendingFiles);
+          if (uploadRes && Array.isArray(uploadRes.images) && uploadRes.images.length > 0) {
+            uploadRes.images.forEach((img: any) => {
+              finalImages.push({
+                url: img.url,
+                thumbnail_url: img.thumbnail_url,
+                card_url: img.card_url,
+                detail_url: img.detail_url,
+                public_id: img.public_id,
+                width: img.width,
+                height: img.height,
+                file_size: img.file_size,
+              });
+            });
+            success(`Successfully uploaded ${uploadRes.images.length} image(s) to CDN! ☁️`);
+          } else {
+            throw new Error("CDN did not return uploaded image metadata.");
+          }
+        } catch (uploadErr: any) {
+          error(uploadErr.message || "Failed to upload property images. Listing was NOT published.");
+          setIsPublishing(false);
+          return; // STOP! Do not publish if image upload failed.
+        }
+      }
+
+      if (finalImages.length === 0) {
+        finalImages.push("https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80");
+      }
+
+      const coverImageStr = typeof finalImages[0] === "string" ? finalImages[0] : (finalImages[0]?.detail_url || finalImages[0]?.card_url || finalImages[0]?.url);
+
+      // Generate unique idempotency key for this submission attempt
+      const idempotencyKey = `prop_pub_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      const finalPriceNum = parseFloat(price) || (purpose === "rent" ? 25000 : 8500000);
+
+      const isLandOrComm = ["Plot / Land", "Shop", "Office Space", "Warehouse"].includes(propertyType);
+      const payload = {
+        title: getPreviewTitle(),
+        price: finalPriceNum,
+        purpose: purpose === "sell" ? "sell" : "rent",
+        category: ["Shop", "Office Space", "Warehouse"].includes(propertyType) ? "commercial" : "residential",
+        property_type: propertyType,
+        bhk: isLandOrComm ? null : (Number(bhk) || null),
+        area_sqft: parseFloat(String(size)) || 1200,
+        bathrooms: propertyType === "Plot / Land" ? null : (Number(bathrooms) || null),
+        furnished_status: furnished,
+        furnished: furnished,
+        pg_for: propertyType === "PG / Hostel" ? pgFor : null,
+        room_type: propertyType === "PG / Hostel" ? roomType : null,
+        food_status: propertyType === "PG / Hostel" ? foodIncluded : null,
+        description: description || "Verified listing posted by owner on AuraHomes portal.",
+        images: finalImages,
+        image: coverImageStr,
+        city: city || "Bhopal",
+        locality: locality || area || "Arera Colony",
+        contact_name: contactName || "Property Owner",
+        contact_phone: contactPhone || "",
+        amenities: selectedAmenities,
+      };
+
       // 1. Send property creation request with Idempotency-Key
       const cloudRes = await api.createProperty(payload, idempotencyKey);
       const returnedId = cloudRes?.property_id || cloudRes?.id;

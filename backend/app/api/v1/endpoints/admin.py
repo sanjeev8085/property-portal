@@ -332,12 +332,22 @@ async def delete_admin_property(
     except Exception:
         await db.rollback()
 
-    # 2. Delete ORM property record if UUID
+    # 2. Delete ORM property record and clean up Cloudinary assets if UUID
     try:
         pid = uuid.UUID(property_id)
         result = await db.execute(select(Property).where(Property.id == pid))
         prop = result.scalar_one_or_none()
         if prop:
+            # Fetch associated images to delete Cloudinary assets
+            from app.models.property import PropertyImage
+            from app.services.storage_service import delete_many_from_cloudinary
+            
+            img_res = await db.execute(select(PropertyImage.cloudinary_public_id).where(PropertyImage.property_id == pid))
+            public_ids = [pid_val for pid_val in img_res.scalars().all() if pid_val]
+            
+            if public_ids:
+                delete_many_from_cloudinary(public_ids)
+
             await db.delete(prop)
             await db.commit()
     except ValueError:

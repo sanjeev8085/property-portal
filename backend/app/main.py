@@ -89,6 +89,13 @@ async def lifespan(app: FastAPI):
                 await conn.execute(text("ALTER TABLE properties ADD COLUMN IF NOT EXISTS pg_for VARCHAR(50);"))
                 await conn.execute(text("ALTER TABLE properties ADD COLUMN IF NOT EXISTS room_type VARCHAR(100);"))
                 await conn.execute(text("ALTER TABLE properties ADD COLUMN IF NOT EXISTS food_status VARCHAR(100);"))
+                # Ensure Cloudinary metadata columns exist on property_images table
+                await conn.execute(text("ALTER TABLE property_images ADD COLUMN IF NOT EXISTS card_url VARCHAR(1000);"))
+                await conn.execute(text("ALTER TABLE property_images ADD COLUMN IF NOT EXISTS detail_url VARCHAR(1000);"))
+                await conn.execute(text("ALTER TABLE property_images ADD COLUMN IF NOT EXISTS cloudinary_public_id VARCHAR(500);"))
+                await conn.execute(text("ALTER TABLE property_images ADD COLUMN IF NOT EXISTS width INTEGER;"))
+                await conn.execute(text("ALTER TABLE property_images ADD COLUMN IF NOT EXISTS height INTEGER;"))
+                await conn.execute(text("ALTER TABLE property_images ADD COLUMN IF NOT EXISTS file_size INTEGER;"))
         logger.info("Database schemas and Row Level Security (RLS) verified.")
     except Exception as e:
         logger.warning(f"Database schema auto-creation skipped or already initialized: {e}")
