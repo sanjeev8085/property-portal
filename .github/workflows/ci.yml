@@ -66,12 +66,13 @@ jobs:
       - name: Run tests with coverage
         working-directory: backend
         env:
-          DATABASE_URL: "postgresql+asyncpg://pp_user:pp_test_secret@localhost:5432/property_portal_test"
+          DATABASE_URL: "sqlite+aiosqlite:///:memory:"
+          APP_ENV: "test"
           REDIS_URL: "redis://localhost:6379/0"
           JWT_SECRET_KEY: "test-secret-key"
           APP_SECRET_KEY: "test-app-secret"
           DEBUG: "true"
-        run: pytest tests/ -v || pytest -v
+        run: pytest tests/ -v
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4

@@ -6,6 +6,10 @@ Tests use:
   - Mocked OTP and notification services (no Redis/SMS needed)
   - Works with pydantic v1 and v2
 """
+import os
+os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
+os.environ["APP_ENV"] = "test"
+
 import asyncio
 import pytest
 import pytest_asyncio
@@ -16,11 +20,9 @@ from sqlalchemy.pool import StaticPool
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
-import os
-os.environ["DATABASE_URL"] = TEST_DATABASE_URL
-
 from app.core.config import settings
 settings.DATABASE_URL = TEST_DATABASE_URL
+settings.APP_ENV = "test"
 settings.RAZORPAY_KEY_ID = ""
 settings.RAZORPAY_KEY_SECRET = ""
 settings.RAZORPAY_WEBHOOK_SECRET = ""
@@ -51,10 +53,13 @@ async def setup_database(test_engine):
     """Create all tables before each test and drop them after."""
     from app.core.database import Base
     import app.core.database as db_module
+    import app.main as main_module
     import app.models  # noqa
 
     db_module.engine = test_engine
     db_module.AsyncSessionLocal = async_sessionmaker(test_engine, expire_on_commit=False)
+    main_module.engine = test_engine
+    main_module.AsyncSessionLocal = async_sessionmaker(test_engine, expire_on_commit=False)
 
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
