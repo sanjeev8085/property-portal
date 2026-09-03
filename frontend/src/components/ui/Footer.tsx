@@ -100,9 +100,24 @@ export default function Footer() {
 
       {/* Bottom bar */}
       <div className="footer-bottom">
-        <p className="footer-copy">
-          © {year} AuraHomes Technologies Pvt. Ltd. All rights reserved.
-        </p>
+        <div className="footer-left-group">
+          <p className="footer-copy">
+            © {year} AuraHomes Technologies Pvt. Ltd. All rights reserved.
+          </p>
+          <div className="footer-developer-credit">
+            Designed &amp; Developed by{" "}
+            <a
+              href="https://sanjeev-portfolio-iota.vercel.app/?ref=aurahomes"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="developer-credit-link"
+              title="Website Designer & Web Developer in Bhopal | Sanjeev Tyagi"
+            >
+              <span className="developer-name">Sanjeev Tyagi</span>
+              <span className="developer-title"> — Website Designer &amp; Web Developer in Bhopal</span>
+            </a>
+          </div>
+        </div>
         <div className="footer-badges">
           <span className="footer-badge">🔒 SSL Secured</span>
           <span className="footer-badge">✅ RERA Compliant</span>
@@ -248,6 +263,45 @@ export default function Footer() {
         .footer-copy {
           font-size: 12px;
           color: #475569;
+        }
+        .footer-left-group {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .footer-developer-credit {
+          font-size: 12px;
+          color: #64748b;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          flex-wrap: wrap;
+        }
+        .developer-credit-link {
+          color: #94a3b8;
+          text-decoration: none;
+          font-weight: 500;
+          transition: all 0.2s ease;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .developer-credit-link:hover {
+          color: #60a5fa;
+          text-decoration: underline;
+        }
+        .developer-name {
+          font-weight: 700;
+          background: linear-gradient(135deg, #60a5fa, #818cf8);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+        .developer-title {
+          color: #64748b;
+          font-weight: 400;
+        }
+        .developer-credit-link:hover .developer-title {
+          color: #94a3b8;
         }
         .footer-badges {
           display: flex;
