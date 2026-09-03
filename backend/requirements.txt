@@ -1,7 +1,7 @@
 # ─── FastAPI Core ────────────────────────────────────────────────────────────
 fastapi==0.115.0
 uvicorn[standard]==0.32.0
-python-multipart==0.0.12
+python-multipart==0.0.20
 
 # ─── Database ────────────────────────────────────────────────────────────────
 sqlalchemy[asyncio]==2.0.36
@@ -28,7 +28,6 @@ fastapi-limiter==0.1.6
 boto3==1.35.76
 Pillow==11.0.0
 cloudinary==1.41.0
-python-multipart==0.0.20
 
 # ─── Email ───────────────────────────────────────────────────────────────────
 fastapi-mail==1.4.1
@@ -52,7 +51,6 @@ googlemaps==4.10.0
 pytest==8.3.4
 pytest-asyncio==0.24.0
 pytest-cov==6.0.0
-httpx==0.28.1
 factory-boy==3.3.1
 faker==33.1.0
 aiosqlite==0.20.0
