@@ -216,12 +216,80 @@ def delete_many_from_cloudinary(public_ids: list[str]) -> dict:
 
 
 def is_cloudinary_configured() -> bool:
-    """Check if Cloudinary credentials are present in the environment."""
-    return bool(
-        os.getenv("CLOUDINARY_CLOUD_NAME")
-        and os.getenv("CLOUDINARY_API_KEY")
-        and os.getenv("CLOUDINARY_API_SECRET")
-    )
+    """Check if Cloudinary credentials are present in the environment or settings."""
+    try:
+        from app.core.config import settings
+        cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME") or getattr(settings, "CLOUDINARY_CLOUD_NAME", "")
+        api_key = os.getenv("CLOUDINARY_API_KEY") or getattr(settings, "CLOUDINARY_API_KEY", "")
+        api_secret = os.getenv("CLOUDINARY_API_SECRET") or getattr(settings, "CLOUDINARY_API_SECRET", "")
+    except Exception:
+        cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", "")
+        api_key = os.getenv("CLOUDINARY_API_KEY", "")
+        api_secret = os.getenv("CLOUDINARY_API_SECRET", "")
+
+    if not (cloud_name and api_key and api_secret):
+        return False
+
+    placeholders = {
+        "your_cloudinary_cloud_name",
+        "your_cloudinary_api_key",
+        "your_cloudinary_api_secret",
+        "your_cloud_name",
+        "your_api_key",
+        "your_api_secret",
+    }
+    if (
+        cloud_name.lower() in placeholders
+        or api_key.lower() in placeholders
+        or api_secret.lower() in placeholders
+    ):
+        return False
+
+    return True
+
+
+async def upload_to_local_storage(
+    file_bytes: bytes,
+    filename: str,
+    folder: str = "properties",
+    file_size: Optional[int] = None,
+) -> dict:
+    """
+    Save image file to local disk (uploads directory) for dev mode or local storage fallback.
+    Returns standard image metadata dict compatible with upload_to_cloudinary format.
+    """
+    import uuid
+    from pathlib import Path
+
+    actual_size = file_size or len(file_bytes)
+
+    stem = filename.rsplit(".", 1)[0] if "." in filename else filename
+    ext = filename.rsplit(".", 1)[1] if "." in filename else "jpg"
+    stem = "".join(c if c.isalnum() or c in "-_" else "_" for c in stem)
+
+    unique_filename = f"{stem}_{uuid.uuid4().hex[:8]}.{ext}"
+    upload_dir = Path("uploads") / folder
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    file_path = upload_dir / unique_filename
+    with open(file_path, "wb") as f:
+        f.write(file_bytes)
+
+    image_url = f"/uploads/{folder}/{unique_filename}"
+    public_id = f"local/{folder}/{unique_filename}"
+
+    logger.info(f"[Storage] Saved local image '{filename}' -> {image_url}")
+
+    return {
+        "image_url": image_url,
+        "thumbnail_url": image_url,
+        "card_url": image_url,
+        "detail_url": image_url,
+        "public_id": public_id,
+        "width": 800,
+        "height": 600,
+        "file_size": actual_size,
+    }
 
 
 # ─── Legacy compatibility shim ────────────────────────────────────────────────
@@ -229,7 +297,7 @@ async def upload_image_file(file_bytes: bytes, filename: str, folder: str = "pro
     """
     Legacy shim kept for backward compatibility.
     Prefer upload_to_cloudinary() for new code.
-    Falls back to a placeholder URL if Cloudinary is not configured (dev mode).
+    Falls back to local disk storage if Cloudinary is not configured (dev mode).
     """
     if is_cloudinary_configured():
         try:
@@ -238,6 +306,7 @@ async def upload_image_file(file_bytes: bytes, filename: str, folder: str = "pro
         except Exception as exc:
             logger.warning(f"[Storage] upload_image_file shim failed: {exc}")
 
-    # Dev-mode fallback: return a placeholder (do NOT store base64 in DB)
-    logger.warning("[Storage] Cloudinary not configured. Returning placeholder URL.")
-    return "https://res.cloudinary.com/demo/image/upload/sample.jpg"
+    # Local storage fallback
+    local_result = await upload_to_local_storage(file_bytes, filename, folder)
+    return local_result["image_url"]
+

@@ -97,6 +97,30 @@ class TestImageUploadAPI:
         data = resp.json()
         assert "detail" in data
 
+    @patch("app.api.v1.endpoints.images.is_cloudinary_configured", return_value=False)
+    async def test_upload_image_local_fallback_success(
+        self,
+        mock_configured,
+        client: AsyncClient,
+        owner_auth_headers: dict
+    ):
+        """When Cloudinary is not configured, image upload falls back to local disk storage cleanly."""
+        fake_jpeg = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00`\x00`\x00\x00\xff\xdb\x00C\x00" + b"\x00" * 100
+
+        resp = await client.post(
+            "/api/v1/images/upload",
+            headers=owner_auth_headers,
+            files=[("files", ("local_test.jpg", fake_jpeg, "image/jpeg"))]
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["uploaded"] == 1
+        assert len(data["images"]) == 1
+        img = data["images"][0]
+        assert "/uploads/properties/" in img["url"]
+        assert img["public_id"].startswith("local/properties/")
+
 
 @pytest.mark.asyncio
 class TestPropertyCreationWithCloudinaryMetadata:

@@ -19,6 +19,7 @@ from app.api.deps import get_current_active_user
 from app.models.user import User
 from app.services.storage_service import (
     upload_to_cloudinary,
+    upload_to_local_storage,
     is_cloudinary_configured,
     MAX_FILE_SIZE_BYTES,
 )
@@ -45,7 +46,7 @@ async def upload_property_images(
     current_user: User = Depends(get_current_active_user),
 ):
     """
-    Upload one or more property images to Cloudinary.
+    Upload one or more property images to Cloudinary (or local storage fallback in dev mode).
 
     Returns a list of uploaded image metadata including CDN URLs for
     thumbnail (300px), card (600px), and detail (1200px) sizes.
@@ -64,15 +65,7 @@ async def upload_property_images(
             detail=f"Maximum {MAX_FILES_PER_REQUEST} files allowed per upload request.",
         )
 
-    if not is_cloudinary_configured():
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=(
-                "Image storage is not configured on this server. "
-                "Contact the administrator to set CLOUDINARY_CLOUD_NAME, "
-                "CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET."
-            ),
-        )
+    use_cloudinary = is_cloudinary_configured()
 
     results = []
     upload_errors = []
@@ -117,14 +110,23 @@ async def upload_property_images(
             })
             continue
 
-        # ── Upload to Cloudinary ───────────────────────────────────────────────
+        # ── Upload logic (Cloudinary with local fallback) ──────────────────────
         try:
-            upload_result = await upload_to_cloudinary(
-                file_bytes=file_bytes,
-                filename=file.filename or f"upload_{len(results)}",
-                folder="aurahomes/properties",
-                file_size=file_size,
-            )
+            if use_cloudinary:
+                upload_result = await upload_to_cloudinary(
+                    file_bytes=file_bytes,
+                    filename=file.filename or f"upload_{len(results)}",
+                    folder="aurahomes/properties",
+                    file_size=file_size,
+                )
+            else:
+                upload_result = await upload_to_local_storage(
+                    file_bytes=file_bytes,
+                    filename=file.filename or f"upload_{len(results)}",
+                    folder="properties",
+                    file_size=file_size,
+                )
+
             results.append({
                 "filename": file.filename,
                 "url": upload_result["image_url"],
@@ -144,6 +146,31 @@ async def upload_property_images(
             })
         except RuntimeError as re:
             # Cloudinary upload failed
+            from app.core.config import settings
+            if use_cloudinary and settings.APP_ENV != "production" and settings.APP_ENV != "test":
+                try:
+                    logger.warning(f"[Images] Cloudinary upload failed ({re}), falling back to local storage.")
+                    upload_result = await upload_to_local_storage(
+                        file_bytes=file_bytes,
+                        filename=file.filename or f"upload_{len(results)}",
+                        folder="properties",
+                        file_size=file_size,
+                    )
+                    results.append({
+                        "filename": file.filename,
+                        "url": upload_result["image_url"],
+                        "thumbnail_url": upload_result["thumbnail_url"],
+                        "card_url": upload_result["card_url"],
+                        "detail_url": upload_result["detail_url"],
+                        "public_id": upload_result["public_id"],
+                        "width": upload_result["width"],
+                        "height": upload_result["height"],
+                        "file_size": upload_result["file_size"],
+                    })
+                    continue
+                except Exception as local_exc:
+                    logger.error(f"[Images] Local fallback also failed: {local_exc}")
+
             logger.error(f"[Images] Cloudinary upload failed for {file.filename!r}: {re}")
             upload_errors.append({
                 "filename": file.filename,

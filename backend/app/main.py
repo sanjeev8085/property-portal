@@ -210,6 +210,12 @@ app.add_middleware(
 )
 app.add_middleware(SecurityMiddleware)
 
+# ─── Static Files (Local Image Storage Fallback) ─────────────────────────────
+import os
+from fastapi.staticfiles import StaticFiles
+os.makedirs("uploads/properties", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 # ─── Routers ─────────────────────────────────────────────────────────────────
 app.include_router(api_router, prefix="/api/v1")
 
