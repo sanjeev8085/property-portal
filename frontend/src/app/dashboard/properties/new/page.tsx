@@ -307,8 +307,8 @@ export default function NewPropertyWizard() {
       // 0. Image Upload Phase — Upload any selected local image files to Cloudinary CDN
       let finalImages: any[] = [];
       
-      // Filter existing HTTP/HTTPS URLs (e.g. Unsplash demo photos)
-      const existingUrls = photos.filter(p => typeof p === "string" && (p.startsWith("http://") || p.startsWith("https://")));
+      // Filter existing HTTP/HTTPS/Uploads URLs
+      const existingUrls = photos.filter(p => typeof p === "string" && (p.startsWith("http://") || p.startsWith("https://") || p.startsWith("/uploads")));
       existingUrls.forEach(url => finalImages.push(url));
 
       if (pendingFiles.length > 0) {

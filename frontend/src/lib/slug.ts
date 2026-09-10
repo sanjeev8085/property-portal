@@ -79,9 +79,14 @@ export function getFallbackImage(typeOrTitle: string = ""): string {
 
 export function normalizeImage(img: any, typeOrTitle: string = ""): string {
   if (!img) return getFallbackImage(typeOrTitle);
-  let src = typeof img === "string" ? img : (img.image_url || img.url || img.src || "");
+  let src = typeof img === "string" ? img : (img.detail_url || img.card_url || img.image_url || img.url || img.thumbnail_url || img.src || "");
   if (typeof src !== "string" || !src.trim() || src.includes("[object")) {
     return getFallbackImage(typeOrTitle);
   }
-  return src.trim();
+  src = src.trim();
+  if (src.startsWith("/uploads")) {
+    const apiBase = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
+    return `${apiBase}${src}`;
+  }
+  return src;
 }

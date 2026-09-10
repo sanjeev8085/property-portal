@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Badge from "./Badge";
 import { useFavorites } from "@/lib/useFavorites";
 import { useToast } from "@/lib/useToast";
+import { normalizeImage } from "@/lib/slug";
 
 interface Property {
   id: string;
@@ -18,6 +19,7 @@ interface Property {
   is_verified?: boolean;
   is_featured?: boolean;
   images?: { url: string }[];
+  image?: string;
 }
 
 interface CardProps {
@@ -31,9 +33,8 @@ export default function Card({
   onAction,
   actionLabel = "View Details",
 }: CardProps) {
-  const imageUrl =
-    property.images?.[0]?.url ||
-    "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=600&q=80";
+  const rawImg = property.images?.[0]?.url || property.images?.[0] || property.image;
+  const imageUrl = normalizeImage(rawImg, property.property_type || property.title);
 
   const [imgLoaded, setImgLoaded] = useState(false);
   const { isFavorite, toggleFavorite } = useFavorites();
