@@ -55,7 +55,70 @@ export default function PropertyDetailsPage() {
         return;
       }
 
-      // 1. Check client local storage
+      // 1. Primary Source of Truth: Fetch from cloud database by propertyId or slug (with retry)
+      let remote: any = null;
+      let attempts = 0;
+      while (attempts < 2 && (!remote || !remote.title)) {
+        try {
+          remote = await api.getProperty(propertyId);
+          if (!remote || !remote.title) {
+            remote = await api.getProperty(rawParam);
+          }
+        } catch (err) {
+          console.warn(`Cloud lookup attempt ${attempts + 1} note:`, err);
+        }
+        attempts++;
+        if (!remote || !remote.title) {
+          await new Promise(r => setTimeout(r, 350));
+        }
+      }
+
+      if (remote && remote.title) {
+        if (isMounted) {
+          const serverHasContactAccess = Boolean(remote.is_unlocked || remote.is_owner);
+          setIsUnlocked(serverHasContactAccess);
+          
+          const rawImgs = (Array.isArray(remote.images) && remote.images.length > 0)
+            ? remote.images.map((img: any) => normalizeImage(img, remote.property_type || remote.title))
+            : (remote.image ? [normalizeImage(remote.image, remote.property_type || remote.title)] : DEFAULT_GALLERY_IMAGES);
+
+          setCustomProp({
+            id: remote.id,
+            title: remote.title,
+            price: remote.purpose === "rent"
+              ? `₹${Number(remote.price).toLocaleString("en-IN")} / Month`
+              : (Number(remote.price) >= 10000000 
+                  ? `₹${(Number(remote.price) / 10000000).toFixed(2)} Cr` 
+                  : (Number(remote.price) >= 100000 
+                      ? `₹${(Number(remote.price) / 100000).toFixed(2)} Lakh` 
+                      : `₹${Number(remote.price).toLocaleString("en-IN")}`)),
+            priceNum: Number(remote.price) || 0,
+            location: remote.locality ? `${remote.locality}, ${remote.city || "Bhopal"}` : (remote.city || "Bhopal"),
+            specs: `${remote.bhk || 2} Beds | ${remote.bathrooms || 2} Baths | ${remote.area_sqft || 1200} sqft`,
+            image: rawImgs[0] || DEFAULT_GALLERY_IMAGES[0],
+            photos: rawImgs,
+            type: remote.property_type || "Apartment",
+            purpose: remote.purpose === "rent" ? "rent" : "sell",
+            bhk: remote.bhk || 2,
+            bathrooms: remote.bathrooms || 2,
+            size: `${remote.area_sqft || 1200}`,
+            description: remote.description,
+            contactName: remote.owner?.name || remote.contact_name || "Verified Owner",
+            contactPhone: serverHasContactAccess ? (remote.contact_phone || remote.owner?.mobile || "") : "",
+            ownerEmail: serverHasContactAccess ? (remote.owner?.email || remote.contact_email || "") : "",
+            ownerId: remote.owner_id || "",
+            amenities: remote.amenities || [],
+            pgFor: remote.pg_for || null,
+            roomType: remote.room_type || null,
+            foodIncluded: remote.food_status || null,
+            furnished: remote.furnished || remote.furnished_status || null,
+          });
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      // 2. Secondary Fallback: Client local storage
       const published = getPublishedProperties();
       const found = published.find(
         p => p.id.toString() === propertyId.toString() ||
@@ -64,61 +127,17 @@ export default function PropertyDetailsPage() {
       );
       if (found) {
         if (isMounted) {
-          setCustomProp(found);
+          const normPhotos = (found.photos && found.photos.length > 0)
+            ? found.photos.map((img: any) => normalizeImage(img, found.type || found.title))
+            : (found.image ? [normalizeImage(found.image, found.type || found.title)] : DEFAULT_GALLERY_IMAGES);
+          setCustomProp({
+            ...found,
+            image: normPhotos[0],
+            photos: normPhotos,
+          });
           setIsLoading(false);
         }
         return;
-      }
-
-      // 2. Fetch from cloud database by propertyId or slug
-      try {
-        let remote = await api.getProperty(propertyId);
-        if (!remote || !remote.title) {
-          remote = await api.getProperty(rawParam);
-        }
-        if (remote && remote.title) {
-          if (isMounted) {
-            const serverHasContactAccess = Boolean(remote.is_unlocked || remote.is_owner);
-            setIsUnlocked(serverHasContactAccess);
-            setCustomProp({
-              id: remote.id,
-              title: remote.title,
-              price: remote.purpose === "rent"
-                ? `₹${Number(remote.price).toLocaleString("en-IN")} / Month`
-                : (Number(remote.price) >= 10000000 
-                    ? `₹${(Number(remote.price) / 10000000).toFixed(2)} Cr` 
-                    : (Number(remote.price) >= 100000 
-                        ? `₹${(Number(remote.price) / 100000).toFixed(2)} Lakh` 
-                        : `₹${Number(remote.price).toLocaleString("en-IN")}`)),
-              priceNum: Number(remote.price) || 0,
-              location: remote.locality ? `${remote.locality}, ${remote.city || "Bhopal"}` : (remote.city || "Bhopal"),
-              specs: `${remote.bhk || 2} Beds | ${remote.bathrooms || 2} Baths | ${remote.area_sqft || 1200} sqft`,
-              image: remote.images?.[0] || remote.image || DEFAULT_GALLERY_IMAGES[0],
-              photos: remote.images && remote.images.length > 0 ? remote.images : (remote.image ? [remote.image] : DEFAULT_GALLERY_IMAGES),
-              type: remote.property_type || "Apartment",
-              purpose: remote.purpose === "rent" ? "rent" : "sell",
-              bhk: remote.bhk || 2,
-              bathrooms: remote.bathrooms || 2,
-              size: `${remote.area_sqft || 1200}`,
-              description: remote.description,
-              contactName: remote.owner?.name || remote.contact_name || "Verified Owner",
-              // The API deliberately omits raw contact fields until it has authorized an unlock.
-              contactPhone: serverHasContactAccess ? (remote.contact_phone || remote.owner?.mobile || "") : "",
-              ownerEmail: serverHasContactAccess ? (remote.contact_email || remote.owner?.email || "") : "",
-              ownerId: remote.owner_id || "",
-              amenities: remote.amenities || [],
-              // Dynamic attribute fields — fetched from database per property
-              pgFor: remote.pg_for || null,
-              roomType: remote.room_type || null,
-              foodIncluded: remote.food_status || null,
-              furnished: remote.furnished || remote.furnished_status || null,
-            });
-            setIsLoading(false);
-          }
-          return;
-        }
-      } catch (err) {
-        console.warn("Cloud lookup note:", err);
       }
 
       // 3. Fallback: Search cloud database by slug keywords
@@ -547,6 +566,10 @@ export default function PropertyDetailsPage() {
                 decoding="async"
                 style={{ opacity: imgLoaded ? 1 : 0, transition: "opacity 0.25s ease" }}
                 onLoad={() => setImgLoaded(true)}
+                onError={(e) => {
+                  setImgLoaded(true);
+                  e.currentTarget.src = getFallbackImage(propertyDetails.propertyType);
+                }}
               />
 
               {/* Photo Counter Pill */}
@@ -586,7 +609,15 @@ export default function PropertyDetailsPage() {
                     }}
                     aria-label={`View photo ${index + 1}`}
                   >
-                    <img src={photo} alt={`Thumbnail ${index + 1}`} width={100} height={70} />
+                    <img 
+                      src={photo} 
+                      alt={`Thumbnail ${index + 1}`} 
+                      width={100} 
+                      height={70} 
+                      onError={(e) => {
+                        e.currentTarget.src = getFallbackImage(propertyDetails.propertyType);
+                      }}
+                    />
                   </button>
                 ))}
               </div>

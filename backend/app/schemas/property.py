@@ -43,6 +43,7 @@ class PropertyCreate(BaseModel):
     contact_name: Optional[str] = None
     contact_phone: Optional[str] = None
     contact_whatsapp: Optional[str] = None
+    contact_email: Optional[str] = None
     idempotency_key: Optional[str] = None
     amenities: Optional[List[str]] = None
 

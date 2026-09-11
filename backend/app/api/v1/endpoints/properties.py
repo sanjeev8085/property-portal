@@ -150,6 +150,7 @@ async def create_property(
             contact_name=payload.contact_name or current_user.name or "Property Owner",
             contact_phone=target_phone,
             contact_whatsapp=payload.contact_whatsapp or target_phone,
+            contact_email=payload.contact_email or current_user.email or "",
             status=prop_status,
         )
         db.add(prop)
@@ -446,11 +447,18 @@ async def get_property(
             if unlock_check.scalar_one_or_none():
                 is_unlocked = True
 
-    raw_phone = prop.contact_phone or ""
+    # Query owner user record for fallback contact details
+    owner_user_res = await db.execute(select(User).where(User.id == prop.owner_id))
+    owner_user = owner_user_res.scalar_one_or_none()
+
+    raw_phone = prop.contact_phone or (owner_user.mobile if owner_user else "")
+    raw_email = prop.contact_email or (owner_user.email if owner_user else "")
+    owner_name = prop.contact_name or (owner_user.name if owner_user else "Verified Owner")
+
     if is_unlocked:
         exposed_phone = raw_phone
         exposed_whatsapp = prop.contact_whatsapp or raw_phone
-        exposed_email = prop.contact_email or ""
+        exposed_email = raw_email
     else:
         # Server-side mask: +91 98930 XXXXX
         clean_num = ''.join(c for c in raw_phone if c.isdigit())
@@ -472,6 +480,7 @@ async def get_property(
 
     return {
         "id": str(prop.id),
+        "owner_id": str(prop.owner_id),
         "amenities": amenities_list,
         "title": prop.title,
         "purpose": prop.purpose,
@@ -492,10 +501,12 @@ async def get_property(
         "image_details": image_details,
         "is_unlocked": is_unlocked,
         "is_owner": is_owner,
+        "contact_name": owner_name,
         "contact_phone": exposed_phone if is_unlocked else None,
         "contact_whatsapp": exposed_whatsapp if is_unlocked else None,
+        "contact_email": exposed_email if is_unlocked else None,
         "owner": {
-            "name": prop.contact_name or "Verified Owner",
+            "name": owner_name,
             "mobile": exposed_phone,
             "email": exposed_email,
             "is_unlocked": is_unlocked,

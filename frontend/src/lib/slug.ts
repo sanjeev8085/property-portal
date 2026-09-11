@@ -80,12 +80,13 @@ export function getFallbackImage(typeOrTitle: string = ""): string {
 export function normalizeImage(img: any, typeOrTitle: string = ""): string {
   if (!img) return getFallbackImage(typeOrTitle);
   let src = typeof img === "string" ? img : (img.detail_url || img.card_url || img.image_url || img.url || img.thumbnail_url || img.src || "");
-  if (typeof src !== "string" || !src.trim() || src.includes("[object")) {
+  if (typeof src !== "string" || !src.trim() || src.includes("[object") || src === "null" || src === "undefined") {
     return getFallbackImage(typeOrTitle);
   }
   src = src.trim();
   if (src.startsWith("/uploads")) {
-    const apiBase = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
+    const rawApi = process.env.NEXT_PUBLIC_API_URL || "https://aurahomes-backend-tz1c.onrender.com";
+    const apiBase = rawApi.replace(/\/+$/, "");
     return `${apiBase}${src}`;
   }
   return src;
