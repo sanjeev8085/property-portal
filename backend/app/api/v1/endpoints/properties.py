@@ -205,11 +205,17 @@ async def create_property(
         await db.commit()
         await db.refresh(prop)
 
+    except HTTPException:
+        await db.rollback()
+        raise
     except Exception as err:
         await db.rollback()
+        import logging
+        logging.getLogger("properties_endpoint").error(f"[create_property] Transaction failed: {err}", exc_info=True)
+        detail_msg = f"Unable to post property right now. Database transaction failed: {err}" if settings.DEBUG or settings.APP_ENV != "production" else "Unable to post property right now. Database transaction failed."
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unable to post property right now. Database transaction failed."
+            detail=detail_msg
         )
 
     # 7. Post-Commit Database Verification

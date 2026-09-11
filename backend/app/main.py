@@ -44,8 +44,8 @@ async def lifespan(app: FastAPI):
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            from sqlalchemy import text
             if conn.dialect.name == "postgresql":
-                from sqlalchemy import text
                 tables = [
                     "deactivated_properties", "property_verifications", "property_reports",
                     "contact_unlocks", "favorites", "subscriptions", "subscription_plans",
@@ -85,19 +85,33 @@ async def lifespan(app: FastAPI):
                             END IF;
                         END $$;
                     """)
-                # Ensure new attribute columns exist on properties table
-                await conn.execute(text("ALTER TABLE properties ADD COLUMN IF NOT EXISTS pg_for VARCHAR(50);"))
-                await conn.execute(text("ALTER TABLE properties ADD COLUMN IF NOT EXISTS room_type VARCHAR(100);"))
-                await conn.execute(text("ALTER TABLE properties ADD COLUMN IF NOT EXISTS food_status VARCHAR(100);"))
-                # Ensure Cloudinary metadata columns exist on property_images table
-                await conn.execute(text("ALTER TABLE property_images ADD COLUMN IF NOT EXISTS card_url VARCHAR(1000);"))
-                await conn.execute(text("ALTER TABLE property_images ADD COLUMN IF NOT EXISTS detail_url VARCHAR(1000);"))
-                await conn.execute(text("ALTER TABLE property_images ADD COLUMN IF NOT EXISTS cloudinary_public_id VARCHAR(500);"))
-                await conn.execute(text("ALTER TABLE property_images ADD COLUMN IF NOT EXISTS width INTEGER;"))
-                await conn.execute(text("ALTER TABLE property_images ADD COLUMN IF NOT EXISTS height INTEGER;"))
-                await conn.execute(text("ALTER TABLE property_images ADD COLUMN IF NOT EXISTS file_size INTEGER;"))
-        logger.info("Database schemas and Row Level Security (RLS) verified.")
+
+            # Ensure new attribute columns exist on properties and property_images tables across all DB dialects
+            cols_to_add = [
+                ("properties", "pg_for", "VARCHAR(50)"),
+                ("properties", "room_type", "VARCHAR(100)"),
+                ("properties", "food_status", "VARCHAR(100)"),
+                ("properties", "contact_email", "VARCHAR(255)"),
+                ("property_images", "card_url", "VARCHAR(1000)"),
+                ("property_images", "detail_url", "VARCHAR(1000)"),
+                ("property_images", "cloudinary_public_id", "VARCHAR(500)"),
+                ("property_images", "width", "INTEGER"),
+                ("property_images", "height", "INTEGER"),
+                ("property_images", "file_size", "INTEGER"),
+            ]
+            for tbl, col, col_type in cols_to_add:
+                try:
+                    if conn.dialect.name == "postgresql":
+                        await conn.execute(text(f"ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS {col} {col_type};"))
+                    else:
+                        await conn.execute(text(f"ALTER TABLE {tbl} ADD COLUMN {col} {col_type};"))
+                except Exception:
+                    # Column already exists
+                    pass
+
+        logger.info("Database schemas, migrations, and Row Level Security (RLS) verified.")
     except Exception as e:
+        logger.warning(f"Database schema auto-creation skipped or already initialized: {e}")
         logger.warning(f"Database schema auto-creation skipped or already initialized: {e}")
 
     # 3. Initialize Redis-based rate limiter only in non-test environments (graceful fallback)
