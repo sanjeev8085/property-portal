@@ -4,6 +4,7 @@ import smtplib
 import uuid
 from datetime import datetime, timezone
 from email.mime.text import MIMEText
+from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
