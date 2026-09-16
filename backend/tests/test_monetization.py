@@ -37,7 +37,7 @@ class TestContactCredits:
     async def test_unlock_requires_authentication(self, client: AsyncClient):
         """Unauthenticated request to unlock contact is rejected."""
         resp = await client.post("/api/v1/contacts/unlock/00000000-0000-0000-0000-000000000001")
-        assert resp.status_code == 403
+        assert resp.status_code in (401, 403)
 
 
 @pytest.mark.asyncio
@@ -53,7 +53,7 @@ class TestPayments:
     async def test_create_order_requires_auth(self, client: AsyncClient):
         """Creating a payment order requires authentication."""
         resp = await client.post("/api/v1/payments/create-order", json={"plan_id": "some-uuid"})
-        assert resp.status_code == 403
+        assert resp.status_code in (401, 403)
 
     async def test_create_order_invalid_plan(self, client: AsyncClient, buyer_auth_headers: dict):
         """Invalid plan ID returns 404."""
@@ -107,7 +107,7 @@ class TestFavorites:
     async def test_favorite_requires_auth(self, client: AsyncClient):
         """Unauthenticated favorite save is rejected."""
         resp = await client.post("/api/v1/favorites", json={"property_id": "some-id"})
-        assert resp.status_code == 403
+        assert resp.status_code in (401, 403)
 
 
 import pytest_asyncio

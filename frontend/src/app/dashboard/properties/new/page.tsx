@@ -950,24 +950,44 @@ export default function NewPropertyWizard() {
             <div className="form-grid">
               <div className="form-group">
                 <label>{purpose === "rent" ? "Expected Monthly Rent (₹)" : "Expected Total Price (₹)"}</label>
-                <input type="text" placeholder={purpose === "rent" ? "e.g. 25000" : "e.g. 8500000"} value={price} onChange={(e) => setPrice(e.target.value)} />
+                <input 
+                  type="text" 
+                  placeholder={purpose === "rent" ? "e.g. 25000" : "e.g. 8500000"} 
+                  value={price} 
+                  onChange={(e) => setPrice(e.target.value.replace(/[^0-9.]/g, ""))} 
+                />
               </div>
               {purpose === "rent" ? (
                 <>
                   <div className="form-group">
                     <label>Security Deposit (₹)</label>
-                    <input type="text" placeholder="e.g. 50000" value={deposit} onChange={(e) => setDeposit(e.target.value)} />
+                    <input 
+                      type="text" 
+                      placeholder="e.g. 50000" 
+                      value={deposit} 
+                      onChange={(e) => setDeposit(e.target.value.replace(/[^0-9.]/g, ""))} 
+                    />
                   </div>
                   <div className="form-group">
                     <label>Monthly Maintenance (₹)</label>
-                    <input type="text" placeholder="e.g. 1500" value={maintenance} onChange={(e) => setMaintenance(e.target.value)} />
+                    <input 
+                      type="text" 
+                      placeholder="e.g. 1500" 
+                      value={maintenance} 
+                      onChange={(e) => setMaintenance(e.target.value.replace(/[^0-9.]/g, ""))} 
+                    />
                   </div>
                 </>
               ) : (
                 <>
                   <div className="form-group">
                     <label>Booking / Token Amount (₹)</label>
-                    <input type="text" placeholder="e.g. 100000" value={deposit} onChange={(e) => setDeposit(e.target.value)} />
+                    <input 
+                      type="text" 
+                      placeholder="e.g. 100000" 
+                      value={deposit} 
+                      onChange={(e) => setDeposit(e.target.value.replace(/[^0-9.]/g, ""))} 
+                    />
                   </div>
                   <div className="form-group">
                     <label>Price Negotiable?</label>
@@ -1255,7 +1275,15 @@ export default function NewPropertyWizard() {
               )}
 
               <p className="preview-price">
-                {purpose === "rent" ? "Expected Rent:" : "Expected Price:"} ₹{price || (purpose === "rent" ? "25,000 / Month" : "85,00,000")}
+                {purpose === "rent" ? "Expected Rent:" : "Expected Price:"} {
+                  (() => {
+                    const cleanNum = parseFloat((price || "").replace(/[^0-9.]/g, ""));
+                    if (!isNaN(cleanNum) && cleanNum > 0) {
+                      return `₹${cleanNum.toLocaleString("en-IN")}${purpose === "rent" ? " / Month" : ""}`;
+                    }
+                    return purpose === "rent" ? "₹25,000 / Month" : "₹85,00,000";
+                  })()
+                }
               </p>
               <p className="preview-desc-snippet">{description || "No description generated yet."}</p>
             </div>

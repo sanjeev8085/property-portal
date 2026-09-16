@@ -524,3 +524,61 @@ async def send_property_sold_rented_notification(
         if user and user.email:
             html_email = get_html_email_template(title, body, f"/properties/{property_id}")
             await send_email_notification(user.email, title, html_email)
+
+
+async def trigger_matching_saved_search_alerts(db: AsyncSession, property_obj: Any) -> None:
+    """Trigger matching saved search alert notifications when a property is approved/published."""
+    from app.models.monetization import SavedSearch
+
+    result = await db.execute(select(SavedSearch).where(SavedSearch.is_active == True))
+    searches = result.scalars().all()
+
+    for s in searches:
+        filters = s.filters or {}
+        match = True
+
+        # 1. Match BHK
+        if "bhk" in filters and filters["bhk"] is not None:
+            try:
+                if int(property_obj.bhk or 0) != int(filters["bhk"]):
+                    match = False
+            except (ValueError, TypeError):
+                pass
+
+        # 2. Match Property Type (flexible alias matching)
+        if "property_type" in filters and filters["property_type"]:
+            filter_pt = str(filters["property_type"]).strip().lower()
+            prop_pt = str(property_obj.property_type or "").strip().lower()
+            if filter_pt not in prop_pt and prop_pt not in filter_pt:
+                # Check villa/house alias
+                if ("villa" in filter_pt or "house" in filter_pt) and ("villa" in prop_pt or "house" in prop_pt):
+                    pass
+                else:
+                    match = False
+
+        # 3. Match Price Bounds
+        if "price_max" in filters and filters["price_max"] is not None:
+            try:
+                if float(property_obj.price or 0) > float(filters["price_max"]):
+                    match = False
+            except (ValueError, TypeError):
+                pass
+
+        if "price_min" in filters and filters["price_min"] is not None:
+            try:
+                if float(property_obj.price or 0) < float(filters["price_min"]):
+                    match = False
+            except (ValueError, TypeError):
+                pass
+
+        if match:
+            await send_saved_search_match_notification(
+                user_id=s.user_id,
+                search_name=s.name,
+                property_id=property_obj.id,
+                property_title=property_obj.title,
+                price=property_obj.price,
+                db=db,
+                notify_email=s.notify_email,
+                notify_whatsapp=s.notify_whatsapp
+            )

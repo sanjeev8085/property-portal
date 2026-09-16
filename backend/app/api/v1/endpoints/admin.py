@@ -91,11 +91,15 @@ async def approve_property(
 
     prop.status = PropertyStatus.PUBLISHED
     prop.published_at = datetime.now(timezone.utc)
+    prop.is_verified = True
     db.add(prop)
     await db.commit()
 
     # Trigger property approved notification to owner
-    from app.services.notification_service import send_property_approved_notification
+    from app.services.notification_service import (
+        send_property_approved_notification,
+        trigger_matching_saved_search_alerts
+    )
     if prop.owner_id:
         await send_property_approved_notification(
             user_id=prop.owner_id,
@@ -104,137 +108,11 @@ async def approve_property(
             db=db
         )
 
-    # Trigger alerts matching loop
-    from app.models.monetization import SavedSearch
-    from app.services.notification_service import send_saved_search_match_notification
-
-    searches_result = await db.execute(select(SavedSearch).where(SavedSearch.is_active == True))
-    saved_searches = searches_result.scalars().all()
-
-    for s in saved_searches:
-        filters = s.filters or {}
-        match = True
-
-        if "bhk" in filters and prop.bhk != filters["bhk"]:
-            match = False
-        if "price_max" in filters and prop.price > filters["price_max"]:
-            match = False
-        if "price_min" in filters and prop.price < filters["price_min"]:
-            match = False
-        if "property_type" in filters and prop.property_type.lower() != filters["property_type"].lower():
-            match = False
-
-        if match:
-            await send_saved_search_match_notification(
-                user_id=s.user_id,
-                search_name=s.name,
-                property_id=prop.id,
-                property_title=prop.title,
-                price=prop.price,
-                db=db,
-                notify_email=bool(s.notify_email),
-                notify_whatsapp=bool(s.notify_whatsapp)
-            )
-
+    # Trigger alerts matching loop for saved searches
+    await trigger_matching_saved_search_alerts(db, prop)
     await db.commit()
 
     return {"message": "Property listing approved and published. Match alerts triggered.", "property_id": str(prop.id), "status": prop.status}
-
-
-@router.post("/properties/{property_id}/reject")
-async def reject_property(
-    property_id: str,
-    payload: dict,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(UserType.ADMIN))
-):
-    """Reject a property listing (status -> rejected)."""
-    try:
-        pid = uuid.UUID(property_id)
-    except ValueError:
-        raise HTTPException(status_code=422, detail="Invalid property ID.")
-
-    reason = payload.get("reason", "Incomplete listing details.")
-
-    result = await db.execute(select(Property).where(Property.id == pid))
-    prop = result.scalar_one_or_none()
-    if not prop:
-        raise HTTPException(status_code=404, detail="Property not found.")
-
-    prop.status = PropertyStatus.REJECTED
-    prop.rejection_reason = reason
-    db.add(prop)
-    await db.commit()
-
-    # Trigger rejection notification to owner
-    try:
-        from app.services.notification_service import send_property_rejected_notification
-        if prop.owner_id:
-            await send_property_rejected_notification(
-                owner_id=prop.owner_id,
-                property_title=prop.title,
-                reason=reason,
-                db=db
-            )
-    except Exception:
-        pass
-
-    return {"message": "Property listing rejected.", "property_id": str(prop.id), "status": prop.status}
-
-
-@router.post("/properties/{property_id}/verify")
-async def verify_property(
-    property_id: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(UserType.ADMIN))
-):
-    """Toggle verification badge on property listing."""
-    try:
-        pid = uuid.UUID(property_id)
-    except ValueError:
-        raise HTTPException(status_code=422, detail="Invalid property ID.")
-
-    result = await db.execute(select(Property).where(Property.id == pid))
-    prop = result.scalar_one_or_none()
-    if not prop:
-        raise HTTPException(status_code=404, detail="Property not found.")
-
-    prop.is_verified = not prop.is_verified
-    db.add(prop)
-    await db.commit()
-
-    return {"message": "Verification status toggled.", "property_id": str(prop.id), "is_verified": prop.is_verified}
-
-
-@router.post("/properties/{property_id}/approve")
-async def approve_property(
-    property_id: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role(UserType.ADMIN))
-):
-    """Approve a property listing (admin only)."""
-    try:
-        pid = uuid.UUID(property_id)
-    except ValueError:
-        raise HTTPException(status_code=422, detail="Invalid property ID format.")
-
-    result = await db.execute(select(Property).where(Property.id == pid))
-    prop = result.scalar_one_or_none()
-    if not prop:
-        raise HTTPException(status_code=404, detail="Property not found.")
-
-    prop.status = PropertyStatus.PUBLISHED
-    prop.is_verified = True
-    db.add(prop)
-    await db.commit()
-
-    try:
-        from app.services.notification_service import trigger_matching_saved_search_alerts
-        await trigger_matching_saved_search_alerts(db, prop)
-    except Exception:
-        pass
-
-    return {"message": "Property approved.", "property_id": str(prop.id), "status": prop.status}
 
 
 from app.models.user import UserStatus

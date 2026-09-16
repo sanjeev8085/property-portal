@@ -66,9 +66,27 @@ class PropertyCreate(BaseModel):
     @field_validator("property_type")
     @classmethod
     def validate_property_type(cls, v: str) -> str:
-        if v not in ALLOWED_PROPERTY_TYPES:
-            raise ValueError(f"Invalid property_type '{v}'. Allowed types: {', '.join(sorted(ALLOWED_PROPERTY_TYPES))}")
-        return v
+        if not v or not isinstance(v, str):
+            raise ValueError("property_type is required.")
+        v_clean = v.strip()
+        if v_clean in ALLOWED_PROPERTY_TYPES:
+            return v_clean
+        v_lower = v_clean.lower()
+        if "villa" in v_lower or "house" in v_lower:
+            return "Villa / House"
+        if "apartment" in v_lower or "flat" in v_lower:
+            return "Apartment"
+        if "plot" in v_lower or "land" in v_lower:
+            return "Plot / Land"
+        if "shop" in v_lower:
+            return "Shop"
+        if "office" in v_lower:
+            return "Office Space"
+        if "warehouse" in v_lower:
+            return "Warehouse"
+        if "pg" in v_lower or "hostel" in v_lower:
+            return "PG / Hostel"
+        raise ValueError(f"Invalid property_type '{v}'. Allowed types: {', '.join(sorted(ALLOWED_PROPERTY_TYPES))}")
 
     @model_validator(mode="before")
     @classmethod
