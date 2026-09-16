@@ -181,7 +181,77 @@ export default function NewPropertyWizard() {
     "Preview"
   ];
 
+  function parseStrictNumeric(input: string): { valid: boolean; value: number } {
+    if (!input || !input.trim()) return { valid: false, value: 0 };
+    const cleaned = input.replace(/[₹,\s]/g, "").trim();
+    if (!/^\d+(\.\d+)?$/.test(cleaned)) return { valid: false, value: 0 };
+    const val = parseFloat(cleaned);
+    if (isNaN(val) || val <= 0) return { valid: false, value: 0 };
+    return { valid: true, value: val };
+  }
+
+  function parseStrictNonNegativeNumeric(input: string): { valid: boolean; value: number } {
+    if (!input || !input.trim()) return { valid: true, value: 0 };
+    const cleaned = input.replace(/[₹,\s]/g, "").trim();
+    if (!/^\d+(\.\d+)?$/.test(cleaned)) return { valid: false, value: 0 };
+    const val = parseFloat(cleaned);
+    if (isNaN(val) || val < 0) return { valid: false, value: 0 };
+    return { valid: true, value: val };
+  }
+
+  function isValidIndianPhone(phone: string): boolean {
+    if (!phone) return false;
+    const cleaned = phone.replace(/[\s\-\+]/g, "").trim();
+    if (cleaned.length === 10 && /^[6-9]\d{9}$/.test(cleaned)) return true;
+    if (cleaned.length === 12 && /^91[6-9]\d{9}$/.test(cleaned)) return true;
+    return false;
+  }
+
   const handleNext = () => {
+    // Step 4: Specs Validation (Area/Size)
+    if (step === 4 && size && size.trim() !== "") {
+      const sizeCheck = parseStrictNumeric(size);
+      if (!sizeCheck.valid) {
+        error(`Invalid area size "${size}". Please enter a valid positive number in sqft (e.g. 1200). Alphabetic characters are not allowed.`);
+        return;
+      }
+    }
+
+    // Step 6: Pricing Validation
+    if (step === 6) {
+      if (!price || !price.trim()) {
+        error("Please enter the expected price or rent for your property.");
+        return;
+      }
+      const priceCheck = parseStrictNumeric(price);
+      if (!priceCheck.valid) {
+        error(`Invalid price "${price}". Please enter a valid positive number without letters or invalid symbols (e.g. 25000 or 8500000).`);
+        return;
+      }
+      if (deposit && deposit.trim() !== "") {
+        const depCheck = parseStrictNonNegativeNumeric(deposit);
+        if (!depCheck.valid) {
+          error(`Invalid security deposit / booking token amount "${deposit}". Please enter a valid non-negative number.`);
+          return;
+        }
+      }
+      if (maintenance && maintenance.trim() !== "") {
+        const maintCheck = parseStrictNonNegativeNumeric(maintenance);
+        if (!maintCheck.valid) {
+          error(`Invalid maintenance amount "${maintenance}". Please enter a valid non-negative number.`);
+          return;
+        }
+      }
+    }
+
+    // Step 9: Contact Validation
+    if (step === 9) {
+      if (contactPhone && !isValidIndianPhone(contactPhone)) {
+        error(`Invalid mobile number "${contactPhone}". Please enter a valid 10-digit Indian phone number (e.g. 9876543210).`);
+        return;
+      }
+    }
+
     if (step < 10) setStep(step + 1);
   };
 
@@ -345,9 +415,37 @@ export default function NewPropertyWizard() {
 
       const coverImageStr = typeof finalImages[0] === "string" ? finalImages[0] : (finalImages[0]?.detail_url || finalImages[0]?.card_url || finalImages[0]?.url);
 
+      // Perform strict validation before submitting
+      const priceCheck = parseStrictNumeric(price);
+      if (!priceCheck.valid) {
+        error(`Invalid Price amount "${price}". Price must be a valid positive number (e.g. 25000 or 8500000).`);
+        setStep(6);
+        setIsPublishing(false);
+        return;
+      }
+
+      let finalAreaSqft = 1200;
+      if (size && size.trim() !== "") {
+        const sizeCheck = parseStrictNumeric(size);
+        if (!sizeCheck.valid) {
+          error(`Invalid Carpet Area / Size "${size}". Please enter a valid positive number.`);
+          setStep(4);
+          setIsPublishing(false);
+          return;
+        }
+        finalAreaSqft = sizeCheck.value;
+      }
+
+      if (contactPhone && !isValidIndianPhone(contactPhone)) {
+        error(`Invalid Mobile Number "${contactPhone}". Please enter a valid 10-digit Indian mobile number.`);
+        setStep(9);
+        setIsPublishing(false);
+        return;
+      }
+
       // Generate unique idempotency key for this submission attempt
       const idempotencyKey = `prop_pub_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-      const finalPriceNum = parseFloat(price) || (purpose === "rent" ? 25000 : 8500000);
+      const finalPriceNum = priceCheck.value;
 
       const isLandOrComm = ["Plot / Land", "Shop", "Office Space", "Warehouse"].includes(propertyType);
       const payload = {
@@ -357,7 +455,7 @@ export default function NewPropertyWizard() {
         category: ["Shop", "Office Space", "Warehouse"].includes(propertyType) ? "commercial" : "residential",
         property_type: propertyType,
         bhk: isLandOrComm ? null : (Number(bhk) || null),
-        area_sqft: parseFloat(String(size)) || 1200,
+        area_sqft: finalAreaSqft,
         bathrooms: propertyType === "Plot / Land" ? null : (Number(bathrooms) || null),
         furnished_status: furnished,
         furnished: furnished,

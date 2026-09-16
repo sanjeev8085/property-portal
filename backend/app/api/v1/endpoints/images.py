@@ -110,6 +110,20 @@ async def upload_property_images(
             })
             continue
 
+        # ── Validate binary magic bytes ─────────────────────────────────────────
+        is_valid_image = (
+            file_bytes.startswith(b"\xFF\xD8\xFF") or  # JPEG
+            file_bytes.startswith(b"\x89PNG\r\n\x1a\n") or  # PNG
+            (file_bytes.startswith(b"RIFF") and b"WEBP" in file_bytes[:16]) or  # WebP
+            (len(file_bytes) > 12 and (b"ftyp" in file_bytes[4:12]))  # HEIC/HEIF/MP4
+        )
+        if not is_valid_image:
+            upload_errors.append({
+                "filename": file.filename,
+                "error": "File verification failed: Binary content does not match a valid image header.",
+            })
+            continue
+
         # ── Upload logic (Cloudinary with local fallback) ──────────────────────
         try:
             if use_cloudinary:

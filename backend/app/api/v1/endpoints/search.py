@@ -15,9 +15,9 @@ async def search_properties(
     purpose: Optional[str] = Query(None, description="rent or sell"),
     city: Optional[str] = Query(None),
     property_type: Optional[str] = Query(None),
-    min_price: Optional[float] = Query(None),
-    max_price: Optional[float] = Query(None),
-    bhk: Optional[int] = Query(None),
+    min_price: Optional[float] = Query(None, ge=0),
+    max_price: Optional[float] = Query(None, ge=0),
+    bhk: Optional[int] = Query(None, ge=0),
     furnished_status: Optional[str] = Query(None),
     parking: Optional[bool] = Query(None),
     sort_by: Optional[str] = Query("newest", description="newest|price_asc|price_desc|most_viewed"),
@@ -26,6 +26,10 @@ async def search_properties(
     db: AsyncSession = Depends(get_db),
 ):
     """Search and filter properties."""
+    from fastapi import HTTPException
+    if min_price is not None and max_price is not None and min_price > max_price:
+        raise HTTPException(status_code=400, detail="min_price cannot be greater than max_price.")
+
     # Query properties that are active/published and not deactivated
     query = (
         select(Property)

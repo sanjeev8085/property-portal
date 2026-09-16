@@ -56,26 +56,48 @@ export default function EditPropertyPage({ params }: { params: Promise<{ id: str
     loadProperty();
   }, [propertyId]);
 
+  const parseStrictNumeric = (input: string): { valid: boolean; value: number } => {
+    if (!input || !input.trim()) return { valid: false, value: 0 };
+    const cleaned = input.replace(/[₹,\s]/g, "").trim();
+    if (!/^\d+(\.\d+)?$/.test(cleaned)) return { valid: false, value: 0 };
+    const val = parseFloat(cleaned);
+    if (isNaN(val) || val <= 0) return { valid: false, value: 0 };
+    return { valid: true, value: val };
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
     setErrorMsg("");
     setSuccessMsg("");
+
+    const priceCheck = parseStrictNumeric(price);
+    if (!priceCheck.valid) {
+      setErrorMsg(`Invalid Price amount "${price}". Please enter a valid positive number without alphabetic characters.`);
+      return;
+    }
+
+    const areaCheck = parseStrictNumeric(area);
+    if (!areaCheck.valid) {
+      setErrorMsg(`Invalid Area/Size "${area}". Please enter a valid positive number in sqft.`);
+      return;
+    }
+
+    setSaving(true);
     try {
       await api.createProperty({
         title,
-        price: parseFloat(price) || 0,
+        price: priceCheck.value,
         purpose,
         category,
         property_type: propertyType,
         bhk: ["Apartment", "Villa / House", "Independent Floor"].includes(propertyType) ? parseInt(bhk) : 0,
-        area_sqft: parseFloat(area) || 0,
+        area_sqft: areaCheck.value,
         bathrooms: ["Apartment", "Villa / House", "Independent Floor"].includes(propertyType) ? parseInt(bathrooms) : 0,
         description
       });
       setSuccessMsg("Property details updated successfully!");
-    } catch {
-      setSuccessMsg("Property details updated successfully! (Simulated)");
+    } catch (err: any) {
+      setErrorMsg(err?.message || "Failed to update property details.");
     } finally {
       setSaving(false);
     }

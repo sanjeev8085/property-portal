@@ -1,7 +1,10 @@
-"""Pydantic v2 schemas for Auth endpoints."""
+import re
 from typing import Optional
 from pydantic import BaseModel, field_validator
 from app.models.user import UserType
+
+PHONE_REGEX = re.compile(r"^(\+91[\-\s]?)?[6-9]\d{9}$")
+EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 class RegisterRequest(BaseModel):
@@ -19,6 +22,26 @@ class RegisterRequest(BaseModel):
             raise ValueError("Password must be at least 8 characters.")
         return v
 
+    @field_validator("mobile")
+    @classmethod
+    def validate_mobile(cls, v):
+        if v:
+            clean_m = v.strip()
+            if not PHONE_REGEX.match(clean_m):
+                raise ValueError("Mobile number must be a valid 10-digit Indian phone number.")
+            return clean_m
+        return v
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v):
+        if v:
+            clean_e = v.strip()
+            if not EMAIL_REGEX.match(clean_e):
+                raise ValueError("Invalid email address format.")
+            return clean_e
+        return v
+
 
 class LoginRequest(BaseModel):
     email: str
@@ -28,10 +51,26 @@ class LoginRequest(BaseModel):
 class OTPSendRequest(BaseModel):
     mobile: str
 
+    @field_validator("mobile")
+    @classmethod
+    def validate_mobile(cls, v):
+        clean_m = v.strip() if v else ""
+        if not PHONE_REGEX.match(clean_m):
+            raise ValueError("Mobile number must be a valid 10-digit Indian phone number.")
+        return clean_m
+
 
 class OTPVerifyRequest(BaseModel):
     mobile: str
     otp: str
+
+    @field_validator("mobile")
+    @classmethod
+    def validate_mobile(cls, v):
+        clean_m = v.strip() if v else ""
+        if not PHONE_REGEX.match(clean_m):
+            raise ValueError("Mobile number must be a valid 10-digit Indian phone number.")
+        return clean_m
 
 
 class RefreshRequest(BaseModel):
