@@ -39,7 +39,7 @@ export default function AdminPropertiesPage() {
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
-  const { success } = useToast();
+  const { success, error: showError } = useToast();
 
   useEffect(() => {
     const loadAllProps = async () => {
@@ -153,54 +153,73 @@ export default function AdminPropertiesPage() {
 
   const approve = async (id: string) => {
     setLoading(id);
-    try { await api.approveProperty(id); } catch { /* mock ok */ }
-    setProps((p) => p.map((x) => x.id === id ? { ...x, status: "Published" } : x));
-    success("Property approved and published");
-    setLoading(null);
+    try {
+      await api.approveProperty(id);
+      setProps((p) => p.map((x) => x.id === id ? { ...x, status: "Published" } : x));
+      success("Property approved and published");
+    } catch (err: any) {
+      showError(err?.message || "Failed to approve property.");
+    } finally {
+      setLoading(null);
+    }
   };
 
   const doReject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!rejectingId) return;
     setLoading(rejectingId);
-    try { await api.rejectProperty(rejectingId, rejectReason); } catch { /* mock ok */ }
-    setProps((p) => p.map((x) => x.id === rejectingId ? { ...x, status: "Rejected" } : x));
-    success("Property rejected. Owner notified.");
-    setLoading(null); setRejectingId(null); setRejectReason("");
+    try {
+      await api.rejectProperty(rejectingId, rejectReason);
+      setProps((p) => p.map((x) => x.id === rejectingId ? { ...x, status: "Rejected" } : x));
+      success("Property rejected. Owner notified.");
+      setRejectingId(null);
+      setRejectReason("");
+    } catch (err: any) {
+      showError(err?.message || "Failed to reject property.");
+    } finally {
+      setLoading(null);
+    }
   };
 
   const toggleVerify = async (id: string) => {
     setLoading(id);
-    try { await api.verifyProperty(id); } catch { /* mock ok */ }
-    setProps((p) => p.map((x) => x.id === id ? { ...x, is_verified: !x.is_verified } : x));
-    success("Verified status toggled");
-    setLoading(null);
+    try {
+      const res = await api.verifyProperty(id);
+      setProps((p) => p.map((x) => x.id === id ? { ...x, is_verified: res?.is_verified ?? !x.is_verified } : x));
+      success("Verified status updated");
+    } catch (err: any) {
+      showError(err?.message || "Failed to toggle verification status.");
+    } finally {
+      setLoading(null);
+    }
   };
 
   const toggleFeatured = async (id: string) => {
-    try { await api.featureProperty(id); } catch { /* mock ok */ }
-    setProps((p) => p.map((x) => x.id === id ? { ...x, is_featured: !x.is_featured } : x));
-    const prop = props.find((x) => x.id === id);
-    success(prop?.is_featured ? "Removed from featured" : "Added to featured ⭐");
+    const targetProp = props.find((x) => x.id === id);
+    if (!targetProp) return;
+    const newFeatured = !targetProp.is_featured;
+    try {
+      await api.featureProperty(id, newFeatured);
+      setProps((p) => p.map((x) => x.id === id ? { ...x, is_featured: newFeatured } : x));
+      success(newFeatured ? "Added to featured ⭐" : "Removed from featured");
+    } catch (err: any) {
+      showError(err?.message || "Failed to toggle featured status.");
+    }
   };
 
   const deleteProp = async (id: string) => {
     if (!confirm("Permanently delete this property? This cannot be undone.")) return;
     try {
-      deletePublishedProperty(id);
-    } catch {
-      // local store note
-    }
-    try {
       await api.deleteAdminProperty(id);
-    } catch {
-      // api fallback
+      deletePublishedProperty(id);
+      setProps((p) => p.filter((x) => x.id !== id));
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("aurahomes_properties_updated"));
+      }
+      success("Listing removed permanently across the portal");
+    } catch (err: any) {
+      showError(err?.message || "Failed to delete property.");
     }
-    setProps((p) => p.filter((x) => x.id !== id));
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("aurahomes_properties_updated"));
-    }
-    success("Listing removed permanently across the portal");
   };
 
   return (

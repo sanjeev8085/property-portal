@@ -266,9 +266,13 @@ export const api = {
     });
   },
 
-  async featureProperty(propertyId: string) {
+  async featureProperty(propertyId: string, isFeatured?: boolean, featuredUntil?: string) {
     return apiFetch(`/admin/properties/${propertyId}/feature`, {
       method: "PATCH",
+      body: JSON.stringify({
+        is_featured: isFeatured,
+        featured_until: featuredUntil,
+      }),
     });
   },
 
@@ -290,6 +294,87 @@ export const api = {
     return apiFetch("/admin/notifications/broadcast", {
       method: "POST",
       body: JSON.stringify({ title, body, target }),
+    });
+  },
+
+  async getNotificationHistory() {
+    try {
+      const data = await apiFetch("/admin/notifications/history");
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
+  },
+
+  // Locations API
+  async getAdminLocations() {
+    try {
+      const data = await apiFetch("/admin/locations");
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
+  },
+
+  async createLocation(city: string, state: string) {
+    return apiFetch("/admin/locations", {
+      method: "POST",
+      body: JSON.stringify({ city, state }),
+    });
+  },
+
+  async updateLocation(id: string, city: string, state: string) {
+    return apiFetch(`/admin/locations/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ city, state }),
+    });
+  },
+
+  async toggleLocation(id: string) {
+    return apiFetch(`/admin/locations/${id}/toggle`, {
+      method: "PATCH",
+    });
+  },
+
+  async deleteLocation(id: string) {
+    return apiFetch(`/admin/locations/${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  // Categories API
+  async getAdminCategories() {
+    try {
+      const data = await apiFetch("/admin/categories");
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
+  },
+
+  async createCategory(name: string, icon: string) {
+    return apiFetch("/admin/categories", {
+      method: "POST",
+      body: JSON.stringify({ name, icon }),
+    });
+  },
+
+  async updateCategory(id: string, name: string, icon: string) {
+    return apiFetch(`/admin/categories/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ name, icon }),
+    });
+  },
+
+  async toggleCategory(id: string) {
+    return apiFetch(`/admin/categories/${id}/toggle`, {
+      method: "PATCH",
+    });
+  },
+
+  async deleteCategory(id: string) {
+    return apiFetch(`/admin/categories/${id}`, {
+      method: "DELETE",
     });
   },
 

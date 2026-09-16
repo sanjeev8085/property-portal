@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings, validate_production_secrets
 from app.core.database import engine, Base, get_db, AsyncSessionLocal
 from app.api.v1.router import api_router
+from app.models import Category, Location, BroadcastNotification
 
 logger = logging.getLogger(__name__)
 
@@ -37,19 +38,25 @@ async def lifespan(app: FastAPI):
             logger.warning("[Sentry] sentry-sdk not installed. Run: pip install sentry-sdk")
         except Exception as exc:
             logger.warning(f"[Sentry] Failed to initialize: {exc}")
-    else:
-        logger.info("[Sentry] DSN not configured — error monitoring disabled (set SENTRY_DSN in .env).")
+    logger.info("[Sentry] DSN not configured — error monitoring disabled (set SENTRY_DSN in .env).")
 
     # 2. Initialize schema and enforce Row Level Security (RLS) on PostgreSQL
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
             from sqlalchemy import text
+
+            # Migrate columns if missing
             if conn.dialect.name == "postgresql":
+                await conn.execute(text("ALTER TABLE public.locations ADD COLUMN IF NOT EXISTS state VARCHAR(100);"))
+                await conn.execute(text("ALTER TABLE public.locations ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;"))
+                await conn.execute(text("ALTER TABLE public.locations ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();"))
+
                 tables = [
                     "deactivated_properties", "property_verifications", "property_reports",
                     "contact_unlocks", "favorites", "subscriptions", "subscription_plans",
                     "contact_credits", "payments", "saved_searches", "notifications",
+                    "broadcast_notifications", "categories",
                     "audit_logs", "users", "agents", "properties", "locations",
                     "property_images", "property_amenities", "property_views"
                 ]
@@ -57,7 +64,7 @@ async def lifespan(app: FastAPI):
                     await conn.execute(text(f"ALTER TABLE IF EXISTS public.{tbl} ENABLE ROW LEVEL SECURITY;"))
                 
                 # Create explicit RLS policies for all tables to resolve Supabase linter warnings
-                public_read_tables = ["properties", "locations", "property_images", "property_amenities", "subscription_plans", "agents"]
+                public_read_tables = ["properties", "locations", "categories", "property_images", "property_amenities", "subscription_plans", "agents"]
                 for tbl in public_read_tables:
                     policy_sql = text(f"""
                         DO $$

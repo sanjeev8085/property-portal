@@ -2,7 +2,8 @@
 Location ORM Model
 """
 import uuid
-from sqlalchemy import Column, Float, Index, String
+from datetime import datetime, timezone
+from sqlalchemy import Boolean, Column, DateTime, Float, Index, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -20,6 +21,10 @@ class Location(Base):
     lat = Column(Float, nullable=True)
     lng = Column(Float, nullable=True)
     full_address = Column(String(500), nullable=True)
+
+    state = Column(String(100), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     properties = relationship("Property", back_populates="location")
 

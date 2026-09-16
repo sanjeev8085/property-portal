@@ -13,12 +13,13 @@ from app.models.monetization import (
     ContactUnlock, Payment, Favorite, SavedSearch,
     PaymentStatus, PaymentGateway, SubscriptionStatus
 )
-from app.models.notification import Notification, NotificationType
+from app.models.notification import Notification, NotificationType, BroadcastNotification
+from app.models.category import Category
 from app.models.audit import AuditLog
 
 __all__ = [
     "User", "Agent",
-    "Location",
+    "Location", "Category",
     "Property", "PropertyImage", "PropertyAmenity",
     "PropertyView", "PropertyVerification", "PropertyReport",
     "DeactivatedProperty",
@@ -27,5 +28,5 @@ __all__ = [
     "SubscriptionPlan", "Subscription", "ContactCredit",
     "ContactUnlock", "Payment", "Favorite", "SavedSearch",
     "PaymentStatus", "PaymentGateway", "SubscriptionStatus",
-    "Notification", "NotificationType", "AuditLog",
+    "Notification", "NotificationType", "BroadcastNotification", "AuditLog",
 ]

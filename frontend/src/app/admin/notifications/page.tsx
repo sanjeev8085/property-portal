@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import Button from "@/components/ui/Button";
 import { useToast } from "@/lib/useToast";
@@ -19,8 +19,25 @@ export default function AdminNotificationsPage() {
   const [body, setBody] = useState("");
   const [target, setTarget] = useState("all");
   const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState<SentNotif[]>([]);
+  const [history, setHistory] = useState<SentNotif[]>([]);
+  const [loading, setLoading] = useState(true);
   const { success, error: showError } = useToast();
+
+  const loadHistory = async () => {
+    try {
+      setLoading(true);
+      const data = await api.getNotificationHistory();
+      setHistory(data);
+    } catch {
+      // Fallback
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadHistory();
+  }, []);
 
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,16 +50,9 @@ export default function AdminNotificationsPage() {
       const res = await api.broadcastNotification(title.trim(), body.trim(), target);
       const sentCount = res?.sent_count ?? 0;
       success(`✅ Broadcast sent to ${sentCount} user${sentCount !== 1 ? "s" : ""}!`);
-      setSent((prev) => [{
-        id: Date.now().toString(),
-        title: title.trim(),
-        body: body.trim(),
-        target,
-        date: new Date().toLocaleDateString("en-IN"),
-        sent: sentCount,
-      }, ...prev]);
       setTitle("");
       setBody("");
+      loadHistory();
     } catch (err: any) {
       showError(err?.message || "Failed to send broadcast. Please try again.");
     } finally {
@@ -85,19 +95,23 @@ export default function AdminNotificationsPage() {
 
         {/* Sent History */}
         <div style={{ background: "white", borderRadius: "14px", padding: "28px", boxShadow: "var(--shadow-sm)", border: "1px solid var(--border)" }}>
-          <h3 style={{ fontWeight: 700, fontSize: "15px", marginBottom: "20px" }}>📋 Sent This Session</h3>
-          {sent.length === 0 ? (
+          <h3 style={{ fontWeight: 700, fontSize: "15px", marginBottom: "20px" }}>📋 Broadcast History</h3>
+          {loading ? (
             <div style={{ textAlign: "center", padding: "40px 0", color: "var(--text-muted)", fontSize: "14px" }}>
-              No broadcasts sent yet this session.
+              Loading notification history…
+            </div>
+          ) : history.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "40px 0", color: "var(--text-muted)", fontSize: "14px" }}>
+              No broadcast announcements sent yet.
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {sent.map((n) => (
+              {history.map((n) => (
                 <div key={n.id} style={{ padding: "14px 16px", borderRadius: "10px", background: "#f8fafc", border: "1px solid var(--border)" }}>
                   <div style={{ fontWeight: 700, fontSize: "13px", marginBottom: "4px" }}>{n.title}</div>
                   <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginBottom: "8px" }}>{n.body}</div>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--text-muted)" }}>
-                    <span>👥 {TARGET_OPTIONS.find((t) => t.value === n.target)?.label} · {n.sent} sent</span>
+                    <span>👥 {TARGET_OPTIONS.find((t) => t.value === n.target)?.label || n.target} · {n.sent} sent</span>
                     <span>{n.date}</span>
                   </div>
                 </div>

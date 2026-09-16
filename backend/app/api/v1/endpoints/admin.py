@@ -8,6 +8,8 @@ from app.api.deps import require_role
 from app.models.user import User, UserType
 from app.models.property import Property, PropertyStatus
 from app.models.location import Location
+from app.models.category import Category
+from app.models.notification import Notification, NotificationType, BroadcastNotification
 from app.models.monetization import Payment, ContactUnlock, PaymentStatus
 
 router = APIRouter()
@@ -320,6 +322,7 @@ async def list_admin_properties(
         "price": p.price,
         "status": p.status,
         "is_featured": p.is_featured,
+        "featured_until": p.featured_until.strftime("%Y-%m-%d") if p.featured_until else None,
         "is_verified": p.is_verified,
         "created_at": p.created_at,
         "city": p.location.city if p.location else None,
@@ -376,10 +379,11 @@ async def delete_admin_property(
 @router.patch("/properties/{property_id}/feature")
 async def toggle_featured_property(
     property_id: str,
+    payload: dict = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role(UserType.ADMIN))
 ):
-    """Toggle a listing's featured status (admin only)."""
+    """Toggle or set a listing's featured status and expiry date (admin only)."""
     try:
         pid = uuid.UUID(property_id)
     except ValueError:
@@ -390,11 +394,38 @@ async def toggle_featured_property(
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found.")
 
-    prop.is_featured = not prop.is_featured
+    payload = payload or {}
+    desired_featured = payload.get("is_featured")
+    if desired_featured is not None:
+        prop.is_featured = bool(desired_featured)
+    else:
+        prop.is_featured = not prop.is_featured
+
+    if prop.is_featured:
+        expiry_val = payload.get("featured_until") or payload.get("expiry")
+        if expiry_val:
+            try:
+                if "T" in str(expiry_val):
+                    prop.featured_until = datetime.fromisoformat(str(expiry_val).replace("Z", "+00:00"))
+                else:
+                    prop.featured_until = datetime.strptime(str(expiry_val), "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            except Exception:
+                prop.featured_until = datetime.now(timezone.utc) + timedelta(days=30)
+        else:
+            if not prop.featured_until:
+                prop.featured_until = datetime.now(timezone.utc) + timedelta(days=30)
+    else:
+        prop.featured_until = None
+
     db.add(prop)
     await db.commit()
 
-    return {"message": "Featured status toggled.", "property_id": str(prop.id), "is_featured": prop.is_featured}
+    return {
+        "message": "Featured status updated.",
+        "property_id": str(prop.id),
+        "is_featured": prop.is_featured,
+        "featured_until": prop.featured_until.strftime("%Y-%m-%d") if prop.featured_until else None
+    }
 
 
 @router.get("/reports")
@@ -656,8 +687,24 @@ async def broadcast_announcement(
             except Exception:
                 pass
 
+    # Save persistent BroadcastNotification record
+    broadcast_record = BroadcastNotification(
+        sender_id=current_user.id,
+        title=title,
+        body=body,
+        target=target,
+        sent_count=sent_count,
+    )
+    db.add(broadcast_record)
     await db.commit()
-    return {"message": f"Successfully broadcasted to {sent_count} users.", "sent_count": sent_count}
+    await db.refresh(broadcast_record)
+
+    return {
+        "message": f"Successfully broadcasted to {sent_count} users.",
+        "sent_count": sent_count,
+        "id": str(broadcast_record.id),
+        "date": broadcast_record.created_at.strftime("%d/%m/%Y") if broadcast_record.created_at else "",
+    }
 
 
 @router.post("/reset-database")
@@ -708,5 +755,318 @@ async def reset_database(
     except Exception as e:
         await db.rollback()
         return {"status": "partial_success", "message": f"Reset executed with note: {str(e)}"}
+
+
+# ─── Notification History ──────────────────────────────────────────────────
+
+@router.get("/notifications/history")
+async def get_notification_history(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserType.ADMIN))
+):
+    """Retrieve persistent broadcast notification history."""
+    result = await db.execute(
+        select(BroadcastNotification).order_by(BroadcastNotification.created_at.desc())
+    )
+    broadcasts = result.scalars().all()
+    return [{
+        "id": str(b.id),
+        "title": b.title,
+        "body": b.body,
+        "target": b.target,
+        "sent": b.sent_count,
+        "date": b.created_at.strftime("%d/%m/%Y") if b.created_at else "",
+        "created_at": b.created_at.isoformat() if b.created_at else None,
+    } for b in broadcasts]
+
+
+# ─── Locations Management ──────────────────────────────────────────────────
+
+DEFAULT_LOCATIONS = [
+    {"city": "Bhopal", "state": "Madhya Pradesh"},
+    {"city": "Indore", "state": "Madhya Pradesh"},
+    {"city": "Jaipur", "state": "Rajasthan"},
+    {"city": "Pune", "state": "Maharashtra"},
+    {"city": "Bengaluru", "state": "Karnataka"},
+    {"city": "Hyderabad", "state": "Telangana"},
+]
+
+@router.get("/locations")
+async def list_admin_locations(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserType.ADMIN))
+):
+    """Get all locations with property listing counts."""
+    result = await db.execute(select(Location).order_by(Location.city.asc()))
+    locations = result.scalars().all()
+
+    if not locations:
+        for loc_data in DEFAULT_LOCATIONS:
+            loc = Location(city=loc_data["city"], state=loc_data["state"], is_active=True)
+            db.add(loc)
+        await db.commit()
+        result = await db.execute(select(Location).order_by(Location.city.asc()))
+        locations = result.scalars().all()
+
+    props_result = await db.execute(select(Property.location_id, Location.city, func.count(Property.id)).join(Location, Property.location_id == Location.id, isouter=True).group_by(Property.location_id, Location.city))
+    counts_by_id = {}
+    counts_by_city = {}
+    for loc_id, city_name, cnt in props_result.all():
+        if loc_id:
+            counts_by_id[str(loc_id)] = cnt
+        if city_name:
+            counts_by_city[city_name.lower()] = counts_by_city.get(city_name.lower(), 0) + cnt
+
+    res = []
+    for loc in locations:
+        cnt = counts_by_id.get(str(loc.id), 0)
+        if cnt == 0 and loc.city:
+            cnt = counts_by_city.get(loc.city.lower(), 0)
+        res.append({
+            "id": str(loc.id),
+            "city": loc.city,
+            "state": getattr(loc, "state", None) or "India",
+            "listings": cnt,
+            "active": getattr(loc, "is_active", True) if getattr(loc, "is_active", None) is not None else True,
+            "created_at": loc.created_at.isoformat() if hasattr(loc, "created_at") and loc.created_at else None,
+        })
+    return res
+
+
+@router.post("/locations")
+async def create_admin_location(
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserType.ADMIN))
+):
+    """Add a new city/location."""
+    city = payload.get("city", "").strip()
+    state = payload.get("state", "").strip()
+    if not city:
+        raise HTTPException(status_code=400, detail="City name is required.")
+
+    loc = Location(city=city, state=state or "India", is_active=True)
+    db.add(loc)
+    await db.commit()
+    await db.refresh(loc)
+    return {
+        "id": str(loc.id),
+        "city": loc.city,
+        "state": getattr(loc, "state", state or "India"),
+        "listings": 0,
+        "active": getattr(loc, "is_active", True),
+    }
+
+
+@router.put("/locations/{location_id}")
+async def update_admin_location(
+    location_id: str,
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserType.ADMIN))
+):
+    """Update city/location name and state."""
+    try:
+        lid = uuid.UUID(location_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid location ID.")
+
+    result = await db.execute(select(Location).where(Location.id == lid))
+    loc = result.scalar_one_or_none()
+    if not loc:
+        raise HTTPException(status_code=404, detail="Location not found.")
+
+    if "city" in payload:
+        loc.city = payload["city"].strip()
+    if "state" in payload:
+        loc.state = payload["state"].strip()
+
+    db.add(loc)
+    await db.commit()
+    return {"id": str(loc.id), "city": loc.city, "state": getattr(loc, "state", None), "active": getattr(loc, "is_active", True)}
+
+
+@router.patch("/locations/{location_id}/toggle")
+async def toggle_admin_location(
+    location_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserType.ADMIN))
+):
+    """Toggle active/hidden status of a location."""
+    try:
+        lid = uuid.UUID(location_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid location ID.")
+
+    result = await db.execute(select(Location).where(Location.id == lid))
+    loc = result.scalar_one_or_none()
+    if not loc:
+        raise HTTPException(status_code=404, detail="Location not found.")
+
+    loc.is_active = not getattr(loc, "is_active", True)
+    db.add(loc)
+    await db.commit()
+    return {"id": str(loc.id), "city": loc.city, "active": loc.is_active}
+
+
+@router.delete("/locations/{location_id}")
+async def delete_admin_location(
+    location_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserType.ADMIN))
+):
+    """Delete a location."""
+    try:
+        lid = uuid.UUID(location_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid location ID.")
+
+    result = await db.execute(select(Location).where(Location.id == lid))
+    loc = result.scalar_one_or_none()
+    if not loc:
+        raise HTTPException(status_code=404, detail="Location not found.")
+
+    await db.delete(loc)
+    await db.commit()
+    return {"message": "Location deleted successfully."}
+
+
+# ─── Categories Management ─────────────────────────────────────────────────
+
+DEFAULT_CATEGORIES = [
+    {"name": "Apartment", "icon": "🏢", "sort_order": 1},
+    {"name": "Villa/House", "icon": "🏡", "sort_order": 2},
+    {"name": "Commercial", "icon": "🏪", "sort_order": 3},
+    {"name": "Plot/Land", "icon": "🌳", "sort_order": 4},
+    {"name": "PG/Hostel", "icon": "🛏️", "sort_order": 5},
+    {"name": "Farm House", "icon": "🌾", "sort_order": 6},
+]
+
+@router.get("/categories")
+async def list_admin_categories(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserType.ADMIN))
+):
+    """Get all property categories with listing counts."""
+    result = await db.execute(select(Category).order_by(Category.sort_order.asc(), Category.name.asc()))
+    cats = result.scalars().all()
+
+    if not cats:
+        for cat_data in DEFAULT_CATEGORIES:
+            cat = Category(name=cat_data["name"], icon=cat_data["icon"], sort_order=cat_data["sort_order"], is_active=True)
+            db.add(cat)
+        await db.commit()
+        result = await db.execute(select(Category).order_by(Category.sort_order.asc(), Category.name.asc()))
+        cats = result.scalars().all()
+
+    props_result = await db.execute(select(Property.property_type, func.count(Property.id)).group_by(Property.property_type))
+    counts = { (pt or "").lower(): cnt for pt, cnt in props_result.all() }
+
+    res = []
+    for c in cats:
+        key = c.name.lower().split("/")[0]
+        match_cnt = sum(cnt for pt_key, cnt in counts.items() if key in pt_key)
+        res.append({
+            "id": str(c.id),
+            "name": c.name,
+            "icon": c.icon or "🏠",
+            "listings": match_cnt,
+            "active": c.is_active,
+            "sort_order": c.sort_order,
+        })
+    return res
+
+
+@router.post("/categories")
+async def create_admin_category(
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserType.ADMIN))
+):
+    """Create new property category."""
+    name = payload.get("name", "").strip()
+    icon = payload.get("icon", "🏠").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Category name is required.")
+
+    cat = Category(name=name, icon=icon, is_active=True)
+    db.add(cat)
+    await db.commit()
+    await db.refresh(cat)
+    return {"id": str(cat.id), "name": cat.name, "icon": cat.icon, "listings": 0, "active": cat.is_active}
+
+
+@router.put("/categories/{category_id}")
+async def update_admin_category(
+    category_id: str,
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserType.ADMIN))
+):
+    """Update category details."""
+    try:
+        cid = uuid.UUID(category_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid category ID.")
+
+    result = await db.execute(select(Category).where(Category.id == cid))
+    cat = result.scalar_one_or_none()
+    if not cat:
+        raise HTTPException(status_code=404, detail="Category not found.")
+
+    if "name" in payload:
+        cat.name = payload["name"].strip()
+    if "icon" in payload:
+        cat.icon = payload["icon"].strip()
+
+    db.add(cat)
+    await db.commit()
+    return {"id": str(cat.id), "name": cat.name, "icon": cat.icon, "active": cat.is_active}
+
+
+@router.patch("/categories/{category_id}/toggle")
+async def toggle_admin_category(
+    category_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserType.ADMIN))
+):
+    """Toggle active/inactive status of category."""
+    try:
+        cid = uuid.UUID(category_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid category ID.")
+
+    result = await db.execute(select(Category).where(Category.id == cid))
+    cat = result.scalar_one_or_none()
+    if not cat:
+        raise HTTPException(status_code=404, detail="Category not found.")
+
+    cat.is_active = not cat.is_active
+    db.add(cat)
+    await db.commit()
+    return {"id": str(cat.id), "name": cat.name, "active": cat.is_active}
+
+
+@router.delete("/categories/{category_id}")
+async def delete_admin_category(
+    category_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserType.ADMIN))
+):
+    """Delete a category."""
+    try:
+        cid = uuid.UUID(category_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid category ID.")
+
+    result = await db.execute(select(Category).where(Category.id == cid))
+    cat = result.scalar_one_or_none()
+    if not cat:
+        raise HTTPException(status_code=404, detail="Category not found.")
+
+    await db.delete(cat)
+    await db.commit()
+    return {"message": "Category deleted successfully."}
+
 
 
