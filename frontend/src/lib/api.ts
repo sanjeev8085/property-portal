@@ -18,11 +18,15 @@ async function apiFetch(endpoint: string, options: RequestInit = {}, isRetry: bo
       headers,
     });
 
-    // On 401, clear stale token and let the caller handle it
-    if (response.status === 401 && !isRetry && !endpoint.includes("/auth/login")) {
+    // On 401 or 403 unauthenticated, clear stale tokens
+    if ((response.status === 401 || response.status === 403) && !isRetry && !endpoint.includes("/auth/login")) {
       if (typeof window !== "undefined") {
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
+        const errorData = await response.clone().json().catch(() => ({}));
+        const detailStr = String(errorData.detail || "").toLowerCase();
+        if (response.status === 401 || detailStr.includes("not authenticated") || detailStr.includes("invalid or expired token")) {
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("refresh_token");
+        }
       }
     }
 
