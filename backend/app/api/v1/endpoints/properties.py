@@ -119,7 +119,7 @@ async def create_property(
                     Location.locality.ilike(f"%{loc_locality}%")
                 )
             )
-            loc_obj = loc_res.scalar_one_or_none()
+            loc_obj = loc_res.scalars().first()
             if not loc_obj:
                 loc_obj = Location(
                     city=loc_city,
