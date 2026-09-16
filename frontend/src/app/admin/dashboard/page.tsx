@@ -4,24 +4,22 @@ import React, { useEffect, useState } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { api } from "@/lib/api";
 
-const WEEKLY_USERS  = [12, 19, 8, 24, 31, 18, 27];
-const WEEKLY_PROPS  = [3, 7, 5, 11, 8, 14, 9];
-const WEEKLY_REV    = [0, 199, 398, 199, 597, 199, 796];
-
-function MiniBar({ values, color }: { values: number[]; color: string }) {
+function MiniBar({ values, color, labels }: { values: number[]; color: string; labels?: string[] }) {
   const max = Math.max(...values, 1);
   return (
     <div style={{ display: "flex", alignItems: "flex-end", gap: "4px", height: "40px" }}>
       {values.map((v, i) => (
         <div
           key={i}
+          title={labels ? `${labels[i]}: ${v}` : String(v)}
           style={{
             flex: 1,
-            height: `${(v / max) * 100}%`,
-            background: color,
+            height: `${Math.max((v / max) * 100, v > 0 ? 8 : 4)}%`,
+            background: v > 0 ? color : "#e2e8f0",
             borderRadius: "3px 3px 0 0",
             opacity: i === values.length - 1 ? 1 : 0.5 + (i / values.length) * 0.5,
             minHeight: "4px",
+            cursor: "default",
           }}
         />
       ))}
@@ -42,16 +40,37 @@ const QUICK_LINKS = [
   { href: "/admin/notifications", icon: "📣", label: "Notifications", desc: "Send announcements" },
 ];
 
+interface DashboardData {
+  stats: Record<string, number>;
+  weekly_users: number[];
+  weekly_props: number[];
+  weekly_rev: number[];
+  day_labels: string[];
+}
+
 export default function AdminDashboardPage() {
-  const [stats, setStats] = useState<Record<string, number | string>>({});
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     api.getAdminDashboard()
-      .then((d) => setStats(d.stats ?? {}))
-      .catch(() => {})
+      .then((d: DashboardData) => {
+        if (d && d.stats) {
+          setData(d);
+        } else {
+          setError("Failed to load dashboard data.");
+        }
+      })
+      .catch(() => setError("Could not connect to server."))
       .finally(() => setLoading(false));
   }, []);
+
+  const stats = data?.stats ?? {};
+  const weeklyUsers = data?.weekly_users ?? [0,0,0,0,0,0,0];
+  const weeklyProps = data?.weekly_props ?? [0,0,0,0,0,0,0];
+  const weeklyRev   = data?.weekly_rev   ?? [0,0,0,0,0,0,0];
+  const dayLabels   = data?.day_labels   ?? ["","","","","","",""];
 
   const cards = [
     { label: "Total Users",        value: stats.total_users        ?? "—", icon: "👥", color: "#3b82f6", sub: "registered accounts" },
@@ -59,13 +78,18 @@ export default function AdminDashboardPage() {
     { label: "Pending Approval",   value: stats.pending_properties ?? "—", icon: "⏳", color: "#f59e0b", sub: "awaiting review" },
     { label: "Published",          value: stats.published_properties ?? "—", icon: "✅", color: "#10b981", sub: "live listings" },
     { label: "Contact Unlocks",    value: stats.total_unlocks      ?? "—", icon: "🔑", color: "#f97316", sub: "all time" },
-    { label: "Total Revenue",      value: stats.total_revenue ? `₹${Number(stats.total_revenue).toLocaleString("en-IN")}` : "₹0", icon: "💰", color: "#06b6d4", sub: "all time" },
-    { label: "Today Revenue",      value: stats.today_revenue ? `₹${Number(stats.today_revenue).toLocaleString("en-IN")}` : "₹0", icon: "📅", color: "#ec4899", sub: "today" },
+    { label: "Total Revenue",      value: stats.total_revenue != null ? `₹${Number(stats.total_revenue).toLocaleString("en-IN")}` : "₹0", icon: "💰", color: "#06b6d4", sub: "all time" },
+    { label: "Today Revenue",      value: stats.today_revenue != null ? `₹${Number(stats.today_revenue).toLocaleString("en-IN")}` : "₹0", icon: "📅", color: "#ec4899", sub: "today" },
     { label: "Active Subscriptions", value: stats.active_subscriptions ?? "—", icon: "📦", color: "#6366f1", sub: "paid plans" },
   ];
 
   return (
-    <AdminLayout title="Dashboard" subtitle="System overview and management shortcuts">
+    <AdminLayout title="Dashboard" subtitle="System overview — all figures pulled live from the production database">
+      {error && (
+        <div style={{ padding: "14px 18px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, color: "#dc2626", marginBottom: 20, fontSize: 14 }}>
+          ⚠️ {error}
+        </div>
+      )}
       {loading ? (
         <div className="adm-loading">Loading stats…</div>
       ) : (
@@ -89,26 +113,26 @@ export default function AdminDashboardPage() {
             <div className="adm-chart-card">
               <div className="adm-chart-header">
                 <span className="adm-chart-title">New Users (7 days)</span>
-                <span className="adm-chart-total">{WEEKLY_USERS.reduce((a,b)=>a+b,0)} total</span>
+                <span className="adm-chart-total">{weeklyUsers.reduce((a,b)=>a+b,0)} total</span>
               </div>
-              <MiniBar values={WEEKLY_USERS} color="#3b82f6" />
-              <div className="adm-chart-days">M T W T F S S</div>
+              <MiniBar values={weeklyUsers} color="#3b82f6" labels={dayLabels} />
+              <div className="adm-chart-days">{dayLabels.join(" ")}</div>
             </div>
             <div className="adm-chart-card">
               <div className="adm-chart-header">
                 <span className="adm-chart-title">Properties Posted (7 days)</span>
-                <span className="adm-chart-total">{WEEKLY_PROPS.reduce((a,b)=>a+b,0)} total</span>
+                <span className="adm-chart-total">{weeklyProps.reduce((a,b)=>a+b,0)} total</span>
               </div>
-              <MiniBar values={WEEKLY_PROPS} color="#8b5cf6" />
-              <div className="adm-chart-days">M T W T F S S</div>
+              <MiniBar values={weeklyProps} color="#8b5cf6" labels={dayLabels} />
+              <div className="adm-chart-days">{dayLabels.join(" ")}</div>
             </div>
             <div className="adm-chart-card">
               <div className="adm-chart-header">
                 <span className="adm-chart-title">Revenue (7 days)</span>
-                <span className="adm-chart-total">₹{WEEKLY_REV.reduce((a,b)=>a+b,0).toLocaleString("en-IN")}</span>
+                <span className="adm-chart-total">₹{weeklyRev.reduce((a,b)=>a+b,0).toLocaleString("en-IN")}</span>
               </div>
-              <MiniBar values={WEEKLY_REV} color="#06b6d4" />
-              <div className="adm-chart-days">M T W T F S S</div>
+              <MiniBar values={weeklyRev} color="#06b6d4" labels={dayLabels} />
+              <div className="adm-chart-days">{dayLabels.join(" ")}</div>
             </div>
           </div>
 

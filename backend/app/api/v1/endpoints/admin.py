@@ -8,7 +8,7 @@ from app.api.deps import require_role
 from app.models.user import User, UserType
 from app.models.property import Property, PropertyStatus
 from app.models.location import Location
-from app.models.monetization import Payment, ContactUnlock
+from app.models.monetization import Payment, ContactUnlock, PaymentStatus
 
 router = APIRouter()
 
@@ -18,7 +18,10 @@ async def admin_dashboard(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role(UserType.ADMIN))
 ):
-    """Admin dashboard stats."""
+    """Admin dashboard stats — all values read from the production database."""
+    now = datetime.now(timezone.utc)
+    seven_days_ago = now - timedelta(days=7)
+
     # Count total users
     user_count = await db.execute(select(func.count(User.id)))
     total_users = user_count.scalar() or 0
@@ -41,15 +44,23 @@ async def admin_dashboard(
     unlock_check = await db.execute(select(func.count(ContactUnlock.id)))
     total_unlocks = unlock_check.scalar() or 0
 
+    # Total all-time revenue (completed payments)
+    total_rev_check = await db.execute(
+        select(func.sum(Payment.amount)).where(
+            Payment.status == PaymentStatus.SUCCESSFUL
+        )
+    )
+    total_revenue = float(total_rev_check.scalar() or 0.0)
+
     # Sum today's revenue
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     today_rev_check = await db.execute(
         select(func.sum(Payment.amount)).where(
             Payment.created_at >= today_start,
-            Payment.status == "completed"
+            Payment.status == PaymentStatus.SUCCESSFUL
         )
     )
-    today_revenue = today_rev_check.scalar() or 0.0
+    today_revenue = float(today_rev_check.scalar() or 0.0)
 
     # Count active subscriptions
     from app.models.monetization import Subscription, SubscriptionStatus
@@ -57,6 +68,39 @@ async def admin_dashboard(
         select(func.count(Subscription.id)).where(Subscription.status == SubscriptionStatus.ACTIVE)
     )
     active_subscriptions = active_sub_check.scalar() or 0
+
+    # 7-day new users (for weekly chart)
+    weekly_users = []
+    weekly_props = []
+    weekly_rev = []
+    day_labels = []
+    for i in range(6, -1, -1):
+        day_start = (now - timedelta(days=i)).replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end   = day_start + timedelta(days=1)
+
+        u_res = await db.execute(
+            select(func.count(User.id)).where(
+                User.created_at >= day_start, User.created_at < day_end
+            )
+        )
+        weekly_users.append(u_res.scalar() or 0)
+
+        p_res = await db.execute(
+            select(func.count(Property.id)).where(
+                Property.created_at >= day_start, Property.created_at < day_end
+            )
+        )
+        weekly_props.append(p_res.scalar() or 0)
+
+        r_res = await db.execute(
+            select(func.sum(Payment.amount)).where(
+                Payment.created_at >= day_start,
+                Payment.created_at < day_end,
+                Payment.status == PaymentStatus.SUCCESSFUL
+            )
+        )
+        weekly_rev.append(float(r_res.scalar() or 0.0))
+        day_labels.append(day_start.strftime("%a"))
 
     return {
         "stats": {
@@ -68,7 +112,11 @@ async def admin_dashboard(
             "total_revenue": total_revenue,
             "today_revenue": today_revenue,
             "active_subscriptions": active_subscriptions,
-        }
+        },
+        "weekly_users": weekly_users,
+        "weekly_props": weekly_props,
+        "weekly_rev": weekly_rev,
+        "day_labels": day_labels,
     }
 
 
@@ -115,6 +163,74 @@ async def approve_property(
     return {"message": "Property listing approved and published. Match alerts triggered.", "property_id": str(prop.id), "status": prop.status}
 
 
+@router.post("/properties/{property_id}/reject")
+async def reject_property(
+    property_id: str,
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserType.ADMIN))
+):
+    """Reject a property listing with a reason (admin only)."""
+    try:
+        pid = uuid.UUID(property_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid property ID.")
+
+    result = await db.execute(select(Property).where(Property.id == pid))
+    prop = result.scalar_one_or_none()
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found.")
+
+    reason = (payload.get("reason") or "").strip()
+    if not reason:
+        raise HTTPException(status_code=400, detail="Rejection reason is required.")
+
+    prop.status = PropertyStatus.REJECTED
+    prop.rejection_reason = reason
+    db.add(prop)
+    await db.commit()
+
+    # Notify owner about rejection
+    if prop.owner_id:
+        from app.models.notification import Notification, NotificationType
+        notif = Notification(
+            user_id=prop.owner_id,
+            type=NotificationType.PROPERTY_REJECTED,
+            title="Your listing was rejected",
+            body=f"Your property \"{prop.title}\" was rejected. Reason: {reason}",
+            link="/dashboard/properties",
+            is_read=False,
+        )
+        db.add(notif)
+        await db.commit()
+
+    return {"message": "Property rejected. Owner notified.", "property_id": str(prop.id), "status": prop.status}
+
+
+@router.post("/properties/{property_id}/verify")
+async def verify_property(
+    property_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserType.ADMIN))
+):
+    """Toggle property verification status (admin only)."""
+    try:
+        pid = uuid.UUID(property_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid property ID.")
+
+    result = await db.execute(select(Property).where(Property.id == pid))
+    prop = result.scalar_one_or_none()
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found.")
+
+    prop.is_verified = not prop.is_verified
+    db.add(prop)
+    await db.commit()
+
+    return {"message": "Verification status toggled.", "property_id": str(prop.id), "is_verified": prop.is_verified}
+
+
 from app.models.user import UserStatus
 from app.models.property import PropertyReport, ReportStatus
 
@@ -123,18 +239,29 @@ async def list_admin_users(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role(UserType.ADMIN))
 ):
-    """List all registered users (admin only)."""
-    result = await db.execute(select(User).order_by(User.created_at.desc()))
-    users = result.scalars().all()
+    """List all registered users (admin only), including listings_count."""
+    users_result = await db.execute(select(User).order_by(User.created_at.desc()))
+    users = users_result.scalars().all()
+
+    # Fetch per-user property counts in a single query
+    counts_result = await db.execute(
+        select(Property.owner_id, func.count(Property.id).label("cnt"))
+        .group_by(Property.owner_id)
+    )
+    listings_map: dict = {str(row[0]): row[1] for row in counts_result.fetchall()}
+
     return [{
         "id": str(u.id),
         "name": u.name,
         "email": u.email,
         "mobile": u.mobile,
         "city": u.city,
-        "user_type": u.user_type,
-        "status": u.status,
-        "created_at": u.created_at,
+        "user_type": str(u.user_type.value if hasattr(u.user_type, 'value') else u.user_type),
+        "type": str(u.user_type.value if hasattr(u.user_type, 'value') else u.user_type),
+        "status": str(u.status.value if hasattr(u.status, 'value') else u.status),
+        "created_at": u.created_at.isoformat() if u.created_at else None,
+        "joined": u.created_at.strftime("%d %b %Y") if u.created_at else "—",
+        "listings": listings_map.get(str(u.id), 0),
     } for u in users]
 
 
@@ -177,8 +304,13 @@ async def list_admin_properties(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role(UserType.ADMIN))
 ):
-    """List all property listings for admin overview."""
-    result = await db.execute(select(Property).order_by(Property.created_at.desc()))
+    """List all property listings for admin overview, including owner name, city, and location."""
+    from sqlalchemy.orm import selectinload
+    result = await db.execute(
+        select(Property)
+        .options(selectinload(Property.owner), selectinload(Property.location))
+        .order_by(Property.created_at.desc())
+    )
     properties = result.scalars().all()
     return [{
         "id": str(p.id),
@@ -190,6 +322,13 @@ async def list_admin_properties(
         "is_featured": p.is_featured,
         "is_verified": p.is_verified,
         "created_at": p.created_at,
+        "city": p.location.city if p.location else None,
+        "locality": p.location.locality if p.location else None,
+        "owner": {
+            "name": p.owner.name if p.owner else "Unknown",
+            "email": p.owner.email if p.owner else None,
+        } if p.owner else None,
+        "rejection_reason": p.rejection_reason,
     } for p in properties]
 
 
@@ -343,7 +482,7 @@ async def get_admin_analytics(
     # ── Overall totals ─────────────────────────────────────────────────────────
     total_users = (await db.execute(select(func.count(User.id)))).scalar() or 0
     total_properties = (await db.execute(select(func.count(Property.id)))).scalar() or 0
-    total_revenue = (await db.execute(select(func.sum(Payment.amount)))).scalar() or 0.0
+    total_revenue = float((await db.execute(select(func.sum(Payment.amount)).where(Payment.status == PaymentStatus.SUCCESSFUL))).scalar() or 0.0)
     total_unlocks = (await db.execute(select(func.count(ContactUnlock.id)))).scalar() or 0
 
     # ── 7-day totals (for top stat cards) ─────────────────────────────────────
@@ -361,7 +500,7 @@ async def get_admin_analytics(
     revenue_7d_res = await db.execute(
         select(func.sum(Payment.amount)).where(
             Payment.created_at >= seven_days_ago,
-            Payment.status == "completed"
+            Payment.status == PaymentStatus.SUCCESSFUL
         )
     )
     revenue_7d = float(revenue_7d_res.scalar() or 0.0)
@@ -376,7 +515,7 @@ async def get_admin_analytics(
             select(func.sum(Payment.amount)).where(
                 Payment.created_at >= day_start,
                 Payment.created_at < day_end,
-                Payment.status == "completed"
+                Payment.status == PaymentStatus.SUCCESSFUL
             )
         )
         daily_revenue.append(float(day_rev_res.scalar() or 0.0))
