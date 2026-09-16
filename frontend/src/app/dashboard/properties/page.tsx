@@ -101,8 +101,8 @@ export default function MyPropertiesPage() {
             return (
               <div key={prop.id} className={`premium-card listing-item-card ${isDeactivated ? "listing-deactivated" : ""}`}>
                 <div className="listing-details">
-                  <span className={`status-badge badge-${isDeactivated ? "deactivated" : "published"}`}>
-                    {isDeactivated ? "Deactivated (Hidden)" : "Published (Live)"}
+                  <span className={`status-badge badge-${isDeactivated ? "deactivated" : (prop.status === "pending_approval" ? "pending" : "published")}`}>
+                    {isDeactivated ? "Deactivated (Hidden)" : (prop.status === "pending_approval" ? "Pending Approval" : "Published (Live)")}
                   </span>
                   <h3>{prop.title}</h3>
                   <p className="location">📍 {prop.location}</p>
@@ -114,11 +114,11 @@ export default function MyPropertiesPage() {
 
                 <div className="listing-stats">
                   <div className="stat">
-                    <span className="val">👁️ {prop.views || 1}</span>
+                    <span className="val">👁️ {prop.views_count ?? prop.views ?? 0}</span>
                     <span className="lbl">Views</span>
                   </div>
                   <div className="stat">
-                    <span className="val">🔑 {prop.leads || 0}</span>
+                    <span className="val">🔑 {prop.contacts_count ?? prop.leads ?? 0}</span>
                     <span className="lbl">Contacts Unlocked</span>
                   </div>
                 </div>

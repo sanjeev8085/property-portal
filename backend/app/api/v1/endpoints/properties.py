@@ -243,14 +243,18 @@ async def get_my_dashboard_stats(
     current_user: User = Depends(get_current_active_user),
 ):
     """Fetch seller dashboard statistics and lead unlocks."""
-    from sqlalchemy import func
+    from sqlalchemy import func, or_
     from app.models.monetization import ContactUnlock
     from app.models.user import User as DBUser
+    from app.models.property import PropertyView
 
-    # 1. Active Listings
+    # 1. Active Listings (Count published or pending approval properties owned by user)
     active_count_res = await db.execute(
         select(func.count(Property.id))
-        .where(Property.owner_id == current_user.id, Property.status == PropertyStatus.PUBLISHED)
+        .where(
+            Property.owner_id == current_user.id,
+            Property.status.in_([PropertyStatus.PUBLISHED, PropertyStatus.PENDING_APPROVAL])
+        )
     )
     active_count = active_count_res.scalar() or 0
 
@@ -261,26 +265,40 @@ async def get_my_dashboard_stats(
     )
     total_count = total_count_res.scalar() or 0
 
-    # 3. Total Views
+    # 3. Total Views (Max of Property.views_count sum or PropertyView table records)
     total_views_res = await db.execute(
         select(func.sum(Property.views_count))
         .where(Property.owner_id == current_user.id)
     )
-    total_views = total_views_res.scalar() or 0
+    sum_views = total_views_res.scalar() or 0
+
+    views_table_res = await db.execute(
+        select(func.count(PropertyView.id))
+        .join(Property, Property.id == PropertyView.property_id)
+        .where(Property.owner_id == current_user.id)
+    )
+    table_views = views_table_res.scalar() or 0
+    total_views = max(sum_views, table_views)
 
     # 4. Contact Unlocks (Leads count)
     total_unlocks_res = await db.execute(
         select(func.sum(Property.contacts_count))
         .where(Property.owner_id == current_user.id)
     )
-    total_unlocks = total_unlocks_res.scalar() or 0
+    sum_unlocks = total_unlocks_res.scalar() or 0
 
     actual_unlocks_res = await db.execute(
         select(func.count(ContactUnlock.id))
-        .where(ContactUnlock.owner_id == current_user.id)
+        .join(Property, Property.id == ContactUnlock.property_id)
+        .where(
+            or_(
+                ContactUnlock.owner_id == current_user.id,
+                Property.owner_id == current_user.id
+            )
+        )
     )
-    actual_unlocks = actual_unlocks_res.scalar() or 0
-    leads_count = max(total_unlocks, actual_unlocks)
+    table_unlocks = actual_unlocks_res.scalar() or 0
+    leads_count = max(sum_unlocks, table_unlocks)
 
     # 5. Conversion Rate
     conv_rate = 0.0
@@ -292,7 +310,12 @@ async def get_my_dashboard_stats(
         select(ContactUnlock, Property.title, DBUser.name, DBUser.email)
         .join(Property, Property.id == ContactUnlock.property_id)
         .join(DBUser, DBUser.id == ContactUnlock.user_id)
-        .where(ContactUnlock.owner_id == current_user.id)
+        .where(
+            or_(
+                ContactUnlock.owner_id == current_user.id,
+                Property.owner_id == current_user.id
+            )
+        )
         .order_by(ContactUnlock.unlocked_at.desc())
         .limit(10)
     )
@@ -307,7 +330,7 @@ async def get_my_dashboard_stats(
             "buyer_email": buyer_email,
             "property_title": prop_title,
             "unlocked_at": unlock_obj.unlocked_at.isoformat() if unlock_obj.unlocked_at else None,
-            "credit_used": unlock_obj.credit_deducted or 1
+            "credit_used": getattr(unlock_obj, "credit_deducted", None) or getattr(unlock_obj, "credit_used", None) or 1
         })
 
     return {
@@ -412,6 +435,18 @@ async def get_property(
 
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found.")
+
+    # Record property view in DB and increment views_count
+    try:
+        from app.models.property import PropertyView
+        prop.views_count = (prop.views_count or 0) + 1
+        db.add(PropertyView(
+            property_id=pid,
+            user_id=current_user.id if current_user else None
+        ))
+        await db.flush()
+    except Exception:
+        pass
 
     # Retrieve images
     # Retrieve images

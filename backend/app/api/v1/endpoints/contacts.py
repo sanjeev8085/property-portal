@@ -93,6 +93,7 @@ async def _execute_atomic_unlock(property_id_str: str, current_user: User, db: A
         credit_used=1
     )
     db.add(unlock_entry)
+    prop.contacts_count = (prop.contacts_count or 0) + 1
 
     try:
         await db.commit()
