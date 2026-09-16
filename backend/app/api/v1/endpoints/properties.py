@@ -74,6 +74,20 @@ async def create_property(
     else:
         p_purpose = PropertyPurpose.SELL
 
+    # 4b. Safe Category Enum mapping
+    c_val = payload.category or "residential"
+    c_str = str(c_val.value if hasattr(c_val, "value") else c_val).lower()
+    if "comm" in c_str or "office" in c_str or "shop" in c_str or "warehouse" in c_str:
+        p_category = PropertyCategory.COMMERCIAL
+    elif "pg" in c_str or "hostel" in c_str:
+        p_category = PropertyCategory.PG
+    elif "plot" in c_str or "land" in c_str:
+        p_category = PropertyCategory.PLOT
+    elif "other" in c_str:
+        p_category = PropertyCategory.OTHER
+    else:
+        p_category = PropertyCategory.RESIDENTIAL
+
     # 5. Deduplicate rapid multi-taps & identical listings (HTTP 409 Conflict)
     target_phone = payload.contact_phone or current_user.mobile or ""
     dup_check = await db.execute(
@@ -122,7 +136,7 @@ async def create_property(
         p_furnished = None
         if f_val:
             from app.models.property import FurnishedStatus
-            f_str = str(f_val).lower().replace("-", "_")
+            f_str = str(f_val.value if hasattr(f_val, "value") else f_val).lower().replace("-", "_")
             if "semi" in f_str:
                 p_furnished = FurnishedStatus.SEMI_FURNISHED
             elif "un" in f_str:
@@ -130,18 +144,26 @@ async def create_property(
             elif "furnish" in f_str:
                 p_furnished = FurnishedStatus.FURNISHED
 
+        # Safe numeric parsing
+        safe_price = float(payload.price) if payload.price is not None else 0.0
+        safe_bhk = int(payload.bhk) if payload.bhk is not None and str(payload.bhk).isdigit() else None
+        safe_area = float(payload.area_sqft) if payload.area_sqft is not None else None
+        safe_baths = int(payload.bathrooms) if payload.bathrooms is not None and str(payload.bathrooms).isdigit() else None
+        safe_deposit = float(payload.security_deposit) if payload.security_deposit is not None else None
+
         # Instantiate Property
         prop = Property(
             owner_id=owner_id,
             location_id=location_id,
             title=payload.title,
             purpose=p_purpose,
-            category=payload.category or PropertyCategory.RESIDENTIAL,
+            category=p_category,
             property_type=payload.property_type,
-            price=payload.price,
-            bhk=payload.bhk,
-            area_sqft=payload.area_sqft,
-            bathrooms=payload.bathrooms,
+            price=safe_price,
+            bhk=safe_bhk,
+            area_sqft=safe_area,
+            bathrooms=safe_baths,
+            security_deposit=safe_deposit,
             furnished_status=p_furnished,
             pg_for=payload.pg_for,
             room_type=payload.room_type,
@@ -162,7 +184,7 @@ async def create_property(
                 if amenity_name:
                     db.add(PropertyAmenity(
                         property_id=prop.id,
-                        amenity=amenity_name
+                        amenity=str(amenity_name)
                     ))
 
         # Add Images in same transaction
@@ -173,30 +195,33 @@ async def create_property(
                 if isinstance(img, dict):
                     url = img.get("url") or img.get("image_url") or ""
                     if url:
+                        w_val = img.get("width")
+                        h_val = img.get("height")
+                        fs_val = img.get("file_size")
                         db.add(PropertyImage(
                             property_id=prop.id,
-                            image_url=url,
-                            thumbnail_url=img.get("thumbnail_url"),
-                            card_url=img.get("card_url"),
-                            detail_url=img.get("detail_url"),
-                            cloudinary_public_id=img.get("public_id") or img.get("cloudinary_public_id"),
-                            width=img.get("width"),
-                            height=img.get("height"),
-                            file_size=img.get("file_size"),
+                            image_url=str(url),
+                            thumbnail_url=str(img.get("thumbnail_url")) if img.get("thumbnail_url") else None,
+                            card_url=str(img.get("card_url")) if img.get("card_url") else None,
+                            detail_url=str(img.get("detail_url")) if img.get("detail_url") else None,
+                            cloudinary_public_id=str(img.get("public_id") or img.get("cloudinary_public_id")) if (img.get("public_id") or img.get("cloudinary_public_id")) else None,
+                            width=int(w_val) if w_val is not None and str(w_val).isdigit() else None,
+                            height=int(h_val) if h_val is not None and str(h_val).isdigit() else None,
+                            file_size=int(fs_val) if fs_val is not None and str(fs_val).isdigit() else None,
                             is_cover=(idx == 0),
                             sort_order=idx
                         ))
                 elif isinstance(img, str) and img:
                     db.add(PropertyImage(
                         property_id=prop.id,
-                        image_url=img,
+                        image_url=str(img),
                         is_cover=(idx == 0),
                         sort_order=idx
                     ))
         elif payload.image:
             db.add(PropertyImage(
                 property_id=prop.id,
-                image_url=payload.image,
+                image_url=str(payload.image),
                 is_cover=True,
                 sort_order=0
             ))
@@ -212,10 +237,9 @@ async def create_property(
         await db.rollback()
         import logging
         logging.getLogger("properties_endpoint").error(f"[create_property] Transaction failed: {err}", exc_info=True)
-        detail_msg = f"Unable to post property right now. Database transaction failed: {err}" if settings.DEBUG or settings.APP_ENV != "production" else "Unable to post property right now. Database transaction failed."
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=detail_msg
+            detail=f"Unable to post property right now. Database transaction failed: {str(err)}"
         )
 
     # 7. Post-Commit Database Verification
@@ -619,17 +643,35 @@ async def update_property(
         raise HTTPException(status_code=403, detail="Not authorized.")
 
     old_price = prop.price
-    new_price = payload.price
+    new_price = float(payload.price) if payload.price is not None else old_price
+
+    # Safe Purpose Enum mapping
+    p_str = str(payload.purpose).lower()
+    p_purpose = PropertyPurpose.RENT if "rent" in p_str or "pg" in p_str else PropertyPurpose.SELL
+
+    # Safe Category Enum mapping
+    c_val = payload.category or "residential"
+    c_str = str(c_val.value if hasattr(c_val, "value") else c_val).lower()
+    if "comm" in c_str or "office" in c_str or "shop" in c_str or "warehouse" in c_str:
+        p_category = PropertyCategory.COMMERCIAL
+    elif "pg" in c_str or "hostel" in c_str:
+        p_category = PropertyCategory.PG
+    elif "plot" in c_str or "land" in c_str:
+        p_category = PropertyCategory.PLOT
+    elif "other" in c_str:
+        p_category = PropertyCategory.OTHER
+    else:
+        p_category = PropertyCategory.RESIDENTIAL
 
     # Update fields
     prop.title = payload.title
-    prop.purpose = payload.purpose
-    prop.category = payload.category
+    prop.purpose = p_purpose
+    prop.category = p_category
     prop.property_type = payload.property_type
-    prop.price = payload.price
-    prop.bhk = payload.bhk
-    prop.area_sqft = payload.area_sqft
-    prop.bathrooms = payload.bathrooms
+    prop.price = new_price
+    prop.bhk = int(payload.bhk) if payload.bhk is not None and str(payload.bhk).isdigit() else None
+    prop.area_sqft = float(payload.area_sqft) if payload.area_sqft is not None else None
+    prop.bathrooms = int(payload.bathrooms) if payload.bathrooms is not None and str(payload.bathrooms).isdigit() else None
     prop.description = payload.description
 
     db.add(prop)
