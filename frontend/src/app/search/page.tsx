@@ -67,10 +67,10 @@ function SearchContent() {
   // Price range settings based on purpose
   const isRentMode = purpose === "rent";
   const minSliderPrice = isRentMode ? 5000 : (purpose === "sell" ? 500000 : 5000);
-  const maxSliderLimit = isRentMode ? 200000 : (purpose === "sell" ? 50000000 : 50000000);
-  const sliderStep = isRentMode ? 2500 : 500000;
+  const maxSliderLimit = 50000000;
+  const sliderStep = isRentMode ? 5000 : 500000;
 
-  const [maxPrice, setMaxPrice] = useState<number>(parsedBudget || (isRentMode ? 100000 : 50000000));
+  const [maxPrice, setMaxPrice] = useState<number>(parsedBudget || 50000000);
 
   // Load properties from cloud DB (single source of truth) with localStorage offline fallback
   useEffect(() => {
@@ -183,13 +183,7 @@ function SearchContent() {
   // Sync slider limit when purpose changes if user didn't specify custom budget
   useEffect(() => {
     if (!parsedBudget) {
-      if (purpose === "rent") {
-        setMaxPrice(100000);
-      } else if (purpose === "sell") {
-        setMaxPrice(50000000);
-      } else {
-        setMaxPrice(50000000);
-      }
+      setMaxPrice(50000000);
     }
   }, [purpose, parsedBudget]);
 
@@ -300,9 +294,9 @@ function SearchContent() {
   const budgetPresets = isRentMode
     ? [
         { label: "₹20,000", val: 20000 },
-        { label: "₹35,000", val: 35000 },
         { label: "₹50,000", val: 50000 },
         { label: "₹1 Lakh", val: 100000 },
+        { label: "₹5 Lakh", val: 500000 },
         { label: "Any Budget", val: maxSliderLimit }
       ]
     : [
