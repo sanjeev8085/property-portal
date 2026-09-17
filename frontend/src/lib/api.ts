@@ -2,7 +2,7 @@ const RAW_URL = process.env.NEXT_PUBLIC_API_URL || "https://aurahomes-backend-tz
 const CLEAN_URL = RAW_URL.replace(/\/+$/, "");
 const API_BASE_URL = CLEAN_URL.endsWith("/api/v1") ? CLEAN_URL : `${CLEAN_URL}/api/v1`;
 
-// Helper to fetch wrapper with token injection
+// Helper to fetch wrapper with token injection & silent auto-refresh
 async function apiFetch(endpoint: string, options: RequestInit = {}, isRetry: boolean = false): Promise<any> {
   let token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
   
@@ -18,21 +18,32 @@ async function apiFetch(endpoint: string, options: RequestInit = {}, isRetry: bo
       headers,
     });
 
-    // On 401 or 403 unauthenticated, clear stale tokens
-    if ((response.status === 401 || response.status === 403) && !isRetry && !endpoint.includes("/auth/login")) {
+    // On 401 Unauthorized, attempt silent token refresh once before clearing session
+    if (response.status === 401 && !isRetry && !endpoint.includes("/auth/")) {
       if (typeof window !== "undefined") {
-        const errorData = await response.clone().json().catch(() => ({}));
-        const detailStr = String(errorData.detail || "").toLowerCase();
-        if (response.status === 401 || detailStr.includes("not authenticated") || detailStr.includes("invalid or expired token")) {
+        const rToken = localStorage.getItem("refresh_token");
+        if (rToken) {
+          try {
+            const refreshRes = await api.refreshToken(rToken);
+            if (refreshRes && refreshRes.access_token) {
+              // Retry original request with new access token
+              return await apiFetch(endpoint, options, true);
+            }
+          } catch {
+            // Refresh failed — clear stale tokens
+            localStorage.removeItem("access_token");
+            localStorage.removeItem("refresh_token");
+          }
+        } else {
           localStorage.removeItem("access_token");
-          localStorage.removeItem("refresh_token");
         }
       }
     }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || `Request failed with status ${response.status}`);
+      const detailStr = typeof errorData.detail === "string" ? errorData.detail : (errorData.detail?.message || `Request failed with status ${response.status}`);
+      throw new Error(detailStr);
     }
 
     return response.json();
@@ -43,6 +54,30 @@ async function apiFetch(endpoint: string, options: RequestInit = {}, isRetry: bo
 
 export const api = {
   // Auth API
+  async refreshToken(refreshToken?: string) {
+    const rToken = refreshToken || (typeof window !== "undefined" ? localStorage.getItem("refresh_token") : null);
+    if (!rToken) throw new Error("No refresh token available");
+
+    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: rToken }),
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.detail || "Token refresh failed");
+    }
+
+    const data = await response.json();
+    if (data.access_token) {
+      localStorage.setItem("access_token", data.access_token);
+      if (data.refresh_token) localStorage.setItem("refresh_token", data.refresh_token);
+      if (data.user_type) localStorage.setItem("user_type", data.user_type);
+      if (data.user_id) localStorage.setItem("user_id", data.user_id);
+    }
+    return data;
+  },
   async register(payload: any) {
     api.logout();
     const data = await apiFetch("/auth/register", {

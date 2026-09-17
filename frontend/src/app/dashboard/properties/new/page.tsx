@@ -536,11 +536,16 @@ export default function NewPropertyWizard() {
       setIsPublishing(false);
       const errMsg = err?.message || "";
 
-      if (errMsg.includes("401") || errMsg.toLowerCase().includes("authentication required")) {
-        info("Please log in to post a property listing.");
+      if (
+        errMsg.includes("401") || 
+        errMsg.toLowerCase().includes("authenticated") || 
+        errMsg.toLowerCase().includes("expired token") || 
+        errMsg.toLowerCase().includes("invalid token")
+      ) {
+        info("Your session has expired. Please log in again to publish your property listing.");
         setTimeout(() => {
           window.location.href = `/login?next=/dashboard/properties/new`;
-        }, 1000);
+        }, 1200);
         return;
       }
       if (errMsg.includes("403") || errMsg.toLowerCase().includes("role")) {
