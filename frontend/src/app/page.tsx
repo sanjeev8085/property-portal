@@ -25,36 +25,30 @@ export default function Home() {
       }
       const deactSet = new Set([...getDeactivatedPropertyIds(), ...remoteDeactIds]);
 
-      // Cloud DB = Single Source of Truth for homepage featured listings
-      // Retry once on empty response to handle Render.com cold-start delays
-      let sourceProps: any[] = [];
-      let usedCloud = false;
+      // 1. Fetch Cloud Properties (latest 24)
+      let cloudProps: any[] = [];
       try {
-        let res = await api.getProperties("per_page=6");
+        let res = await api.getProperties("per_page=24&sort_by=newest");
         if (!Array.isArray(res) || res.length === 0) {
-          // Wait 1.2s and retry — Render free tier can take time to wake up
-          await new Promise((resolve) => setTimeout(resolve, 1200));
-          res = await api.getProperties("per_page=6");
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          res = await api.getProperties("per_page=24&sort_by=newest");
         }
-        if (Array.isArray(res) && res.length > 0) {
-          sourceProps = res;
-          usedCloud = true;
+        if (Array.isArray(res)) {
+          cloudProps = res;
         }
       } catch {
-        // Cloud unreachable — fall back to localStorage
+        // Cloud unreachable
       }
 
-      // Offline fallback: only use localStorage if cloud returned nothing
-      if (!usedCloud || sourceProps.length === 0) {
-        const published = getPublishedProperties();
-        if (published.length > 0) {
-          sourceProps = published;
-        }
-      }
+      // 2. Fetch Local Storage Published Properties
+      const localProps = getPublishedProperties();
 
-      // Deduplicate and filter
+      // 3. Combine Local + Cloud Properties (Local properties take precedence for recent user posts)
+      const combined = [...localProps, ...cloudProps];
+
+      // 4. Deduplicate by ID and filter deactivated
       const seenIds = new Set<string>();
-      const unique = sourceProps.filter(p => {
+      const unique = combined.filter(p => {
         if (!p || !p.id) return false;
         const idStr = p.id.toString();
         if (
@@ -69,7 +63,7 @@ export default function Home() {
         return true;
       });
 
-      // Step 5: Format for display
+      // 5. Format for display
       const formatted = unique.map(p => {
         let priceStr = p.price;
         if (typeof p.price === "number" || (typeof p.price === "string" && !p.price.includes("₹"))) {

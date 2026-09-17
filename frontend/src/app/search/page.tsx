@@ -97,13 +97,12 @@ function SearchContent() {
         setDeactivatedIds(deactSet);
       }
 
-      // Step 3: Cloud DB = Single Source of Truth
-      let sourceProps: Property[] = [];
-      let usedCloud = false;
+      // Step 3: Combine Cloud DB + Local Storage
+      let cloudProps: Property[] = [];
       try {
-        const cloudData = await api.getProperties();
+        const cloudData = await api.getProperties("per_page=50&sort_by=newest");
         if (Array.isArray(cloudData) && cloudData.length > 0) {
-          sourceProps = cloudData.map((p: any) => ({
+          cloudProps = cloudData.map((p: any) => ({
             id: p.id,
             title: p.title,
             price: typeof p.price === "string" && p.price.includes("₹")
@@ -133,29 +132,23 @@ function SearchContent() {
             featured: true,
             status: p.status || "published",
           }));
-          usedCloud = true;
         }
       } catch {
-        // Cloud unreachable — fall back to localStorage
+        // Cloud unreachable
       }
 
-      // Offline fallback: only use localStorage if cloud returned nothing
-      if (!usedCloud || sourceProps.length === 0) {
-        const published = getPublishedProperties();
-        if (published.length > 0 && sourceProps.length === 0) {
-          sourceProps = published as Property[];
-          if (isMounted) {
-            const localIds = new Set(published.map(p => p.id));
-            setMyPublishedIds(localIds);
-          }
-        }
+      const published = getPublishedProperties() as Property[];
+      if (isMounted && published.length > 0) {
+        setMyPublishedIds(new Set(published.map(p => p.id)));
       }
+
+      const combined = [...published, ...cloudProps];
 
       if (!isMounted) return;
 
       // Step 4: Deduplicate by ID and filter deactivated
       const seenIds = new Set<string>();
-      const filtered = sourceProps.filter(p => {
+      const filtered = combined.filter(p => {
         if (!p || !p.id) return false;
         const idStr = p.id.toString();
         if (
