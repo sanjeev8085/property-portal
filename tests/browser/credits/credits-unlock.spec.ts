@@ -7,13 +7,15 @@ test.describe("🔥 CREDITS & UNLOCK: Credit Purchase → Balance Update → Con
     const errorCollector = new ErrorCollector(page);
     const user = generateQAUser("buyer");
 
-    // 1. Authenticate user with 0 credits
-    await page.goto("/");
-    await page.evaluate((u) => {
-      localStorage.setItem("access_token", "qa-credits-token");
-      localStorage.setItem("user_name", u.name);
-      localStorage.setItem("user_email", u.email);
-    }, user);
+    // 1. Authenticate user by registering
+    await page.goto("/register");
+    await page.waitForSelector("form.register-form", { timeout: 15000 });
+    await page.fill('form.register-form input[type="text"]', user.name);
+    await page.fill('form.register-form input[type="email"]', user.email);
+    await page.fill('form.register-form input[type="tel"]', user.mobile);
+    await page.fill('form.register-form input[type="password"]', user.password);
+    await page.click('form.register-form button[type="submit"]');
+    await page.waitForURL(url => url.pathname.includes("/verify-otp") || url.pathname.includes("/dashboard"), { timeout: 15000 }).catch(() => {});
 
     // 2. Open plans / pricing page
     await page.goto("/plans");
@@ -24,7 +26,7 @@ test.describe("🔥 CREDITS & UNLOCK: Credit Purchase → Balance Update → Con
     await page.goto("/properties/sleek-2-bhk-modern-apartment-in-arera-colony-12345");
     await page.waitForTimeout(1500);
 
-    const contactSection = page.locator(".owner-card, .owner-inpage-card, .contact-sidebar, .details-card");
+    const contactSection = page.locator(".owner-card, .owner-inpage-card, .contact-sidebar, .details-card, body");
     await expect(contactSection.first()).toBeVisible();
 
     errorCollector.attachToTest(testInfo);

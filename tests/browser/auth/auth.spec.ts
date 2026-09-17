@@ -18,7 +18,7 @@ test.describe("🔴 AUTHENTICATION: Registration, Login, and Session Security", 
 
     // Submit
     await page.click('form.register-form button[type="submit"]');
-    await page.waitForTimeout(2000);
+    await page.waitForURL(url => url.pathname.includes("/verify-otp") || url.pathname.includes("/dashboard"), { timeout: 15000 }).catch(() => {});
 
     const isTokenPresent = await page.evaluate(() => !!localStorage.getItem("access_token") || !!localStorage.getItem("user_name"));
     expect(isTokenPresent).toBeTruthy();
@@ -38,7 +38,7 @@ test.describe("🔴 AUTHENTICATION: Registration, Login, and Session Security", 
     await page.fill('form.register-form input[type="tel"]', user.mobile);
     await page.fill('form.register-form input[type="password"]', user.password);
     await page.click('form.register-form button[type="submit"]');
-    await page.waitForTimeout(2000);
+    await page.waitForURL(url => url.pathname.includes("/verify-otp") || url.pathname.includes("/dashboard"), { timeout: 15000 }).catch(() => {});
 
     // Clear local session to test explicit login
     await page.evaluate(() => localStorage.clear());
@@ -49,7 +49,7 @@ test.describe("🔴 AUTHENTICATION: Registration, Login, and Session Security", 
     await page.fill('form.login-form input[type="email"]', user.email);
     await page.fill('form.login-form input[type="password"]', user.password);
     await page.click('form.login-form button[type="submit"]');
-    await page.waitForTimeout(2000);
+    await page.waitForURL(url => url.pathname.includes("/dashboard"), { timeout: 15000 }).catch(() => {});
 
     const emailStored = await page.evaluate(() => localStorage.getItem("user_email"));
     expect(emailStored?.toLowerCase()).toBe(user.email.toLowerCase());

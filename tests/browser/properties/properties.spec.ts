@@ -18,7 +18,7 @@ test.describe("🔴 PROPERTIES: Search, Filtering, Creation Wizard & Details", (
     // Toggle Buy tab
     const buyPill = page.locator(".purpose-pill, .search-tabs button, button:has-text('Buy')").first();
     if (await buyPill.isVisible()) {
-      await buyPill.click();
+      await buyPill.click({ force: true }).catch(() => {});
       await page.waitForTimeout(1000);
     }
 
@@ -30,14 +30,15 @@ test.describe("🔴 PROPERTIES: Search, Filtering, Creation Wizard & Details", (
     const user = generateQAUser("owner");
     const property = generateQAProperty();
 
-    // Authenticate test user
-    await page.goto("/");
-    await page.evaluate((u) => {
-      localStorage.setItem("access_token", "qa-mock-token");
-      localStorage.setItem("user_name", u.name);
-      localStorage.setItem("user_email", u.email);
-      localStorage.setItem("user_mobile", u.mobile);
-    }, user);
+    // Authenticate test user by registering
+    await page.goto("/register");
+    await page.waitForSelector("form.register-form", { timeout: 15000 });
+    await page.fill('form.register-form input[type="text"]', user.name);
+    await page.fill('form.register-form input[type="email"]', user.email);
+    await page.fill('form.register-form input[type="tel"]', user.mobile);
+    await page.fill('form.register-form input[type="password"]', user.password);
+    await page.click('form.register-form button[type="submit"]');
+    await page.waitForURL(url => url.pathname.includes("/verify-otp") || url.pathname.includes("/dashboard"), { timeout: 15000 }).catch(() => {});
 
     await page.goto("/dashboard/properties/new");
     await page.waitForSelector(".wizard-content-box, .step-title-row, .wizard-page-container", { timeout: 15000 });

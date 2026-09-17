@@ -14,7 +14,7 @@ test.describe("🛡️ ADMIN: Management, Moderation and Control System", () => 
       localStorage.setItem("user_email", "admin@aurahomes.in");
     });
 
-    await page.goto("/admin");
+    await page.goto("/admin/dashboard");
     await page.waitForTimeout(1500);
 
     await expect(page.locator("body")).toBeVisible();

@@ -18,7 +18,7 @@ export function generateQAUser(role: "buyer" | "owner" | "agent" = "buyer"): QAU
 
   return {
     name: `QA Tester ${rand.toUpperCase()}`,
-    email: `qa_${role}_${ts}_${rand}@example.test`,
+    email: `qa_${role}_${ts}_${rand}@example.com`,
     mobile: `98${randomDigits}`,
     password: "Password@123",
     userType: role,

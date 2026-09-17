@@ -108,8 +108,8 @@ export const api = {
       localStorage.setItem("access_token", data.access_token);
       localStorage.setItem("refresh_token", data.refresh_token);
       localStorage.setItem("user_type", data.user_type);
+      localStorage.setItem("user_email", data.email || payload.email || "");
       if (data.name) localStorage.setItem("user_name", data.name);
-      if (data.email) localStorage.setItem("user_email", data.email);
       if (data.mobile) localStorage.setItem("user_mobile", data.mobile);
       if (data.city) localStorage.setItem("user_city", data.city);
       if (data.user_id) localStorage.setItem("user_id", data.user_id);
