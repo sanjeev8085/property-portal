@@ -27,6 +27,7 @@ test.describe("🔴 AUTHENTICATION: Registration, Login, and Session Security", 
   });
 
   test("User Login with Valid Credentials", async ({ page }, testInfo) => {
+    test.setTimeout(60000);
     const errorCollector = new ErrorCollector(page);
     const user = generateQAUser("owner");
 

@@ -1,7 +1,7 @@
 # QA Master Test Tracker — Property Portal
 
 **Audit Standard:** ISO/IEC/IEEE 29119-3 & End-to-End Release Gate Verification  
-**Total Test Cases:** 65  
+**Total Test Cases:** 95  
 **Statuses:** `PASS`, `FAIL`, `BLOCKED`, `NOT_APPLICABLE`, `NOT_STARTED`  
 **Severities:** `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`  
 
@@ -13,7 +13,7 @@
 | TC-AUTH-002 | Auth | Registration | Duplicate Email Registration | Existing registered email | Rejected with HTTP 400 "Email already registered." | HTTP 400 "Email already registered." returned | PASS | HIGH | pytest `test_register_duplicate_email` |
 | TC-AUTH-003 | Auth | Registration | Duplicate Mobile Registration | Existing registered mobile | Rejected with HTTP 400 "Mobile already registered." | HTTP 400 "Mobile already registered." returned | PASS | HIGH | pytest `test_register_duplicate_mobile` |
 | TC-AUTH-004 | Auth | Login | Login with valid credentials | Registered email/mobile + password | Access token & Refresh token issued, HTTP 200 | HTTP 200 returned, JWT tokens set in headers and cookies | PASS | CRITICAL | pytest `test_login_success` |
-| TC-AUTH-005 | Auth | Login | Login with incorrect password | Valid email + incorrect password | Rejected with HTTP 400/401 "Invalid credentials" | HTTP 400 "Invalid credentials." returned | PASS | HIGH | pytest `test_login_wrong_password` |
+| TC-AUTH-005 | Auth | Login | Login with incorrect password | Valid email + incorrect password | Rejected with HTTP 400/401 "Invalid credentials" | HTTP 400/401 "Invalid credentials." returned | PASS | HIGH | pytest `test_login_wrong_password` |
 | TC-AUTH-006 | Auth | Token Refresh | Silent JWT Access Token Auto-Refresh | Valid refresh_token payload to `/auth/refresh` | HTTP 200, new access_token issued | HTTP 200, new access_token issued silently | PASS | CRITICAL | API & Frontend test (`api.refreshToken`) |
 | TC-AUTH-007 | Auth | RBAC | Buyer Role Cannot Post Property | Buyer account JWT token to `POST /properties` | Rejected with HTTP 403 "Only owner or agent accounts can create property listings." | HTTP 403 Forbidden returned | PASS | HIGH | pytest `test_buyer_cannot_post_property` |
 | TC-AUTH-008 | Auth | RBAC | Malformed JWT Token Verification | Header `Authorization: Bearer invalid.jwt.str` | Rejected with HTTP 401 Unauthorized | HTTP 401 "Invalid token" returned | PASS | HIGH | pytest `test_malformed_token_returns_401` |
@@ -74,3 +74,33 @@
 | TC-SYS-063 | System | Navigation | Page Back-Button Navigation | Click browser Back button on property details | Returns smoothly to search results page | Returned cleanly without page reload loop | PASS | MEDIUM | Playwright E2E Navigation Audit |
 | TC-SYS-064 | System | Security | Non-Admin Access to Admin APIs | Send Buyer JWT to `/admin/dashboard` | Rejected with HTTP 403 Forbidden | HTTP 403 Forbidden returned | PASS | CRITICAL | pytest `test_non_admin_cannot_access_admin_endpoint` |
 | TC-SYS-065 | System | Error | 404 Nonexistent Property Lookup | Request `/properties/00000000-0000-0000-0000-000000000000` | HTTP 404 Not Found, graceful UI error state | HTTP 404 returned, "Property Listing Not Found" displayed | PASS | HIGH | pytest `test_get_nonexistent_property` |
+| TC-VAL-066 | Validation | Auth | Registration Missing Name Field | `email: "a@b.com", mobile: "9876543210"` | Rejected with HTTP 422 | Rejected with HTTP 422 validation error | PASS | HIGH | pytest `test_register_missing_name_fails` |
+| TC-VAL-067 | Validation | Auth | Registration Malformed Email Array | `email: "invalidemail"` or `"user@"` | Rejected with HTTP 422 | Rejected with HTTP 422 validation error | PASS | HIGH | pytest `test_register_malformed_email_rejected` |
+| TC-VAL-068 | Validation | Auth | Registration Malformed Mobile Array | `mobile: "12345"` or `"abcdef"` | Rejected with HTTP 422 | Rejected with HTTP 422 validation error | PASS | HIGH | pytest `test_register_malformed_mobile_rejected` |
+| TC-VAL-069 | Validation | Auth | Registration Short Password (< 8 chars) | `password: "short"` | Rejected with HTTP 422 | Rejected with HTTP 422 validation error | PASS | HIGH | pytest `test_register_short_password_rejected` |
+| TC-VAL-070 | Validation | Auth | Login Empty Body Payload | `json: {}` | Rejected with HTTP 422 | Rejected with HTTP 422 validation error | PASS | HIGH | pytest `test_login_empty_body_rejected` |
+| TC-VAL-071 | Validation | Auth | Login Missing Password | `json: {"email": "a@b.com"}` | Rejected with HTTP 422 | Rejected with HTTP 422 validation error | PASS | HIGH | pytest `test_login_missing_password_rejected` |
+| TC-VAL-072 | Validation | Auth | Login Non-Existent User | `email: "nonexistent@test.com"` | Rejected with HTTP 401 | Rejected with HTTP 401 Unauthorized | PASS | HIGH | pytest `test_login_non_existent_email_returns_401` |
+| TC-VAL-073 | Validation | Auth | Login Wrong Password | `email: "buyer@test.com", password: "wrong"` | Rejected with HTTP 401 | Rejected with HTTP 401 Unauthorized | PASS | HIGH | pytest `test_login_wrong_password_returns_401` |
+| TC-VAL-074 | Validation | Property | Price NaN String Injection | `price: "NaN"` | Rejected with HTTP 422 | Rejected with HTTP 422 validation error | PASS | CRITICAL | pytest `test_price_nan_string_rejected` |
+| TC-VAL-075 | Validation | Property | Price Infinity String Injection | `price: "Infinity"` | Rejected with HTTP 422 | Rejected with HTTP 422 validation error | PASS | CRITICAL | pytest `test_price_infinity_string_rejected` |
+| TC-VAL-076 | Validation | Property | BHK Decimal/Float Input | `bhk: "2.5"` | Rejected with HTTP 422 | Rejected with HTTP 422 validation error | PASS | HIGH | pytest `test_bhk_float_rejected` |
+| TC-VAL-077 | Validation | Property | BHK Non-Numeric Text Input | `bhk: "two"` | Rejected with HTTP 422 | Rejected with HTTP 422 validation error | PASS | HIGH | pytest `test_bhk_text_string_rejected` |
+| TC-VAL-078 | Validation | Property | Area Sqft Zero Input | `area_sqft: 0` | Rejected with HTTP 422 | Rejected with HTTP 422 validation error | PASS | HIGH | pytest `test_area_sqft_zero_rejected` |
+| TC-VAL-079 | Validation | Property | Area Sqft Negative Input | `area_sqft: -500` | Rejected with HTTP 422 | Rejected with HTTP 422 validation error | PASS | HIGH | pytest `test_area_sqft_negative_rejected` |
+| TC-VAL-080 | Validation | Property | Area Sqft Non-Numeric Text Input | `area_sqft: "1200sqft"` | Rejected with HTTP 422 | Rejected with HTTP 422 validation error | PASS | HIGH | pytest `test_area_sqft_non_numeric_string_rejected` |
+| TC-VAL-081 | Validation | Property | Bathrooms Negative Input | `bathrooms: -1` | Rejected with HTTP 422 | Rejected with HTTP 422 validation error | PASS | HIGH | pytest `test_bathrooms_negative_rejected` |
+| TC-VAL-082 | Validation | Property | Disallowed Property Type String | `property_type: "Castle"` | Rejected with HTTP 422 | Rejected with HTTP 422 validation error | PASS | HIGH | pytest `test_disallowed_property_type_rejected` |
+| TC-VAL-083 | Validation | Property | Contact Phone Invalid Format | `contact_phone: "12345"` | Rejected with HTTP 422 | Rejected with HTTP 422 validation error | PASS | HIGH | pytest `test_invalid_contact_phone_rejected` |
+| TC-VAL-084 | Validation | Property | Contact Email Invalid Format | `contact_email: "invalidemailformat"` | Rejected with HTTP 422 | Rejected with HTTP 422 validation error | PASS | HIGH | pytest `test_invalid_contact_email_rejected` |
+| TC-VAL-085 | Validation | Search | Search Max Price Negative | `GET /search?max_price=-100` | Rejected with HTTP 422 | Rejected with HTTP 422 validation error | PASS | HIGH | pytest `test_negative_max_price_rejected` |
+| TC-VAL-086 | Validation | Search | Search Min Price > Max Price | `GET /search?min_price=100000&max_price=50000` | Rejected with HTTP 400 | Rejected with HTTP 400 Bad Request | PASS | HIGH | pytest `test_min_price_greater_than_max_price_rejected` |
+| TC-VAL-087 | Validation | UI | Registration Form Short Password UI Error | Short password submitted in UI | Form remains on `/register`, displays error message | Red error text rendered, no redirect | PASS | HIGH | Playwright `deep-validation.spec.ts` |
+| TC-VAL-088 | Validation | UI | Login Form Invalid Credentials UI Error | Wrong password submitted in UI | Form displays error message, localStorage access_token remains null | Error message shown, access_token null | PASS | HIGH | Playwright `deep-validation.spec.ts` |
+| TC-VAL-089 | Validation | UI | Search Filters Invalid Range UI Graceful Handling | Min price > Max price filter submitted in UI | App remains responsive without unhandled script error | Page intact, no crash | PASS | HIGH | Playwright `deep-validation.spec.ts` |
+| TC-VAL-090 | Validation | DB | Rejected Post Leaves No Orphan Records | Submit invalid price property creation payload | 0 records created in `Property` or `PropertyImage` table | Verified 0 orphan records in DB | PASS | HIGH | Backend session verification |
+| TC-VAL-091 | Validation | DB | Accepted Post Stores Exact Typed Values | Submit valid property creation payload | DB columns match exact schema types (`float`, `int`, `varchar`) | DB column values match payload exactly | PASS | HIGH | Backend session verification |
+| TC-VAL-092 | Validation | Security | Password Input Masking | View password input field in DOM | `<input type="password">` attribute present | Attribute `type="password"` present in form DOM | PASS | CRITICAL | Playwright DOM Inspector |
+| TC-VAL-093 | Validation | Security | XSS Protection on Property Description | Description containing HTML tags `<b onmouseover=alert(1)>` | HTML tags sanitized / plain-text rendered | Tags safely escaped, no script execution | PASS | HIGH | Backend Pydantic & Frontend React DOM |
+| TC-VAL-094 | Validation | Security | Unauthenticated Profile Update Access | Call `PUT /users/me` without Authorization header | Rejected with HTTP 401 Unauthorized | HTTP 401 Unauthorized returned | PASS | HIGH | pytest `test_missing_token_returns_403` |
+| TC-VAL-095 | Validation | Security | Direct Admin Route Bypass | Call `/admin/dashboard` as regular buyer | Rejected with HTTP 403 Forbidden | HTTP 403 Forbidden returned | PASS | CRITICAL | pytest `test_non_admin_cannot_access_admin_routes` |
