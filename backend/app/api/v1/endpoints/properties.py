@@ -2,7 +2,7 @@
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, Header, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_, and_, func
+from sqlalchemy import select, or_, and_, func, delete
 from app.core.database import get_db
 from typing import Optional
 from app.api.deps import get_current_active_user, get_optional_user, require_role
@@ -187,37 +187,53 @@ async def create_property(
                         amenity=str(amenity_name)
                     ))
 
-        # Add Images in same transaction
+        # Add Images in same transaction (with URL deduplication)
         if payload.images and len(payload.images) > 0:
-            for idx, img in enumerate(payload.images):
+            seen_urls = set()
+            img_idx = 0
+            for img in payload.images:
                 if not img:
                     continue
+                url = ""
+                thumb_url = None
+                card_url = None
+                detail_url = None
+                pub_id = None
+                w_val = None
+                h_val = None
+                fs_val = None
+
                 if isinstance(img, dict):
                     url = img.get("url") or img.get("image_url") or ""
-                    if url:
-                        w_val = img.get("width")
-                        h_val = img.get("height")
-                        fs_val = img.get("file_size")
-                        db.add(PropertyImage(
-                            property_id=prop.id,
-                            image_url=str(url),
-                            thumbnail_url=str(img.get("thumbnail_url")) if img.get("thumbnail_url") else None,
-                            card_url=str(img.get("card_url")) if img.get("card_url") else None,
-                            detail_url=str(img.get("detail_url")) if img.get("detail_url") else None,
-                            cloudinary_public_id=str(img.get("public_id") or img.get("cloudinary_public_id")) if (img.get("public_id") or img.get("cloudinary_public_id")) else None,
-                            width=int(w_val) if w_val is not None and str(w_val).isdigit() else None,
-                            height=int(h_val) if h_val is not None and str(h_val).isdigit() else None,
-                            file_size=int(fs_val) if fs_val is not None and str(fs_val).isdigit() else None,
-                            is_cover=(idx == 0),
-                            sort_order=idx
-                        ))
-                elif isinstance(img, str) and img:
-                    db.add(PropertyImage(
-                        property_id=prop.id,
-                        image_url=str(img),
-                        is_cover=(idx == 0),
-                        sort_order=idx
-                    ))
+                    thumb_url = str(img.get("thumbnail_url")) if img.get("thumbnail_url") else None
+                    card_url = str(img.get("card_url")) if img.get("card_url") else None
+                    detail_url = str(img.get("detail_url")) if img.get("detail_url") else None
+                    pub_id = str(img.get("public_id") or img.get("cloudinary_public_id")) if (img.get("public_id") or img.get("cloudinary_public_id")) else None
+                    w_val = img.get("width")
+                    h_val = img.get("height")
+                    fs_val = img.get("file_size")
+                elif isinstance(img, str):
+                    url = img
+
+                url_str = str(url).strip()
+                if not url_str or url_str in seen_urls:
+                    continue
+                seen_urls.add(url_str)
+
+                db.add(PropertyImage(
+                    property_id=prop.id,
+                    image_url=url_str,
+                    thumbnail_url=thumb_url,
+                    card_url=card_url,
+                    detail_url=detail_url,
+                    cloudinary_public_id=pub_id,
+                    width=int(w_val) if w_val is not None and str(w_val).isdigit() else None,
+                    height=int(h_val) if h_val is not None and str(h_val).isdigit() else None,
+                    file_size=int(fs_val) if fs_val is not None and str(fs_val).isdigit() else None,
+                    is_cover=(img_idx == 0),
+                    sort_order=img_idx
+                ))
+                img_idx += 1
         elif payload.image:
             db.add(PropertyImage(
                 property_id=prop.id,
@@ -673,6 +689,56 @@ async def update_property(
     prop.area_sqft = float(payload.area_sqft) if payload.area_sqft is not None else None
     prop.bathrooms = int(payload.bathrooms) if payload.bathrooms is not None and str(payload.bathrooms).isdigit() else None
     prop.description = payload.description
+
+    # Update Images if supplied
+    if (payload.images and len(payload.images) > 0) or payload.image:
+        await db.execute(delete(PropertyImage).where(PropertyImage.property_id == pid))
+        raw_imgs = payload.images if (payload.images and len(payload.images) > 0) else [payload.image]
+        seen_urls = set()
+        img_idx = 0
+        for img in raw_imgs:
+            if not img:
+                continue
+            url = ""
+            thumb_url = None
+            card_url = None
+            detail_url = None
+            pub_id = None
+            w_val = None
+            h_val = None
+            fs_val = None
+
+            if isinstance(img, dict):
+                url = img.get("url") or img.get("image_url") or ""
+                thumb_url = str(img.get("thumbnail_url")) if img.get("thumbnail_url") else None
+                card_url = str(img.get("card_url")) if img.get("card_url") else None
+                detail_url = str(img.get("detail_url")) if img.get("detail_url") else None
+                pub_id = str(img.get("public_id") or img.get("cloudinary_public_id")) if (img.get("public_id") or img.get("cloudinary_public_id")) else None
+                w_val = img.get("width")
+                h_val = img.get("height")
+                fs_val = img.get("file_size")
+            elif isinstance(img, str):
+                url = img
+
+            url_str = str(url).strip()
+            if not url_str or url_str in seen_urls:
+                continue
+            seen_urls.add(url_str)
+
+            db.add(PropertyImage(
+                property_id=pid,
+                image_url=url_str,
+                thumbnail_url=thumb_url,
+                card_url=card_url,
+                detail_url=detail_url,
+                cloudinary_public_id=pub_id,
+                width=int(w_val) if w_val is not None and str(w_val).isdigit() else None,
+                height=int(h_val) if h_val is not None and str(h_val).isdigit() else None,
+                file_size=int(fs_val) if fs_val is not None and str(fs_val).isdigit() else None,
+                is_cover=(img_idx == 0),
+                sort_order=img_idx
+            ))
+            img_idx += 1
 
     db.add(prop)
     await db.commit()

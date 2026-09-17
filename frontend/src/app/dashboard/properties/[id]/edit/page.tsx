@@ -84,7 +84,7 @@ export default function EditPropertyPage({ params }: { params: Promise<{ id: str
 
     setSaving(true);
     try {
-      await api.createProperty({
+      await api.updateProperty(propertyId, {
         title,
         price: priceCheck.value,
         purpose,

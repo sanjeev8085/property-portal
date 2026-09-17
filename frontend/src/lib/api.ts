@@ -189,6 +189,13 @@ export const api = {
     });
   },
 
+  async updateProperty(propertyId: string, payload: any) {
+    return apiFetch(`/properties/${propertyId}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  },
+
   // Credits API
   async getCredits() {
     return apiFetch("/contacts/credits");

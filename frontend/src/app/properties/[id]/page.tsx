@@ -79,8 +79,8 @@ export default function PropertyDetailsPage() {
           setIsUnlocked(serverHasContactAccess);
           
           const rawImgs = (Array.isArray(remote.images) && remote.images.length > 0)
-            ? remote.images.map((img: any) => normalizeImage(img, remote.property_type || remote.title))
-            : (remote.image ? [normalizeImage(remote.image, remote.property_type || remote.title)] : DEFAULT_GALLERY_IMAGES);
+            ? remote.images.map((img: any, idx: number) => normalizeImage(img, remote.property_type || remote.title, idx))
+            : (remote.image ? [normalizeImage(remote.image, remote.property_type || remote.title, 0)] : DEFAULT_GALLERY_IMAGES);
 
           setCustomProp({
             id: remote.id,
@@ -128,8 +128,8 @@ export default function PropertyDetailsPage() {
       if (found) {
         if (isMounted) {
           const normPhotos = (found.photos && found.photos.length > 0)
-            ? found.photos.map((img: any) => normalizeImage(img, found.type || found.title))
-            : (found.image ? [normalizeImage(found.image, found.type || found.title)] : DEFAULT_GALLERY_IMAGES);
+            ? found.photos.map((img: any, idx: number) => normalizeImage(img, found.type || found.title, idx))
+            : (found.image ? [normalizeImage(found.image, found.type || found.title, 0)] : DEFAULT_GALLERY_IMAGES);
           setCustomProp({
             ...found,
             image: normPhotos[0],
@@ -168,10 +168,10 @@ export default function PropertyDetailsPage() {
                 priceNum: Number(remote.price) || 0,
                 location: remote.locality ? `${remote.locality}, ${remote.city || "Bhopal"}` : (remote.city || "Bhopal"),
                 specs: `${remote.bhk || 2} Beds | ${remote.bathrooms || 2} Baths | ${remote.area_sqft || 1200} sqft`,
-                image: normalizeImage(remote.images?.[0] || remote.image, remote.property_type || remote.title),
+                image: normalizeImage(remote.images?.[0] || remote.image, remote.property_type || remote.title, 0),
                 photos: (Array.isArray(remote.images) && remote.images.length > 0)
-                  ? remote.images.map((img: any) => normalizeImage(img, remote.property_type || remote.title))
-                  : (remote.image ? [normalizeImage(remote.image, remote.property_type || remote.title)] : DEFAULT_GALLERY_IMAGES),
+                  ? remote.images.map((img: any, idx: number) => normalizeImage(img, remote.property_type || remote.title, idx))
+                  : (remote.image ? [normalizeImage(remote.image, remote.property_type || remote.title, 0)] : DEFAULT_GALLERY_IMAGES),
                 type: remote.property_type || "Apartment",
                 purpose: remote.purpose === "rent" ? "rent" : "sell",
                 bhk: remote.bhk || 2,
@@ -246,8 +246,8 @@ export default function PropertyDetailsPage() {
   }, [propertyId, rawParam]);
 
   const rawPhotos = (customProp?.photos && customProp.photos.length > 0)
-    ? customProp.photos.map((img: any) => normalizeImage(img, customProp?.title))
-    : (customProp?.image ? [normalizeImage(customProp.image, customProp?.title), ...DEFAULT_GALLERY_IMAGES.slice(1)] : DEFAULT_GALLERY_IMAGES);
+    ? customProp.photos.map((img: any, idx: number) => normalizeImage(img, customProp?.title, idx))
+    : (customProp?.image ? [normalizeImage(customProp.image, customProp?.title, 0), ...DEFAULT_GALLERY_IMAGES.slice(1)] : DEFAULT_GALLERY_IMAGES);
 
   const loggedInEmail = typeof window !== "undefined" ? localStorage.getItem("user_email") || "" : "";
   const loggedInPhone = typeof window !== "undefined" ? localStorage.getItem("user_mobile") || "" : "";
@@ -568,7 +568,7 @@ export default function PropertyDetailsPage() {
                 onLoad={() => setImgLoaded(true)}
                 onError={(e) => {
                   setImgLoaded(true);
-                  e.currentTarget.src = getFallbackImage(propertyDetails.propertyType);
+                  e.currentTarget.src = getFallbackImage(propertyDetails.propertyType, activePhotoIdx);
                 }}
               />
 
@@ -615,7 +615,7 @@ export default function PropertyDetailsPage() {
                       width={100} 
                       height={70} 
                       onError={(e) => {
-                        e.currentTarget.src = getFallbackImage(propertyDetails.propertyType);
+                        e.currentTarget.src = getFallbackImage(propertyDetails.propertyType, index);
                       }}
                     />
                   </button>

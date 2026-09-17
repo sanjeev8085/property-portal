@@ -63,25 +63,50 @@ export function extractPropertyId(slugOrId: string): string {
 
 export const extractIdFromSlug = extractPropertyId;
 
-export function getFallbackImage(typeOrTitle: string = ""): string {
+export function getFallbackImage(typeOrTitle: string = "", index: number = 0): string {
   const t = (typeOrTitle || "").toLowerCase();
+  const i = Math.abs(index) % 4;
   if (t.includes("plot") || t.includes("land")) {
-    return "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80";
+    const plotImgs = [
+      "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1524813686514-a57563d77d66?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=800&q=80",
+    ];
+    return plotImgs[i];
   }
   if (t.includes("office") || t.includes("shop") || t.includes("commercial") || t.includes("retail") || t.includes("warehouse")) {
-    return "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80";
+    const commImgs = [
+      "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80",
+    ];
+    return commImgs[i];
   }
   if (t.includes("pg") || t.includes("coliving") || t.includes("hostel") || t.includes("dormitory")) {
-    return "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80";
+    const pgImgs = [
+      "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80",
+    ];
+    return pgImgs[i];
   }
-  return "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80";
+  const resImgs = [
+    "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80",
+    "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
+    "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=800&q=80",
+    "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80",
+  ];
+  return resImgs[i];
 }
 
-export function normalizeImage(img: any, typeOrTitle: string = ""): string {
-  if (!img) return getFallbackImage(typeOrTitle);
+export function normalizeImage(img: any, typeOrTitle: string = "", index: number = 0): string {
+  if (!img) return getFallbackImage(typeOrTitle, index);
   let src = typeof img === "string" ? img : (img.detail_url || img.card_url || img.image_url || img.url || img.thumbnail_url || img.src || "");
   if (typeof src !== "string" || !src.trim() || src.includes("[object") || src === "null" || src === "undefined") {
-    return getFallbackImage(typeOrTitle);
+    return getFallbackImage(typeOrTitle, index);
   }
   src = src.trim();
   if (src.startsWith("/uploads")) {

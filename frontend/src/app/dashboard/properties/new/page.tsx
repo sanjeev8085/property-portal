@@ -260,12 +260,18 @@ export default function NewPropertyWizard() {
   };
 
   // Photo handlers
+  const fileMapRef = useRef<Map<string, File>>(new Map());
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const newFiles = Array.from(e.target.files).filter(f => f.type.startsWith("image/"));
-      const newUrls = newFiles.map(file => URL.createObjectURL(file));
+      const newUrls: string[] = [];
+      newFiles.forEach(file => {
+        const url = URL.createObjectURL(file);
+        newUrls.push(url);
+        fileMapRef.current.set(url, file);
+      });
       setPhotos(prev => [...prev, ...newUrls].slice(0, 10));
-      setPendingFiles(prev => [...prev, ...newFiles].slice(0, 10));
       success(`Added ${newFiles.length} photo(s) successfully! 📸`);
     }
   };
@@ -286,16 +292,26 @@ export default function NewPropertyWizard() {
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const newFiles = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
       if (newFiles.length > 0) {
-        const newUrls = newFiles.map(file => URL.createObjectURL(file));
+        const newUrls: string[] = [];
+        newFiles.forEach(file => {
+          const url = URL.createObjectURL(file);
+          newUrls.push(url);
+          fileMapRef.current.set(url, file);
+        });
         setPhotos(prev => [...prev, ...newUrls].slice(0, 10));
-        setPendingFiles(prev => [...prev, ...newFiles].slice(0, 10));
         success(`Added ${newFiles.length} photo(s) from drag & drop! 📸`);
       }
     }
   };
 
   const handleRemovePhoto = (index: number) => {
-    setPhotos(prev => prev.filter((_, i) => i !== index));
+    setPhotos(prev => {
+      const targetUrl = prev[index];
+      if (targetUrl && fileMapRef.current.has(targetUrl)) {
+        fileMapRef.current.delete(targetUrl);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
     info("Photo removed.");
   };
 
@@ -341,6 +357,7 @@ export default function NewPropertyWizard() {
         "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80",
       ];
     }
+    fileMapRef.current.clear();
     setPhotos(samples);
     success(`Loaded ${samples.length} high-resolution ${propertyType} sample photos! 📸`);
   };
@@ -374,30 +391,26 @@ export default function NewPropertyWizard() {
     setIsPublishing(true);
 
     try {
-      // 0. Image Upload Phase — Upload any selected local image files to Cloudinary CDN
+      // 0. Image Upload Phase — Upload local image files maintaining exact photo order
       let finalImages: any[] = [];
-      
-      // Filter existing HTTP/HTTPS/Uploads URLs
-      const existingUrls = photos.filter(p => typeof p === "string" && (p.startsWith("http://") || p.startsWith("https://") || p.startsWith("/uploads")));
-      existingUrls.forEach(url => finalImages.push(url));
+      const localFilesToUpload: File[] = [];
+      const photoIndexToFileIndex: Map<number, number> = new Map();
 
-      if (pendingFiles.length > 0) {
+      photos.forEach((p, idx) => {
+        if (typeof p === "string" && fileMapRef.current.has(p)) {
+          const file = fileMapRef.current.get(p)!;
+          localFilesToUpload.push(file);
+          photoIndexToFileIndex.set(idx, localFilesToUpload.length - 1);
+        }
+      });
+
+      let uploadedCdnResults: any[] = [];
+      if (localFilesToUpload.length > 0) {
         info("Uploading property images to Cloudinary CDN...");
         try {
-          const uploadRes = await api.uploadImages(pendingFiles);
+          const uploadRes = await api.uploadImages(localFilesToUpload);
           if (uploadRes && Array.isArray(uploadRes.images) && uploadRes.images.length > 0) {
-            uploadRes.images.forEach((img: any) => {
-              finalImages.push({
-                url: img.url,
-                thumbnail_url: img.thumbnail_url,
-                card_url: img.card_url,
-                detail_url: img.detail_url,
-                public_id: img.public_id,
-                width: img.width,
-                height: img.height,
-                file_size: img.file_size,
-              });
-            });
+            uploadedCdnResults = uploadRes.images;
             success(`Successfully uploaded ${uploadRes.images.length} image(s) to CDN! ☁️`);
           } else {
             throw new Error("CDN did not return uploaded image metadata.");
@@ -405,9 +418,30 @@ export default function NewPropertyWizard() {
         } catch (uploadErr: any) {
           error(uploadErr.message || "Failed to upload property images. Listing was NOT published.");
           setIsPublishing(false);
-          return; // STOP! Do not publish if image upload failed.
+          return;
         }
       }
+
+      photos.forEach((p, idx) => {
+        if (typeof p === "string" && fileMapRef.current.has(p)) {
+          const fileIdx = photoIndexToFileIndex.get(idx);
+          if (fileIdx !== undefined && uploadedCdnResults[fileIdx]) {
+            const img = uploadedCdnResults[fileIdx];
+            finalImages.push({
+              url: img.url,
+              thumbnail_url: img.thumbnail_url,
+              card_url: img.card_url,
+              detail_url: img.detail_url,
+              public_id: img.public_id,
+              width: img.width,
+              height: img.height,
+              file_size: img.file_size,
+            });
+          }
+        } else if (typeof p === "string" && (p.startsWith("http://") || p.startsWith("https://") || p.startsWith("/uploads"))) {
+          finalImages.push(p);
+        }
+      });
 
       if (finalImages.length === 0) {
         finalImages.push("https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80");
