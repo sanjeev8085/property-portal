@@ -55,6 +55,7 @@ class PropertyCreate(BaseModel):
     area: Optional[str] = None
     address: Optional[str] = None
     security_deposit: Optional[float] = None
+    maintenance: Optional[float] = None
     is_negotiable: Optional[bool] = False
     contact_name: Optional[str] = None
     contact_phone: Optional[str] = None
@@ -146,6 +147,20 @@ class PropertyCreate(BaseModel):
                     raise ValueError(f"Invalid bathrooms format: '{raw_bath}'")
             if isinstance(cleaned.get("bathrooms"), int) and cleaned["bathrooms"] < 0:
                 raise ValueError("Bathrooms count cannot be negative.")
+
+        # Clean & validate maintenance
+        raw_maint = cleaned.get("maintenance")
+        if raw_maint is not None:
+            if isinstance(raw_maint, str):
+                s = raw_maint.replace(",", "").replace("₹", "").strip()
+                if s != "":
+                    if not CLEAN_NUMERIC_REGEX.match(s):
+                        raise ValueError(f"Invalid maintenance format: '{raw_maint}'. Maintenance must be a non-negative number.")
+                    cleaned["maintenance"] = float(s)
+                else:
+                    cleaned["maintenance"] = None
+            if isinstance(cleaned.get("maintenance"), (int, float)) and cleaned["maintenance"] < 0:
+                raise ValueError("Maintenance cannot be negative.")
 
         # Clean & validate contact_phone
         phone = cleaned.get("contact_phone")

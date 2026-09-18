@@ -382,8 +382,14 @@ export default function PropertyDetailsPage() {
     purpose: customProp?.purpose || "rent",
     propertyType: propType,
     currency: "INR",
-    deposit: customProp?.purpose === "rent" ? "₹50,000" : "₹1,00,000",
-    maintenance: isPlot ? "₹0 / mo" : (customProp?.purpose === "rent" ? "₹1,500 / mo" : "₹2,500 / mo"),
+    deposit: customProp?.security_deposit !== undefined && customProp?.security_deposit !== null
+      ? `₹${Number(customProp.security_deposit).toLocaleString("en-IN")}`
+      : (customProp?.deposit || (customProp?.purpose === "rent" ? "₹50,000" : "₹1,00,000")),
+    maintenance: isPlot 
+      ? "₹0 / mo" 
+      : (customProp?.maintenance !== undefined && customProp?.maintenance !== null
+          ? `₹${Number(customProp.maintenance).toLocaleString("en-IN")} / mo`
+          : (customProp?.purpose === "rent" ? "₹1,500 / mo" : "₹2,500 / mo")),
     location: customProp?.location || "Arera Colony, Bhopal",
     city: "Bhopal",
     state: "Madhya Pradesh",

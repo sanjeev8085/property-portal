@@ -80,6 +80,23 @@ class TestPropertyValidation:
         resp = await client.post("/api/v1/properties", json=invalid_payload, headers=owner_auth_headers)
         assert resp.status_code == 422
 
+    async def test_zero_maintenance_accepted(self, client: AsyncClient, owner_auth_headers: dict):
+        """Maintenance of 0 or '00' must be accepted and saved as 0.0."""
+        payload = {**BASE_PAYLOAD, "title": "Zero Maint Prop", "maintenance": "00"}
+        resp = await client.post("/api/v1/properties", json=payload, headers=owner_auth_headers)
+        assert resp.status_code in (200, 201)
+        prop_id = resp.json()["property_id"]
+        
+        get_resp = await client.get(f"/api/v1/properties/{prop_id}")
+        assert get_resp.status_code == 200
+        assert get_resp.json()["maintenance"] == 0.0
+
+    async def test_negative_maintenance_rejected(self, client: AsyncClient, owner_auth_headers: dict):
+        """Negative maintenance must be rejected with 422."""
+        invalid_payload = {**BASE_PAYLOAD, "maintenance": -500.0}
+        resp = await client.post("/api/v1/properties", json=invalid_payload, headers=owner_auth_headers)
+        assert resp.status_code == 422
+
 
 @pytest.mark.asyncio
 class TestSearchValidation:

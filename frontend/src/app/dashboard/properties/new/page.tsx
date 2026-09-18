@@ -6,7 +6,7 @@ import { savePublishedProperty } from "@/lib/propertyStore";
 import { api } from "@/lib/api";
 
 const RESIDENTIAL_AMENITIES = [
-  "Covered Parking",
+  "Intercom Facility",
   "24x7 Security",
   "Full Power Backup",
   "High-Speed Lift",
@@ -481,10 +481,19 @@ export default function NewPropertyWizard() {
       const idempotencyKey = `prop_pub_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
       const finalPriceNum = priceCheck.value;
 
-      const isLandOrComm = ["Plot / Land", "Shop", "Office Space", "Warehouse"].includes(propertyType);
+      const finalMaint = maintenance && maintenance.trim() !== "" ? parseStrictNonNegativeNumeric(maintenance).value : null;
+      const finalDeposit = deposit && deposit.trim() !== "" ? parseStrictNonNegativeNumeric(deposit).value : null;
+
+      let finalAmenities = [...selectedAmenities];
+      if (parking && parking.toLowerCase().includes("covered") && !finalAmenities.includes("Covered Parking")) {
+        finalAmenities.push("Covered Parking");
+      }
+
       const payload = {
         title: getPreviewTitle(),
         price: finalPriceNum,
+        maintenance: finalMaint,
+        security_deposit: finalDeposit,
         purpose: purpose === "sell" ? "sell" : "rent",
         category: ["Shop", "Office Space", "Warehouse"].includes(propertyType) ? "commercial" : "residential",
         property_type: propertyType,
@@ -503,7 +512,7 @@ export default function NewPropertyWizard() {
         locality: locality || area || "Arera Colony",
         contact_name: contactName || "Property Owner",
         contact_phone: contactPhone || "",
-        amenities: selectedAmenities,
+        amenities: finalAmenities,
       };
 
       // 1. Send property creation request with Idempotency-Key

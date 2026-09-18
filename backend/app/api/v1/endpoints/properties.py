@@ -150,6 +150,7 @@ async def create_property(
         safe_area = float(payload.area_sqft) if payload.area_sqft is not None else None
         safe_baths = int(payload.bathrooms) if payload.bathrooms is not None and str(payload.bathrooms).isdigit() else None
         safe_deposit = float(payload.security_deposit) if payload.security_deposit is not None else None
+        safe_maint = float(payload.maintenance) if payload.maintenance is not None else None
 
         # Instantiate Property
         prop = Property(
@@ -164,6 +165,7 @@ async def create_property(
             area_sqft=safe_area,
             bathrooms=safe_baths,
             security_deposit=safe_deposit,
+            maintenance=safe_maint,
             furnished_status=p_furnished,
             pg_for=payload.pg_for,
             room_type=payload.room_type,
@@ -567,6 +569,8 @@ async def get_property(
         "purpose": prop.purpose,
         "property_type": prop.property_type,
         "price": prop.price,
+        "maintenance": prop.maintenance,
+        "security_deposit": prop.security_deposit,
         "status": prop.status,
         "bhk": prop.bhk,
         "area_sqft": prop.area_sqft,

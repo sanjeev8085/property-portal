@@ -39,7 +39,12 @@ test.describe("🔴 AUTHENTICATION: Registration, Login, and Session Security", 
     await page.fill('form.register-form input[type="tel"]', user.mobile);
     await page.fill('form.register-form input[type="password"]', user.password);
     await page.click('form.register-form button[type="submit"]');
-    await page.waitForURL(url => url.pathname.includes("/verify-otp") || url.pathname.includes("/dashboard"), { timeout: 15000 }).catch(() => {});
+    // Wait for redirect to verify-otp or dashboard — proves registration succeeded
+    await page.waitForURL(url => url.pathname.includes("/verify-otp") || url.pathname.includes("/dashboard"), { timeout: 15000 });
+
+    // Assert registration actually stored an access token (user was created)
+    const registrationOk = await page.evaluate(() => !!localStorage.getItem("access_token") || !!localStorage.getItem("user_name"));
+    expect(registrationOk).toBeTruthy();
 
     // Clear local session to test explicit login
     await page.evaluate(() => localStorage.clear());
@@ -50,7 +55,11 @@ test.describe("🔴 AUTHENTICATION: Registration, Login, and Session Security", 
     await page.fill('form.login-form input[type="email"]', user.email);
     await page.fill('form.login-form input[type="password"]', user.password);
     await page.click('form.login-form button[type="submit"]');
+    // Wait for navigation to dashboard
     await page.waitForURL(url => url.pathname.includes("/dashboard"), { timeout: 15000 }).catch(() => {});
+
+    // Wait for localStorage to be populated (api.login() runs async before redirect)
+    await page.waitForFunction(() => localStorage.getItem("user_email") !== null && localStorage.getItem("user_email") !== "", null, { timeout: 10000 }).catch(() => {});
 
     const emailStored = await page.evaluate(() => localStorage.getItem("user_email"));
     expect(emailStored?.toLowerCase()).toBe(user.email.toLowerCase());

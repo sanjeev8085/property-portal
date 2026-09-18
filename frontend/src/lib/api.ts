@@ -13,10 +13,20 @@ async function apiFetch(endpoint: string, options: RequestInit = {}, isRetry: bo
   };
 
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
+    let response;
+    try {
+      response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        headers,
+      });
+    } catch (networkErr: any) {
+      if (networkErr.message === "Failed to fetch" && !isRetry) {
+        console.warn(`Transient network error on ${endpoint}. Retrying in 1s...`);
+        await new Promise(r => setTimeout(r, 1000));
+        return await apiFetch(endpoint, options, true);
+      }
+      throw networkErr;
+    }
 
     // On 401 Unauthorized, attempt silent token refresh once before clearing session
     if (response.status === 401 && !isRetry && !endpoint.includes("/auth/")) {

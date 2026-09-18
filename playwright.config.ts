@@ -6,9 +6,10 @@ const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: "./tests/browser",
+  globalSetup: "./tests/browser/helpers/global-setup.ts",
   fullyParallel: false, // Run flows deterministically
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  retries: 1, // 1 retry handles transient network/cold-start flakiness
   workers: 1, // Single worker prevents test user and credit transaction races
   reporter: [
     ["list"],
@@ -46,3 +47,4 @@ export default defineConfig({
     timeout: 60000,
   },
 });
+
