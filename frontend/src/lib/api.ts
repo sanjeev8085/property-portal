@@ -53,7 +53,19 @@ async function apiFetch(endpoint: string, options: RequestInit = {}, isRetry: bo
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      const detailStr = typeof errorData.detail === "string" ? errorData.detail : (errorData.detail?.message || `Request failed with status ${response.status}`);
+      let detailStr = `Request failed with status ${response.status}`;
+      
+      if (typeof errorData.detail === "string") {
+        detailStr = errorData.detail;
+      } else if (Array.isArray(errorData.detail)) {
+        // Format FastAPI/Pydantic validation errors nicely
+        detailStr = errorData.detail.map((err: any) => err.msg.replace(/^Value error, /i, "")).join(", ");
+      } else if (errorData.detail?.message) {
+        detailStr = errorData.detail.message;
+      } else if (errorData.message) {
+        detailStr = errorData.message;
+      }
+      
       throw new Error(detailStr);
     }
 
