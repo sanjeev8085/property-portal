@@ -395,15 +395,15 @@ export default function PropertyDetailsPage() {
     state: "Madhya Pradesh",
     postalCode: "462016",
     size: customProp?.size ? `${customProp.size} Sq Ft` : (isPlot ? "1500 Sq Ft" : "1200 Sq Ft"),
-    facing: customProp?.facing || "East Facing",
-    dimensions: customProp?.dimensions || "30 × 50 ft",
-    boundaryWall: customProp?.boundaryWall || "Yes (Constructed)",
-    cornerPlot: customProp?.cornerPlot || "Corner Plot",
-    frontage: customProp?.frontage || "15 ft Frontage",
-    shopFloor: customProp?.shopFloor || "Ground Floor",
-    shopWashroom: customProp?.shopWashroom || "Private Washroom",
-    cabins: customProp?.cabins || "2 Cabins",
-    workstations: customProp?.workstations || "15-25 Workstations",
+    facing: customProp?.facing,
+    dimensions: customProp?.dimensions,
+    boundaryWall: customProp?.boundaryWall,
+    cornerPlot: customProp?.cornerPlot,
+    frontage: customProp?.frontage,
+    shopFloor: customProp?.shopFloor,
+    shopWashroom: customProp?.shopWashroom,
+    cabins: customProp?.cabins,
+    workstations: customProp?.workstations,
     pgFor: customProp?.pgFor || null,
     roomType: customProp?.roomType || null,
     foodIncluded: customProp?.foodIncluded || null,
@@ -664,34 +664,42 @@ export default function PropertyDetailsPage() {
                     <span className="spec-value">{propertyDetails.size}</span>
                   </div>
                 </div>
-                <div className="spec-card">
-                  <span className="spec-icon">🧭</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Facing</span>
-                    <span className="spec-value">{propertyDetails.facing}</span>
+                {propertyDetails.facing && (
+                  <div className="spec-card">
+                    <span className="spec-icon">🧭</span>
+                    <div className="spec-text">
+                      <span className="spec-label">Facing</span>
+                      <span className="spec-value">{propertyDetails.facing}</span>
+                    </div>
                   </div>
-                </div>
-                <div className="spec-card">
-                  <span className="spec-icon">📏</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Dimensions</span>
-                    <span className="spec-value">{propertyDetails.dimensions}</span>
+                )}
+                {propertyDetails.dimensions && (
+                  <div className="spec-card">
+                    <span className="spec-icon">📏</span>
+                    <div className="spec-text">
+                      <span className="spec-label">Dimensions</span>
+                      <span className="spec-value">{propertyDetails.dimensions}</span>
+                    </div>
                   </div>
-                </div>
-                <div className="spec-card">
-                  <span className="spec-icon">🧱</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Boundary Wall</span>
-                    <span className="spec-value">{propertyDetails.boundaryWall}</span>
+                )}
+                {propertyDetails.boundaryWall && (
+                  <div className="spec-card">
+                    <span className="spec-icon">🧱</span>
+                    <div className="spec-text">
+                      <span className="spec-label">Boundary Wall</span>
+                      <span className="spec-value">{propertyDetails.boundaryWall}</span>
+                    </div>
                   </div>
-                </div>
-                <div className="spec-card">
-                  <span className="spec-icon">🛣️</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Corner Plot</span>
-                    <span className="spec-value">{propertyDetails.cornerPlot}</span>
+                )}
+                {propertyDetails.cornerPlot && (
+                  <div className="spec-card">
+                    <span className="spec-icon">🛣️</span>
+                    <div className="spec-text">
+                      <span className="spec-label">Corner Plot</span>
+                      <span className="spec-value">{propertyDetails.cornerPlot}</span>
+                    </div>
                   </div>
-                </div>
+                )}
                 <div className="spec-card">
                   <span className="spec-icon">📜</span>
                   <div className="spec-text">
@@ -709,27 +717,33 @@ export default function PropertyDetailsPage() {
                     <span className="spec-value">{propertyDetails.size}</span>
                   </div>
                 </div>
-                <div className="spec-card">
-                  <span className="spec-icon">🏪</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Frontage</span>
-                    <span className="spec-value">{propertyDetails.frontage}</span>
+                {propertyDetails.frontage && (
+                  <div className="spec-card">
+                    <span className="spec-icon">🏪</span>
+                    <div className="spec-text">
+                      <span className="spec-label">Frontage</span>
+                      <span className="spec-value">{propertyDetails.frontage}</span>
+                    </div>
                   </div>
-                </div>
-                <div className="spec-card">
-                  <span className="spec-icon">🏢</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Floor</span>
-                    <span className="spec-value">{propertyDetails.shopFloor}</span>
+                )}
+                {propertyDetails.shopFloor && (
+                  <div className="spec-card">
+                    <span className="spec-icon">🏢</span>
+                    <div className="spec-text">
+                      <span className="spec-label">Floor</span>
+                      <span className="spec-value">{propertyDetails.shopFloor}</span>
+                    </div>
                   </div>
-                </div>
-                <div className="spec-card">
-                  <span className="spec-icon">🚻</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Washroom</span>
-                    <span className="spec-value">{propertyDetails.shopWashroom}</span>
+                )}
+                {propertyDetails.shopWashroom && (
+                  <div className="spec-card">
+                    <span className="spec-icon">🚻</span>
+                    <div className="spec-text">
+                      <span className="spec-label">Washroom</span>
+                      <span className="spec-value">{propertyDetails.shopWashroom}</span>
+                    </div>
                   </div>
-                </div>
+                )}
                 <div className="spec-card">
                   <span className="spec-icon">🚗</span>
                   <div className="spec-text">
@@ -754,20 +768,24 @@ export default function PropertyDetailsPage() {
                     <span className="spec-value">{propertyDetails.size}</span>
                   </div>
                 </div>
-                <div className="spec-card">
-                  <span className="spec-icon">🚪</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Cabins</span>
-                    <span className="spec-value">{propertyDetails.cabins}</span>
+                {propertyDetails.cabins && (
+                  <div className="spec-card">
+                    <span className="spec-icon">🚪</span>
+                    <div className="spec-text">
+                      <span className="spec-label">Cabins</span>
+                      <span className="spec-value">{propertyDetails.cabins}</span>
+                    </div>
                   </div>
-                </div>
-                <div className="spec-card">
-                  <span className="spec-icon">💻</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Workstations</span>
-                    <span className="spec-value">{propertyDetails.workstations}</span>
+                )}
+                {propertyDetails.workstations && (
+                  <div className="spec-card">
+                    <span className="spec-icon">💻</span>
+                    <div className="spec-text">
+                      <span className="spec-label">Workstations</span>
+                      <span className="spec-value">{propertyDetails.workstations}</span>
+                    </div>
                   </div>
-                </div>
+                )}
                 <div className="spec-card">
                   <span className="spec-icon">⚡</span>
                   <div className="spec-text">
