@@ -150,9 +150,9 @@ async def create_property(
             if not loc_obj:
                 loc_obj = Location(
                     city=loc_city,
-                    area=loc_locality,
-                    locality=loc_locality,
-                    full_address=f"{loc_locality}, {loc_city}",
+                    area=payload.area,
+                    locality=payload.locality,
+                    full_address=payload.address if payload.address else (f"{loc_locality}, {loc_city}" if loc_locality else loc_city),
                     state=payload.state,
                     country=payload.country,
                     postal_code=payload.postal_code,

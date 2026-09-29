@@ -406,17 +406,17 @@ export default function NewPropertyWizard() {
       let generatedText = "";
 
       if (propertyType === "Shop") {
-        generatedText = `Prime commercial retail shop with ${size || "650"} sqft carpet area situated in the prime high-footfall commercial corridor of ${area || "MP Nagar"}, ${city}. Features ${frontage} frontage on the ${shopFloor.toLowerCase()} with ${roadFacing.toLowerCase()}. Equipped with ${shopWashroom.toLowerCase()}, ideal for ${suitableFor.toLowerCase()}. Excellent visibility and customer footfall guaranteed.`;
+        generatedText = `Prime commercial retail shop with ${size || "650"} sqft carpet area situated in the prime high-footfall commercial corridor${area ? ' of ' + area : ''}, ${city}. Features ${frontage} frontage on the ${shopFloor.toLowerCase()} with ${roadFacing.toLowerCase()}. Equipped with ${shopWashroom.toLowerCase()}, ideal for ${suitableFor.toLowerCase()}. Excellent visibility and customer footfall guaranteed.`;
       } else if (propertyType === "Office Space") {
-        generatedText = `Modern commercial office space spanning ${size || "1500"} sqft in the prestigious business hub of ${area || "Arera Colony"}, ${city}. Fully setup with ${cabins}, ${workstations}, ${conferenceRoom === "Yes" ? "dedicated conference room" : "meeting zone"}, ${pantry.toLowerCase()}, and ${powerBackup.toLowerCase()}. Ready for immediate corporate setup.`;
+        generatedText = `Modern commercial office space spanning ${size || "1500"} sqft in the prestigious business hub${area ? ' of ' + area : ''}, ${city}. Fully setup with ${cabins}, ${workstations}, ${conferenceRoom === "Yes" ? "dedicated conference room" : "meeting zone"}, ${pantry.toLowerCase()}, and ${powerBackup.toLowerCase()}. Ready for immediate corporate setup.`;
       } else if (propertyType === "Plot / Land") {
-        generatedText = `Premium residential / commercial plot measuring ${size || "1500"} sqft (${dimensions}) in the rapidly developing area of ${area || "Kolar Road"}, ${city}. Features ${facing}, ${boundaryWall === "Yes (Constructed)" ? "secure boundary wall" : "clear demarcation"}, and ${cornerPlot.toLowerCase()}. Clear legal titles, RERA compliant, ready for immediate registration & construction.`;
+        generatedText = `Premium residential / commercial plot measuring ${size || "1500"} sqft (${dimensions}) in the rapidly developing area${area ? ' of ' + area : ''}, ${city}. Features ${facing}, ${boundaryWall === "Yes (Constructed)" ? "secure boundary wall" : "clear demarcation"}, and ${cornerPlot.toLowerCase()}. Clear legal titles, RERA compliant, ready for immediate registration & construction.`;
       } else if (propertyType === "Warehouse") {
-        generatedText = `High-capacity industrial warehouse offering ${size || "5000"} sqft covered storage in ${area || "Industrial Area"}, ${city}. Features ${ceilingHeight} clear height, ${loadingDocks}, heavy-duty concrete flooring, and ${truckAccess.toLowerCase()}. Ideal for logistics, FMCG distribution, and 3PL operations.`;
+        generatedText = `High-capacity industrial warehouse offering ${size || "5000"} sqft covered storage${area ? ' in ' + area : ''}, ${city}. Features ${ceilingHeight} clear height, ${loadingDocks}, heavy-duty concrete flooring, and ${truckAccess.toLowerCase()}. Ideal for logistics, FMCG distribution, and 3PL operations.`;
       } else if (propertyType === "PG / Hostel") {
-        generatedText = `Comfortable and fully-managed PG / Coliving space in ${area || "Indrapuri"}, ${city} available for ${pgFor.toLowerCase()}. Offers ${roomType.toLowerCase()} with ${foodIncluded.toLowerCase()}, high-speed Wi-Fi, 24/7 security, power backup, and daily housekeeping.`;
+        generatedText = `Comfortable and fully-managed PG / Coliving space${area ? ' in ' + area : ''}, ${city} available for ${pgFor.toLowerCase()}. Offers ${roomType.toLowerCase()} with ${foodIncluded.toLowerCase()}, high-speed Wi-Fi, 24/7 security, power backup, and daily housekeeping.`;
       } else {
-        generatedText = `Stunning modern ${bhk} BHK ${propertyType} located in the premium residential locality of ${area || "Arera Colony"}, ${city}. Spans a spacious ${size || "1200"} sqft with ${furnished.toLowerCase()} finishes, ${bathrooms} bathrooms, ${balconies} balcony, positioned on the ${floor.toLowerCase()}. Excellent ventilation, 24/7 water supply, reserved parking, and close to top schools & shopping.`;
+        generatedText = `Stunning modern ${bhk} BHK ${propertyType} located in the premium residential locality${area ? ' of ' + area : ''}, ${city}. Spans a spacious ${size || "1200"} sqft with ${furnished.toLowerCase()} finishes, ${bathrooms} bathrooms, ${balconies} balcony, positioned on the ${floor.toLowerCase()}. Excellent ventilation, 24/7 water supply, reserved parking, and close to top schools & shopping.`;
       }
 
       setDescription(generatedText);
@@ -547,7 +547,7 @@ export default function NewPropertyWizard() {
         images: finalImages,
         image: coverImageStr,
         city: city || "Bhopal",
-        locality: locality || area || "Arera Colony",
+        locality: locality || area || "",
         area: area,
         address: address,
         state: state,
@@ -622,21 +622,21 @@ export default function NewPropertyWizard() {
 
   const getPreviewTitle = () => {
     if (propertyType === "Shop") {
-      return `${size || "650"} sqft Commercial Retail Shop in ${area || "MP Nagar"}, ${city}`;
+      return `${size || "650"} sqft Commercial Retail Shop${area ? ' in ' + area : ''}, ${city}`;
     }
     if (propertyType === "Office Space") {
-      return `${size || "1500"} sqft Commercial Office Space in ${area || "Arera Colony"}, ${city}`;
+      return `${size || "1500"} sqft Commercial Office Space${area ? ' in ' + area : ''}, ${city}`;
     }
     if (propertyType === "Plot / Land") {
-      return `${size || "1500"} sqft ${facing} Plot / Land in ${area || "Kolar Road"}, ${city}`;
+      return `${size || "1500"} sqft ${facing} Plot / Land${area ? ' in ' + area : ''}, ${city}`;
     }
     if (propertyType === "Warehouse") {
-      return `${size || "5000"} sqft Industrial Warehouse in ${area || "Industrial Area"}, ${city}`;
+      return `${size || "5000"} sqft Industrial Warehouse${area ? ' in ' + area : ''}, ${city}`;
     }
     if (propertyType === "PG / Hostel") {
-      return `Premium PG / Coliving Space (${roomType}) in ${area || "Indrapuri"}, ${city}`;
+      return `Premium PG / Coliving Space (${roomType})${area ? ' in ' + area : ''}, ${city}`;
     }
-    return `${bhk} BHK ${propertyType} in ${area || "Arera Colony"}, ${city}`;
+    return `${bhk} BHK ${propertyType}${area ? ' in ' + area : ''}, ${city}`;
   };
 
   return (
