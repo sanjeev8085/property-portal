@@ -1,6 +1,6 @@
-const RAW_URL = process.env.NEXT_PUBLIC_API_URL || "https://aurahomes-backend-tz1c.onrender.com";
+const RAW_URL = process.env.NEXT_PUBLIC_API_URL || "";
 const CLEAN_URL = RAW_URL.replace(/\/+$/, "");
-const API_BASE_URL = CLEAN_URL.endsWith("/api/v1") ? CLEAN_URL : `${CLEAN_URL}/api/v1`;
+const API_BASE_URL = CLEAN_URL ? (CLEAN_URL.endsWith("/api/v1") ? CLEAN_URL : `${CLEAN_URL}/api/v1`) : "/api/v1";
 
 // Helper to fetch wrapper with token injection & silent auto-refresh
 async function apiFetch(endpoint: string, options: RequestInit = {}, isRetry: boolean = false): Promise<any> {

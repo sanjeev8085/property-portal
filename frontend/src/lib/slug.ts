@@ -110,7 +110,7 @@ export function normalizeImage(img: any, typeOrTitle: string = "", index: number
   }
   src = src.trim();
   if (src.startsWith("/uploads")) {
-    const rawApi = process.env.NEXT_PUBLIC_API_URL || "https://aurahomes-backend-tz1c.onrender.com";
+    const rawApi = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
     const apiBase = rawApi.replace(/\/+$/, "");
     return `${apiBase}${src}`;
   }

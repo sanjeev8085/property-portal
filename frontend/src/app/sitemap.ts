@@ -53,7 +53,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Dynamic Property Routes
   let dynamicProperties: MetadataRoute.Sitemap = [];
   try {
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
     const res = await fetch(`${apiBase}/api/v1/properties?limit=50`, {
       next: { revalidate: 3600 },
     });

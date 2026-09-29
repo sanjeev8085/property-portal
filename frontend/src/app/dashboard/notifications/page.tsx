@@ -15,7 +15,7 @@ interface NotificationItem {
   created_at: string;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "https://aurahomes-backend-tz1c.onrender.com";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 const DEFAULT_NOTIFICATIONS: NotificationItem[] = [
   {
