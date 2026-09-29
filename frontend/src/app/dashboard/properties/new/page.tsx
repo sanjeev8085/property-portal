@@ -163,6 +163,8 @@ export default function NewPropertyWizard() {
         if (loc.address) setAddress(loc.address);
         if (loc.latitude) setLatitude(loc.latitude);
         if (loc.longitude) setLongitude(loc.longitude);
+        if (loc.area) setArea(loc.area);
+        if (loc.locality) setLocality(loc.locality);
         setLocationDetected(true);
         success("Location detected: " + (loc.address || loc.city || "Successfully resolved"));
       }

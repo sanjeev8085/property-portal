@@ -94,6 +94,8 @@ def normalize_geocode_result(result: Dict[str, Any], fallback_lat: Optional[floa
         "state": "",
         "country": "",
         "postal_code": "",
+        "area": "",
+        "locality": "",
         "latitude": fallback_lat,
         "longitude": fallback_lng
     }
@@ -112,6 +114,11 @@ def normalize_geocode_result(result: Dict[str, Any], fallback_lat: Optional[floa
             normalized["country"] = component["long_name"]
         elif "postal_code" in types:
             normalized["postal_code"] = component["long_name"]
+        elif "sublocality_level_1" in types or "neighborhood" in types:
+            normalized["area"] = component["long_name"]
+        elif "sublocality_level_2" in types or "sublocality" in types:
+            if not normalized.get("locality"):
+                normalized["locality"] = component["long_name"]
     
     return normalized
 
@@ -137,6 +144,8 @@ async def resolve_google_maps_url(url: str) -> Dict[str, Any]:
         # We might not have an API key or API failed, but we can still return what we extracted
         return {
             "address": place_name.replace("+", " ") if place_name else "",
+            "area": place_name.replace("+", " ") if place_name else "",
+            "locality": "",
             "city": "",
             "state": "",
             "country": "",
@@ -150,4 +159,7 @@ async def resolve_google_maps_url(url: str) -> Dict[str, Any]:
     location_data = normalize_geocode_result(geocode_result, lat, lng)
     location_data["google_maps_url"] = url
     
+    if not location_data.get("area") and place_name:
+        location_data["area"] = place_name.replace("+", " ")
+
     return location_data
