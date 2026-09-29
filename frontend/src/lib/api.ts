@@ -1,4 +1,5 @@
-const RAW_URL = process.env.NEXT_PUBLIC_API_URL || "";
+const isBrowser = typeof window !== "undefined";
+const RAW_URL = isBrowser ? "" : (process.env.NEXT_PUBLIC_API_URL || "");
 const CLEAN_URL = RAW_URL.replace(/\/+$/, "");
 const API_BASE_URL = CLEAN_URL ? (CLEAN_URL.endsWith("/api/v1") ? CLEAN_URL : `${CLEAN_URL}/api/v1`) : "/api/v1";
 
