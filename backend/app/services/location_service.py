@@ -58,8 +58,9 @@ async def fetch_geocoding_data(lat: Optional[float], lng: Optional[float], place
     """Call Google Maps Geocoding API to resolve structured location."""
     api_key = getattr(settings, "LOCATION_PROVIDER_API_KEY", None)
     if not api_key:
-        # Fallback to avoid breaking if key is not configured
-        logger.warning("LOCATION_PROVIDER_API_KEY is not set. Cannot resolve exact address details.")
+        logger.warning("LOCATION_PROVIDER_API_KEY is not set. Falling back to Nominatim OSM.")
+        if lat is not None and lng is not None:
+            return await fetch_nominatim_data(lat, lng)
         return {}
 
     base_url = "https://maps.googleapis.com/maps/api/geocode/json"
@@ -86,6 +87,29 @@ async def fetch_geocoding_data(lat: Optional[float], lng: Optional[float], place
     
     return {}
 
+async def fetch_nominatim_data(lat: float, lng: float) -> Dict[str, Any]:
+    """Fallback to OpenStreetMap Nominatim for geocoding."""
+    base_url = "https://nominatim.openstreetmap.org/reverse"
+    params = {
+        "lat": lat,
+        "lon": lng,
+        "format": "jsonv2"
+    }
+    headers = {
+        "User-Agent": "PropertyPortalApp/1.0 (contact@example.com)"
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(base_url, params=params, headers=headers, timeout=10.0)
+            response.raise_for_status()
+            data = response.json()
+            if "address" in data:
+                return data
+    except Exception as exc:
+        logger.error(f"Nominatim OSM request failed: {exc}")
+    return {}
+
 def normalize_geocode_result(result: Dict[str, Any], fallback_lat: Optional[float], fallback_lng: Optional[float]) -> Dict[str, Any]:
     """Normalize Google Maps Geocoding API response to our schema."""
     normalized = {
@@ -104,6 +128,21 @@ def normalize_geocode_result(result: Dict[str, Any], fallback_lat: Optional[floa
         normalized["latitude"] = result["geometry"]["location"].get("lat", fallback_lat)
         normalized["longitude"] = result["geometry"]["location"].get("lng", fallback_lng)
 
+    # Check if this is a Nominatim result (which has an 'address' dict instead of 'address_components' array)
+    if "address" in result and isinstance(result["address"], dict):
+        addr = result["address"]
+        normalized["city"] = addr.get("city") or addr.get("town") or addr.get("village") or ""
+        normalized["state"] = addr.get("state", "")
+        normalized["country"] = addr.get("country", "")
+        normalized["postal_code"] = addr.get("postcode", "")
+        normalized["area"] = addr.get("suburb") or addr.get("neighbourhood") or ""
+        normalized["locality"] = addr.get("city_district") or addr.get("county") or ""
+        normalized["address"] = result.get("display_name", "")
+        normalized["latitude"] = float(result.get("lat", fallback_lat)) if result.get("lat") else fallback_lat
+        normalized["longitude"] = float(result.get("lon", fallback_lng)) if result.get("lon") else fallback_lng
+        return normalized
+
+    # Process standard Google Maps result
     for component in result.get("address_components", []):
         types = component.get("types", [])
         if "locality" in types:
