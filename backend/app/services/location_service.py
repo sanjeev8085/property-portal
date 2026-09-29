@@ -131,13 +131,40 @@ def normalize_geocode_result(result: Dict[str, Any], fallback_lat: Optional[floa
     # Check if this is a Nominatim result (which has an 'address' dict instead of 'address_components' array)
     if "address" in result and isinstance(result["address"], dict):
         addr = result["address"]
-        normalized["city"] = addr.get("city") or addr.get("town") or addr.get("village") or ""
-        normalized["state"] = addr.get("state", "")
-        normalized["country"] = addr.get("country", "")
-        normalized["postal_code"] = addr.get("postcode", "")
-        normalized["area"] = addr.get("suburb") or addr.get("neighbourhood") or ""
-        normalized["locality"] = addr.get("city_district") or addr.get("county") or ""
-        normalized["address"] = result.get("display_name", "")
+        
+        city_val  = addr.get("city") or addr.get("town") or addr.get("village") or ""
+        state_val = addr.get("state", "")
+        country_val = addr.get("country", "")
+        postcode_val = addr.get("postcode", "")
+        
+        # area = suburb / neighbourhood / road — most meaningful main locality name
+        area_val = (
+            addr.get("suburb")
+            or addr.get("neighbourhood")
+            or addr.get("quarter")
+            or addr.get("road")
+            or ""
+        )
+        
+        # locality sub-area = the most specific named place (housing society, residential colony)
+        locality_val = (
+            addr.get("residential")
+            or addr.get("hamlet")
+            or addr.get("isolated_dwelling")
+            or ""
+        )
+        
+        # Build short human-readable address from non-empty parts
+        addr_parts = [p for p in [locality_val, area_val, city_val, state_val, country_val] if p]
+        short_address = ", ".join(addr_parts) if addr_parts else result.get("display_name", "")
+        
+        normalized["city"] = city_val
+        normalized["state"] = state_val
+        normalized["country"] = country_val
+        normalized["postal_code"] = postcode_val
+        normalized["area"] = area_val
+        normalized["locality"] = locality_val
+        normalized["address"] = short_address
         normalized["latitude"] = float(result.get("lat", fallback_lat)) if result.get("lat") else fallback_lat
         normalized["longitude"] = float(result.get("lon", fallback_lng)) if result.get("lon") else fallback_lng
         return normalized
