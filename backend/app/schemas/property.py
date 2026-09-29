@@ -54,6 +54,12 @@ class PropertyCreate(BaseModel):
     locality: Optional[str] = None
     area: Optional[str] = None
     address: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = None
+    postal_code: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    google_maps_url: Optional[str] = None
     security_deposit: Optional[float] = None
     maintenance: Optional[float] = None
     is_negotiable: Optional[bool] = False

@@ -110,13 +110,40 @@ async def create_property(
     try:
         # Find or create Location
         location_id = None
-        if payload.city or payload.locality or payload.area:
+        if payload.google_maps_url or payload.latitude or payload.longitude:
+            # For Google Maps resolved locations, try to find an exact match or create a new specific location
+            loc_res = await db.execute(
+                select(Location).where(
+                    Location.google_maps_url == payload.google_maps_url,
+                    Location.lat == payload.latitude,
+                    Location.lng == payload.longitude
+                )
+            )
+            loc_obj = loc_res.scalars().first()
+            if not loc_obj:
+                loc_obj = Location(
+                    city=payload.city or "Bhopal",
+                    area=payload.area or payload.locality,
+                    locality=payload.locality or payload.area,
+                    full_address=payload.address or f"{payload.locality or ''}, {payload.city or ''}".strip(", "),
+                    state=payload.state,
+                    country=payload.country,
+                    postal_code=payload.postal_code,
+                    lat=payload.latitude,
+                    lng=payload.longitude,
+                    google_maps_url=payload.google_maps_url
+                )
+                db.add(loc_obj)
+                await db.flush()
+            location_id = loc_obj.id
+        elif payload.city or payload.locality or payload.area:
             loc_city = payload.city or "Bhopal"
             loc_locality = payload.locality or payload.area or "Arera Colony"
             loc_res = await db.execute(
                 select(Location).where(
                     Location.city.ilike(f"%{loc_city}%"),
-                    Location.locality.ilike(f"%{loc_locality}%")
+                    Location.locality.ilike(f"%{loc_locality}%"),
+                    Location.google_maps_url.is_(None)
                 )
             )
             loc_obj = loc_res.scalars().first()
@@ -126,6 +153,12 @@ async def create_property(
                     area=loc_locality,
                     locality=loc_locality,
                     full_address=f"{loc_locality}, {loc_city}",
+                    state=payload.state,
+                    country=payload.country,
+                    postal_code=payload.postal_code,
+                    lat=payload.latitude,
+                    lng=payload.longitude,
+                    google_maps_url=payload.google_maps_url
                 )
                 db.add(loc_obj)
                 await db.flush()

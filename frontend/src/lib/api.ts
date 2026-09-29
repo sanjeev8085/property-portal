@@ -247,6 +247,13 @@ export const api = {
     });
   },
 
+  async resolveLocation(googleMapsUrl: string) {
+    return apiFetch(`/locations/resolve`, {
+      method: "POST",
+      body: JSON.stringify({ google_maps_url: googleMapsUrl }),
+    });
+  },
+
   async updateProperty(propertyId: string, payload: any) {
     return apiFetch(`/properties/${propertyId}`, {
       method: "PUT",

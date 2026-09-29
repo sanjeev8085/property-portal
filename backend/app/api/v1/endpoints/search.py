@@ -39,8 +39,13 @@ async def search_properties(
 
     # Join with locations if filtering by city
     if city:
+        from sqlalchemy import or_
         query = query.join(Location, Property.location_id == Location.id).where(
-            Location.city.ilike(f"%{city}%")
+            or_(
+                Location.city.ilike(f"%{city}%"),
+                Location.state.ilike(f"%{city}%"),
+                Location.country.ilike(f"%{city}%")
+            )
         )
     else:
         query = query.join(Location, Property.location_id == Location.id, isouter=True)
@@ -80,8 +85,13 @@ async def search_properties(
     # Build matching count query with identical filters applied
     count_query = select(func.count(Property.id.distinct())).select_from(Property)
     if city:
+        from sqlalchemy import or_
         count_query = count_query.join(Location, Property.location_id == Location.id).where(
-            Location.city.ilike(f"%{city}%")
+            or_(
+                Location.city.ilike(f"%{city}%"),
+                Location.state.ilike(f"%{city}%"),
+                Location.country.ilike(f"%{city}%")
+            )
         )
     else:
         count_query = count_query.join(Location, Property.location_id == Location.id, isouter=True)

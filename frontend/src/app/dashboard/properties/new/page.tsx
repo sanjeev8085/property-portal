@@ -75,6 +75,15 @@ export default function NewPropertyWizard() {
   const [city, setCity] = useState("Bhopal");
   const [area, setArea] = useState("");
   const [locality, setLocality] = useState("");
+  const [googleMapsUrl, setGoogleMapsUrl] = useState("");
+  const [address, setAddress] = useState("");
+  const [state, setState] = useState("");
+  const [country, setCountry] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [locationDetected, setLocationDetected] = useState(false);
 
   // Step 4: Residential Specs
   const [bhk, setBhk] = useState(2);
@@ -136,6 +145,33 @@ export default function NewPropertyWizard() {
   const [contactPhone, setContactPhone] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
+
+  const handleDetectLocation = async () => {
+    if (!googleMapsUrl) {
+      error("Please paste a Google Maps link first.");
+      return;
+    }
+    setIsDetectingLocation(true);
+    try {
+      const res = await api.resolveLocation(googleMapsUrl);
+      if (res && res.success) {
+        const loc = res.location;
+        if (loc.city) setCity(loc.city);
+        if (loc.state) setState(loc.state);
+        if (loc.country) setCountry(loc.country);
+        if (loc.postal_code) setPostalCode(loc.postal_code);
+        if (loc.address) setAddress(loc.address);
+        if (loc.latitude) setLatitude(loc.latitude);
+        if (loc.longitude) setLongitude(loc.longitude);
+        setLocationDetected(true);
+        success("Location detected: " + (loc.address || loc.city || "Successfully resolved"));
+      }
+    } catch (err: any) {
+      error(err.message || "Failed to detect location from the provided URL.");
+    } finally {
+      setIsDetectingLocation(false);
+    }
+  };
 
   const getAmenitiesListForType = () => {
     const isPlot = propertyType === "Plot / Land";
@@ -510,6 +546,14 @@ export default function NewPropertyWizard() {
         image: coverImageStr,
         city: city || "Bhopal",
         locality: locality || area || "Arera Colony",
+        area: area,
+        address: address,
+        state: state,
+        country: country,
+        postal_code: postalCode,
+        latitude: latitude,
+        longitude: longitude,
+        google_maps_url: googleMapsUrl,
         contact_name: contactName || "Property Owner",
         contact_phone: contactPhone || "",
         amenities: finalAmenities,
@@ -673,9 +717,35 @@ export default function NewPropertyWizard() {
             <h2>Step 3 — Location Details</h2>
             <p className="step-intro-text">Specify where your {propertyType} is situated.</p>
             <div className="form-grid">
+              <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                <label>Google Maps Link (Auto-detect location)</label>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <input type="text" value={googleMapsUrl} onChange={(e) => setGoogleMapsUrl(e.target.value)} placeholder="https://goo.gl/maps/..." style={{ flex: 1 }} />
+                  <button type="button" onClick={handleDetectLocation} disabled={isDetectingLocation} className="btn-secondary">
+                    {isDetectingLocation ? "Detecting..." : "Detect Location"}
+                  </button>
+                </div>
+                {locationDetected && <p style={{ color: "green", fontSize: "14px", marginTop: "5px" }}>Location detected successfully! You can review or adjust the fields below.</p>}
+              </div>
+              <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                <label>Full Address</label>
+                <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="e.g. 123 Main St, Area, City" />
+              </div>
               <div className="form-group">
                 <label>City</label>
                 <input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="e.g. Bhopal" />
+              </div>
+              <div className="form-group">
+                <label>State</label>
+                <input type="text" value={state} onChange={(e) => setState(e.target.value)} placeholder="e.g. Madhya Pradesh" />
+              </div>
+              <div className="form-group">
+                <label>Country</label>
+                <input type="text" value={country} onChange={(e) => setCountry(e.target.value)} placeholder="e.g. India" />
+              </div>
+              <div className="form-group">
+                <label>Postal Code</label>
+                <input type="text" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} placeholder="e.g. 462001" />
               </div>
               <div className="form-group">
                 <label>Area / Main Locality</label>
