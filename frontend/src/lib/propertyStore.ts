@@ -28,6 +28,9 @@ export interface StoredProperty {
   foodIncluded?: string;
   description?: string;
   contactName?: string;
+  security_deposit?: string | number;
+  deposit?: string;
+  maintenance?: string | number;
   contactPhone?: string;
   created_at?: string;
   views?: number;

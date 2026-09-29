@@ -497,7 +497,7 @@ export default function NewPropertyWizard() {
         purpose: purpose === "sell" ? "sell" : "rent",
         category: ["Shop", "Office Space", "Warehouse"].includes(propertyType) ? "commercial" : "residential",
         property_type: propertyType,
-        bhk: isLandOrComm ? null : (Number(bhk) || null),
+        bhk: (propertyType === "Plot / Land" || ["Shop", "Office Space", "Warehouse"].includes(propertyType)) ? null : (Number(bhk) || null),
         area_sqft: finalAreaSqft,
         bathrooms: propertyType === "Plot / Land" ? null : (Number(bathrooms) || null),
         furnished_status: furnished,
