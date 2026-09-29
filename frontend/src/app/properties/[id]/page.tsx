@@ -377,24 +377,22 @@ export default function PropertyDetailsPage() {
   const propertyDetails = {
     id: customProp?.id || propertyId || "12345",
     title: customProp?.title || "Sleek 2 BHK Modern Apartment in Arera Colony",
-    price: customProp?.price || "₹22,000 / Month",
-    rawPrice: customProp?.priceNum || 22000,
+    price: customProp?.price || "Contact for Price",
+    rawPrice: customProp?.priceNum || 0,
     purpose: customProp?.purpose || "rent",
     propertyType: propType,
     currency: "INR",
     deposit: customProp?.security_deposit !== undefined && customProp?.security_deposit !== null
       ? `₹${Number(customProp.security_deposit).toLocaleString("en-IN")}`
-      : (customProp?.deposit || (customProp?.purpose === "rent" ? "₹50,000" : "₹1,00,000")),
-    maintenance: isPlot 
-      ? "₹0 / mo" 
-      : (customProp?.maintenance !== undefined && customProp?.maintenance !== null
-          ? `₹${Number(customProp.maintenance).toLocaleString("en-IN")} / mo`
-          : (customProp?.purpose === "rent" ? "₹1,500 / mo" : "₹2,500 / mo")),
-    location: customProp?.location || "Arera Colony, Bhopal",
+      : customProp?.deposit,
+    maintenance: customProp?.maintenance !== undefined && customProp?.maintenance !== null
+      ? `₹${Number(customProp.maintenance).toLocaleString("en-IN")} / mo`
+      : undefined,
+    location: customProp?.location,
     city: "Bhopal",
     state: "Madhya Pradesh",
     postalCode: "462016",
-    size: customProp?.size ? `${customProp.size} Sq Ft` : (isPlot ? "1500 Sq Ft" : "1200 Sq Ft"),
+    size: customProp?.size ? `${customProp.size} Sq Ft` : undefined,
     facing: customProp?.facing,
     dimensions: customProp?.dimensions,
     boundaryWall: customProp?.boundaryWall,
@@ -408,13 +406,11 @@ export default function PropertyDetailsPage() {
     roomType: customProp?.roomType || null,
     foodIncluded: customProp?.foodIncluded || null,
     furnished: isPlot ? "" : (customProp?.furnished || null),
-    bathrooms: isPlot ? 0 : (customProp?.bathrooms || 2),
-    bedrooms: isPlot || isShop || isOffice || isWarehouse ? 0 : (customProp?.bhk || 2),
-    parking: isPlot ? "" : (customProp?.parking || "1 Covered Car Parking"),
+    bathrooms: isPlot ? undefined : customProp?.bathrooms,
+    bedrooms: isPlot || isShop || isOffice || isWarehouse ? undefined : customProp?.bhk,
+    parking: isPlot ? undefined : customProp?.parking,
     posted: "Just Listed",
-    description: customProp?.description || (isPlot 
-      ? "Clear title, RERA approved plot ready for immediate registry and construction in a prime locality with road access and electricity."
-      : "Located in a prime locality, this property features excellent construction, high-quality finishes, 24x7 security, and convenient access to key city hubs."),
+    description: customProp?.description || "No description provided by the owner.",
     photos: rawPhotos,
     amenities: resolvedAmenities,
     owner: {
@@ -744,20 +740,15 @@ export default function PropertyDetailsPage() {
                     </div>
                   </div>
                 )}
-                <div className="spec-card">
-                  <span className="spec-icon">🚗</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Parking</span>
-                    <span className="spec-value">{propertyDetails.parking || "Roadside Parking"}</span>
+                {propertyDetails.parking && (
+                  <div className="spec-card">
+                    <span className="spec-icon">🚗</span>
+                    <div className="spec-text">
+                      <span className="spec-label">Parking</span>
+                      <span className="spec-value">{propertyDetails.parking}</span>
+                    </div>
                   </div>
-                </div>
-                <div className="spec-card">
-                  <span className="spec-icon">⚡</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Power Backup</span>
-                    <span className="spec-value">Available</span>
-                  </div>
-                </div>
+                )}
               </>
             ) : isOffice ? (
               <>
@@ -786,162 +777,123 @@ export default function PropertyDetailsPage() {
                     </div>
                   </div>
                 )}
-                <div className="spec-card">
-                  <span className="spec-icon">⚡</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Power Backup</span>
-                    <span className="spec-value">100% Full Backup</span>
+                {propertyDetails.parking && (
+                  <div className="spec-card">
+                    <span className="spec-icon">🚗</span>
+                    <div className="spec-text">
+                      <span className="spec-label">Parking</span>
+                      <span className="spec-value">{propertyDetails.parking}</span>
+                    </div>
                   </div>
-                </div>
-                <div className="spec-card">
-                  <span className="spec-icon">🚗</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Parking</span>
-                    <span className="spec-value">{propertyDetails.parking || "Reserved Parking"}</span>
-                  </div>
-                </div>
-                <div className="spec-card">
-                  <span className="spec-icon">☕</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Pantry</span>
-                    <span className="spec-value">Dry Pantry</span>
-                  </div>
-                </div>
+                )}
               </>
             ) : isWarehouse ? (
               <>
-                <div className="spec-card">
-                  <span className="spec-icon">📐</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Covered Area</span>
-                    <span className="spec-value">{propertyDetails.size}</span>
+                {propertyDetails.size && (
+                  <div className="spec-card">
+                    <span className="spec-icon">📐</span>
+                    <div className="spec-text">
+                      <span className="spec-label">Covered Area</span>
+                      <span className="spec-value">{propertyDetails.size}</span>
+                    </div>
                   </div>
-                </div>
-                <div className="spec-card">
-                  <span className="spec-icon">🏗️</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Clear Height</span>
-                    <span className="spec-value">24 ft</span>
-                  </div>
-                </div>
-                <div className="spec-card">
-                  <span className="spec-icon">🚛</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Loading Bays</span>
-                    <span className="spec-value">2 Loading Docks</span>
-                  </div>
-                </div>
-                <div className="spec-card">
-                  <span className="spec-icon">🛣️</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Container Access</span>
-                    <span className="spec-value">40ft Direct</span>
-                  </div>
-                </div>
-                <div className="spec-card">
-                  <span className="spec-icon">⚡</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Power Load</span>
-                    <span className="spec-value">Industrial 3-Phase</span>
-                  </div>
-                </div>
-                <div className="spec-card">
-                  <span className="spec-icon">🛡️</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Security</span>
-                    <span className="spec-value">24x7 Guarded</span>
-                  </div>
-                </div>
+                )}
               </>
             ) : isPG ? (
               <>
-                <div className="spec-card">
-                  <span className="spec-icon">👥</span>
-                  <div className="spec-text">
-                    <span className="spec-label">PG For</span>
-                    <span className="spec-value">{propertyDetails.pgFor || "Not specified"}</span>
+                {propertyDetails.pgFor && (
+                  <div className="spec-card">
+                    <span className="spec-icon">👥</span>
+                    <div className="spec-text">
+                      <span className="spec-label">PG For</span>
+                      <span className="spec-value">{propertyDetails.pgFor}</span>
+                    </div>
                   </div>
-                </div>
-                <div className="spec-card">
-                  <span className="spec-icon">🛏️</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Room Type</span>
-                    <span className="spec-value">{propertyDetails.roomType || "Not specified"}</span>
+                )}
+                {propertyDetails.roomType && (
+                  <div className="spec-card">
+                    <span className="spec-icon">🛏️</span>
+                    <div className="spec-text">
+                      <span className="spec-label">Room Type</span>
+                      <span className="spec-value">{propertyDetails.roomType}</span>
+                    </div>
                   </div>
-                </div>
-                <div className="spec-card">
-                  <span className="spec-icon">🍲</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Food Status</span>
-                    <span className="spec-value">{propertyDetails.foodIncluded || "Not specified"}</span>
+                )}
+                {propertyDetails.foodIncluded && (
+                  <div className="spec-card">
+                    <span className="spec-icon">🍲</span>
+                    <div className="spec-text">
+                      <span className="spec-label">Food Status</span>
+                      <span className="spec-value">{propertyDetails.foodIncluded}</span>
+                    </div>
                   </div>
-                </div>
-                <div className="spec-card">
-                  <span className="spec-icon">🛋️</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Furnishing</span>
-                    <span className="spec-value">{propertyDetails.furnished || "Not specified"}</span>
+                )}
+                {propertyDetails.furnished && (
+                  <div className="spec-card">
+                    <span className="spec-icon">🛋️</span>
+                    <div className="spec-text">
+                      <span className="spec-label">Furnishing</span>
+                      <span className="spec-value">{propertyDetails.furnished}</span>
+                    </div>
                   </div>
-                </div>
-                <div className="spec-card">
-                  <span className="spec-icon">🚿</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Bathrooms</span>
-                    <span className="spec-value">Attached</span>
-                  </div>
-                </div>
-                <div className="spec-card">
-                  <span className="spec-icon">📶</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Wi-Fi</span>
-                    <span className="spec-value">High-Speed Free</span>
-                  </div>
-                </div>
+                )}
               </>
             ) : (
               <>
-                <div className="spec-card">
-                  <span className="spec-icon">📐</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Carpet Area</span>
-                    <span className="spec-value">{propertyDetails.size}</span>
+                {propertyDetails.size && (
+                  <div className="spec-card">
+                    <span className="spec-icon">📐</span>
+                    <div className="spec-text">
+                      <span className="spec-label">Carpet Area</span>
+                      <span className="spec-value">{propertyDetails.size}</span>
+                    </div>
                   </div>
-                </div>
-                <div className="spec-card">
-                  <span className="spec-icon">🛏️</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Configuration</span>
-                    <span className="spec-value">{propertyDetails.bedrooms} BHK</span>
+                )}
+                {propertyDetails.bedrooms && (
+                  <div className="spec-card">
+                    <span className="spec-icon">🛏️</span>
+                    <div className="spec-text">
+                      <span className="spec-label">Configuration</span>
+                      <span className="spec-value">{propertyDetails.bedrooms} BHK</span>
+                    </div>
                   </div>
-                </div>
-                <div className="spec-card">
-                  <span className="spec-icon">🚿</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Bathrooms</span>
-                    <span className="spec-value">{propertyDetails.bathrooms} Baths</span>
+                )}
+                {propertyDetails.bathrooms !== undefined && (
+                  <div className="spec-card">
+                    <span className="spec-icon">🚿</span>
+                    <div className="spec-text">
+                      <span className="spec-label">Bathrooms</span>
+                      <span className="spec-value">{propertyDetails.bathrooms} Baths</span>
+                    </div>
                   </div>
-                </div>
-                <div className="spec-card">
-                  <span className="spec-icon">🛋️</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Furnishing</span>
-                    <span className="spec-value">{propertyDetails.furnished || "Not specified"}</span>
+                )}
+                {propertyDetails.furnished && (
+                  <div className="spec-card">
+                    <span className="spec-icon">🛋️</span>
+                    <div className="spec-text">
+                      <span className="spec-label">Furnishing</span>
+                      <span className="spec-value">{propertyDetails.furnished}</span>
+                    </div>
                   </div>
-                </div>
-                <div className="spec-card">
-                  <span className="spec-icon">🚗</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Parking</span>
-                    <span className="spec-value">{propertyDetails.parking}</span>
+                )}
+                {propertyDetails.parking && (
+                  <div className="spec-card">
+                    <span className="spec-icon">🚗</span>
+                    <div className="spec-text">
+                      <span className="spec-label">Parking</span>
+                      <span className="spec-value">{propertyDetails.parking}</span>
+                    </div>
                   </div>
-                </div>
-                <div className="spec-card">
-                  <span className="spec-icon">⚡</span>
-                  <div className="spec-text">
-                    <span className="spec-label">Maintenance</span>
-                    <span className="spec-value">{propertyDetails.maintenance}</span>
+                )}
+                {propertyDetails.maintenance && (
+                  <div className="spec-card">
+                    <span className="spec-icon">⚡</span>
+                    <div className="spec-text">
+                      <span className="spec-label">Maintenance</span>
+                      <span className="spec-value">{propertyDetails.maintenance}</span>
+                    </div>
                   </div>
-                </div>
+                )}
               </>
             )}
           </div>
