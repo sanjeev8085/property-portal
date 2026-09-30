@@ -26,8 +26,9 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await api.login({ email, password });
-      // Redirect to dashboard on success
-      window.location.href = "/dashboard";
+      const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+      const redirectUrl = params?.get("redirect") || params?.get("next") || "/dashboard";
+      window.location.href = redirectUrl;
     } catch (err: any) {
       setErrorMsg(err.message || "Invalid email or password.");
     } finally {

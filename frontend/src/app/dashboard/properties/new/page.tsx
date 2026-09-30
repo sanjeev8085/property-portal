@@ -204,6 +204,43 @@ export default function NewPropertyWizard() {
         }).catch(() => {});
       }
 
+      // Restore draft if saved due to re-login prompt
+      try {
+        const savedDraft = localStorage.getItem("pending_property_draft");
+        if (savedDraft) {
+          const d = JSON.parse(savedDraft);
+          if (d.purpose) setPurpose(d.purpose);
+          if (d.propertyType) setPropertyType(d.propertyType);
+          if (d.price) setPrice(d.price);
+          if (d.maintenance) setMaintenance(d.maintenance);
+          if (d.deposit) setDeposit(d.deposit);
+          if (d.size) setSize(d.size);
+          if (d.bhk) setBhk(d.bhk);
+          if (d.bathrooms) setBathrooms(d.bathrooms);
+          if (d.furnished) setFurnished(d.furnished);
+          if (d.city) setCity(d.city);
+          if (d.area) setArea(d.area);
+          if (d.locality) setLocality(d.locality);
+          if (d.address) setAddress(d.address);
+          if (d.state) setState(d.state);
+          if (d.country) setCountry(d.country);
+          if (d.postalCode) setPostalCode(d.postalCode);
+          if (d.latitude) setLatitude(d.latitude);
+          if (d.longitude) setLongitude(d.longitude);
+          if (d.googleMapsUrl) setGoogleMapsUrl(d.googleMapsUrl);
+          if (d.contactName) setContactName(d.contactName);
+          if (d.contactPhone) setContactPhone(d.contactPhone);
+          if (d.description) setDescription(d.description);
+          if (d.selectedAmenities) setSelectedAmenities(d.selectedAmenities);
+          if (d.pgFor) setPgFor(d.pgFor);
+          if (d.roomType) setRoomType(d.roomType);
+          if (d.foodIncluded) setFoodIncluded(d.foodIncluded);
+          if (d.parking) setParking(d.parking);
+          if (d.city || d.area) setLocationDetected(true);
+          localStorage.removeItem("pending_property_draft");
+        }
+      } catch {}
+
       // Pre-fill from Google Maps extraction query params
       const params = new URLSearchParams(window.location.search);
       const qCity = params.get("city");
@@ -617,28 +654,43 @@ export default function NewPropertyWizard() {
     } catch (err: any) {
       setIsPublishing(false);
       const errMsg = err?.message || "";
+      const lowerMsg = errMsg.toLowerCase();
 
       if (
         errMsg.includes("401") || 
-        errMsg.toLowerCase().includes("authenticated") || 
-        errMsg.toLowerCase().includes("expired token") || 
-        errMsg.toLowerCase().includes("invalid token")
+        lowerMsg.includes("authentic") || 
+        lowerMsg.includes("unauthoriz") || 
+        lowerMsg.includes("expired token") || 
+        lowerMsg.includes("invalid token") ||
+        lowerMsg.includes("not authenticated")
       ) {
-        info("Your session has expired. Please log in again to publish your property listing.");
+        // Save current wizard draft so user never loses their filled form data
+        try {
+          const draft = {
+            purpose, propertyType, price, maintenance, deposit, size, bhk, bathrooms,
+            furnished, city, area, locality, address, state, country, postalCode,
+            latitude, longitude, googleMapsUrl, contactName, contactPhone, description,
+            selectedAmenities, pgFor, roomType, foodIncluded, parking
+          };
+          localStorage.setItem("pending_property_draft", JSON.stringify(draft));
+        } catch {}
+
+        localStorage.removeItem("access_token");
+        info("Your login session has expired or is invalid. Redirecting to log in to complete posting...");
         setTimeout(() => {
-          window.location.href = `/login?next=/dashboard/properties/new`;
+          window.location.href = `/login?redirect=/dashboard/properties/new`;
         }, 1200);
         return;
       }
-      if (errMsg.includes("403") || errMsg.toLowerCase().includes("role")) {
+      if (errMsg.includes("403") || lowerMsg.includes("role") || lowerMsg.includes("only owner")) {
         info("Only owner or agent accounts can post properties. Please update your account type in Profile settings.");
         return;
       }
-      if (errMsg.includes("409") || errMsg.toLowerCase().includes("duplicate")) {
+      if (errMsg.includes("409") || lowerMsg.includes("duplicate")) {
         info("Duplicate property detected. This property has already been submitted.");
         return;
       }
-      if (errMsg.includes("422") || errMsg.toLowerCase().includes("validation")) {
+      if (errMsg.includes("422") || lowerMsg.includes("validation")) {
         info(`Validation error: ${errMsg}`);
         return;
       }
