@@ -49,6 +49,10 @@ async def lifespan(app: FastAPI):
             # Migrate columns if missing
             if conn.dialect.name == "postgresql":
                 await conn.execute(text("ALTER TABLE public.locations ADD COLUMN IF NOT EXISTS state VARCHAR(100);"))
+                await conn.execute(text("ALTER TABLE public.locations ADD COLUMN IF NOT EXISTS country VARCHAR(100);"))
+                await conn.execute(text("ALTER TABLE public.locations ADD COLUMN IF NOT EXISTS postal_code VARCHAR(20);"))
+                await conn.execute(text("ALTER TABLE public.locations ADD COLUMN IF NOT EXISTS google_maps_url VARCHAR(1000);"))
+                await conn.execute(text("ALTER TABLE public.locations ADD COLUMN IF NOT EXISTS full_address VARCHAR(500);"))
                 await conn.execute(text("ALTER TABLE public.locations ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;"))
                 await conn.execute(text("ALTER TABLE public.locations ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();"))
 
@@ -93,12 +97,20 @@ async def lifespan(app: FastAPI):
                         END $$;
                     """)
 
-            # Ensure new attribute columns exist on properties and property_images tables across all DB dialects
+            # Ensure new attribute columns exist on properties, locations, and property_images tables across all DB dialects
             cols_to_add = [
                 ("properties", "pg_for", "VARCHAR(50)"),
                 ("properties", "room_type", "VARCHAR(100)"),
                 ("properties", "food_status", "VARCHAR(100)"),
                 ("properties", "contact_email", "VARCHAR(255)"),
+                ("properties", "google_maps_url", "VARCHAR(1000)"),
+                ("locations", "state", "VARCHAR(100)"),
+                ("locations", "country", "VARCHAR(100)"),
+                ("locations", "postal_code", "VARCHAR(20)"),
+                ("locations", "google_maps_url", "VARCHAR(1000)"),
+                ("locations", "full_address", "VARCHAR(500)"),
+                ("locations", "locality", "VARCHAR(200)"),
+                ("locations", "area", "VARCHAR(200)"),
                 ("property_images", "card_url", "VARCHAR(1000)"),
                 ("property_images", "detail_url", "VARCHAR(1000)"),
                 ("property_images", "cloudinary_public_id", "VARCHAR(500)"),
