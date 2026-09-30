@@ -32,6 +32,21 @@ async def get_deactivated_properties(db: AsyncSession = Depends(get_db)):
         return sample_deact
 
 
+async def _ensure_locations_columns(db: AsyncSession):
+    """Ensure missing Location columns exist on production DB automatically."""
+    from sqlalchemy import text
+    try:
+        await db.execute(text("ALTER TABLE public.locations ADD COLUMN IF NOT EXISTS state VARCHAR(100);"))
+        await db.execute(text("ALTER TABLE public.locations ADD COLUMN IF NOT EXISTS country VARCHAR(100);"))
+        await db.execute(text("ALTER TABLE public.locations ADD COLUMN IF NOT EXISTS postal_code VARCHAR(20);"))
+        await db.execute(text("ALTER TABLE public.locations ADD COLUMN IF NOT EXISTS google_maps_url VARCHAR(1000);"))
+        await db.execute(text("ALTER TABLE public.locations ADD COLUMN IF NOT EXISTS full_address VARCHAR(500);"))
+        await db.execute(text("ALTER TABLE public.properties ADD COLUMN IF NOT EXISTS google_maps_url VARCHAR(1000);"))
+        await db.commit()
+    except Exception:
+        pass
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_property(
     payload: PropertyCreate,
@@ -105,6 +120,9 @@ async def create_property(
         )
 
     prop_status = PropertyStatus.PUBLISHED if current_user.user_type == UserType.ADMIN else PropertyStatus.PENDING_APPROVAL
+
+    # Ensure location columns exist on DB automatically
+    await _ensure_locations_columns(db)
 
     # 6. Single Atomic Database Transaction
     try:
