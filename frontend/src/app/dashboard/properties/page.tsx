@@ -80,9 +80,14 @@ export default function MyPropertiesPage() {
           <h1>My Listed Properties</h1>
           <p>Manage only your own listed properties, edit specifications, or toggle availability.</p>
         </div>
-        <a href="/dashboard/properties/new" className="btn-primary">
-          + Post New Property
-        </a>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" as const }}>
+          <a href="/dashboard/properties/extract" style={{ padding: "10px 18px", borderRadius: 10, border: "1.5px solid #6366f1", background: "#fff", color: "#6366f1", fontWeight: 700, fontSize: 14, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}>
+            🗺️ Extract from Maps
+          </a>
+          <a href="/dashboard/properties/new" className="btn-primary">
+            + Post New Property
+          </a>
+        </div>
       </div>
 
       {properties.length === 0 && !loading ? (

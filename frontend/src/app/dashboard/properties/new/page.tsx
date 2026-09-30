@@ -203,8 +203,35 @@ export default function NewPropertyWizard() {
           }
         }).catch(() => {});
       }
+
+      // Pre-fill from Google Maps extraction query params
+      const params = new URLSearchParams(window.location.search);
+      const qCity = params.get("city");
+      const qState = params.get("state");
+      const qCountry = params.get("country");
+      const qPostal = params.get("postal_code");
+      const qAddress = params.get("address");
+      const qArea = params.get("area");
+      const qLocality = params.get("locality");
+      const qLat = params.get("latitude");
+      const qLng = params.get("longitude");
+      const qMapsUrl = params.get("google_maps_url");
+      if (qCity) setCity(qCity);
+      if (qState) setState(qState);
+      if (qCountry) setCountry(qCountry);
+      if (qPostal) setPostalCode(qPostal);
+      if (qAddress) setAddress(qAddress);
+      if (qArea) setArea(qArea);
+      if (qLocality) setLocality(qLocality);
+      if (qLat) setLatitude(parseFloat(qLat));
+      if (qLng) setLongitude(parseFloat(qLng));
+      if (qMapsUrl) setGoogleMapsUrl(qMapsUrl);
+      if (params.get("city") || params.get("area")) {
+        setLocationDetected(true);
+      }
     }
   }, []);
+
 
   const stepsList = [
     "Purpose",

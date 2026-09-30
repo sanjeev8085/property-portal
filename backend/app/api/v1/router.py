@@ -1,7 +1,7 @@
 """Main API v1 router — aggregates all endpoint routers."""
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, users, properties, search, favorites, contacts, payments, notifications, reports, admin, saved_searches, images, locations
+from app.api.v1.endpoints import auth, users, properties, search, favorites, contacts, payments, notifications, reports, admin, saved_searches, images, locations, maps_extract
 
 api_router = APIRouter()
 
@@ -18,3 +18,4 @@ api_router.include_router(reports.router, prefix="/reports", tags=["Reports"])
 api_router.include_router(admin.router, prefix="/admin", tags=["Admin"])
 api_router.include_router(saved_searches.router, prefix="/saved-searches", tags=["Saved Searches"])
 api_router.include_router(locations.router, prefix="/locations", tags=["Locations"])
+api_router.include_router(maps_extract.router, prefix="/properties", tags=["Maps Extraction"])

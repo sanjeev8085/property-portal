@@ -517,4 +517,13 @@ export const api = {
       return [];
     }
   },
+
+  // ── Google Maps Property Extraction ──────────────────────────────────────
+  async extractFromMap(url: string) {
+    return apiFetch("/properties/extract-from-map", {
+      method: "POST",
+      body: JSON.stringify({ url }),
+    });
+  },
 };
+
