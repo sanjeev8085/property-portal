@@ -31,11 +31,11 @@ async def resolve_redirects(url: str) -> str:
         logger.error(f"Error following redirect for {url}: {exc}")
         return url
 
-def extract_location_info_from_url(url: str) -> Tuple[Optional[float], Optional[float], Optional[str]]:
-    """Extract latitude, longitude, or place name from a long Google Maps URL."""
-    lat, lng, place_name = None, None, None
+def extract_location_info_from_url(url: str) -> Tuple[Optional[float], Optional[float], Optional[str], Optional[str]]:
+    """Extract latitude, longitude, place name, and place_id from a long Google Maps URL."""
+    lat, lng, place_name, place_id = None, None, None, None
 
-    # Try matching coordinates like !3d23.2599!4d77.4126
+    # Try matching coordinates like !3d23.2599!4d77.4126 (most precise, from data params)
     coord_match = re.search(r"!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)", url)
     if coord_match:
         lat = float(coord_match.group(1))
@@ -48,11 +48,16 @@ def extract_location_info_from_url(url: str) -> Tuple[Optional[float], Optional[
             lng = float(coord_match.group(2))
     
     # Try extracting place name
-    place_match = re.search(r"/place/([^/]+)/", url)
+    place_match = re.search(r"/place/([^/@]+)/", url)
     if place_match:
         place_name = urllib.parse.unquote_plus(place_match.group(1))
 
-    return lat, lng, place_name
+    # Try extracting Google Maps Place ID (format: 0x...:0x...)
+    place_id_match = re.search(r"!1s(0x[0-9a-fA-F]+:0x[0-9a-fA-F]+)", url)
+    if place_id_match:
+        place_id = place_id_match.group(1)
+
+    return lat, lng, place_name, place_id
 
 async def fetch_geocoding_data(lat: Optional[float], lng: Optional[float], place_name: Optional[str]) -> Dict[str, Any]:
     """Call Google Maps Geocoding API to resolve structured location."""
@@ -197,8 +202,8 @@ async def resolve_google_maps_url(url: str) -> Dict[str, Any]:
     # 2. Resolve short links
     long_url = await resolve_redirects(url)
 
-    # 3. Extract parameters
-    lat, lng, place_name = extract_location_info_from_url(long_url)
+    # 3. Extract parameters (lat, lng, place_name, place_id)
+    lat, lng, place_name, place_id = extract_location_info_from_url(long_url)
 
     if lat is None and lng is None and not place_name:
         raise HTTPException(status_code=422, detail="Could not extract coordinates or place name from the provided URL.")
@@ -207,10 +212,10 @@ async def resolve_google_maps_url(url: str) -> Dict[str, Any]:
     geocode_result = await fetch_geocoding_data(lat, lng, place_name)
     
     if not geocode_result:
-        # We might not have an API key or API failed, but we can still return what we extracted
+        # Nominatim failed and no API key — return what we can from the URL
         return {
-            "address": place_name.replace("+", " ") if place_name else "",
-            "area": place_name.replace("+", " ") if place_name else "",
+            "address": place_name or "",
+            "area": place_name or "",
             "locality": "",
             "city": "",
             "state": "",
@@ -218,14 +223,17 @@ async def resolve_google_maps_url(url: str) -> Dict[str, Any]:
             "postal_code": "",
             "latitude": lat,
             "longitude": lng,
+            "place_id": place_id,
             "google_maps_url": url
         }
 
     # 5. Normalize and return
     location_data = normalize_geocode_result(geocode_result, lat, lng)
     location_data["google_maps_url"] = url
-    
+    location_data["place_id"] = place_id
+
+    # Fallback: if area is still empty, use place name from URL
     if not location_data.get("area") and place_name:
-        location_data["area"] = place_name.replace("+", " ")
+        location_data["area"] = place_name
 
     return location_data

@@ -44,7 +44,10 @@ async def search_properties(
             or_(
                 Location.city.ilike(f"%{city}%"),
                 Location.state.ilike(f"%{city}%"),
-                Location.country.ilike(f"%{city}%")
+                Location.country.ilike(f"%{city}%"),
+                Location.area.ilike(f"%{city}%"),
+                Location.locality.ilike(f"%{city}%"),
+                Location.postal_code.ilike(f"%{city}%"),
             )
         )
     else:
@@ -90,7 +93,10 @@ async def search_properties(
             or_(
                 Location.city.ilike(f"%{city}%"),
                 Location.state.ilike(f"%{city}%"),
-                Location.country.ilike(f"%{city}%")
+                Location.country.ilike(f"%{city}%"),
+                Location.area.ilike(f"%{city}%"),
+                Location.locality.ilike(f"%{city}%"),
+                Location.postal_code.ilike(f"%{city}%"),
             )
         )
     else:
@@ -159,7 +165,12 @@ async def search_properties(
 
             loc_str = "Bhopal"
             if prop.location:
-                loc_str = f"{prop.location.locality}, {prop.location.city}"
+                parts = [
+                    prop.location.locality or "",
+                    prop.location.area or "",
+                    prop.location.city or "",
+                ]
+                loc_str = ", ".join(p for p in parts if p) or prop.location.city or "Bhopal"
 
             purpose_val = prop.purpose.value if hasattr(prop.purpose, "value") else str(prop.purpose)
             status_val = prop.status.value if hasattr(prop.status, "value") else str(prop.status)
@@ -212,19 +223,26 @@ async def autocomplete_location(
     result = await db.execute(
         select(Location).where(
             (Location.city.ilike(f"%{q}%")) |
+            (Location.state.ilike(f"%{q}%")) |
+            (Location.country.ilike(f"%{q}%")) |
             (Location.area.ilike(f"%{q}%")) |
-            (Location.locality.ilike(f"%{q}%"))
+            (Location.locality.ilike(f"%{q}%")) |
+            (Location.postal_code.ilike(f"%{q}%"))
         ).limit(10)
     )
     locations = result.scalars().all()
     suggestions = []
     for loc in locations:
-        label = f"{loc.locality}, {loc.area}, {loc.city}"
+        parts = [p for p in [loc.locality, loc.area, loc.city, loc.state] if p]
+        label = ", ".join(parts) if parts else loc.city or ""
         suggestions.append({
             "id": str(loc.id),
             "city": loc.city,
+            "state": loc.state,
+            "country": loc.country,
             "area": loc.area,
             "locality": loc.locality,
+            "postal_code": loc.postal_code,
             "label": label
         })
     return {"suggestions": suggestions}
